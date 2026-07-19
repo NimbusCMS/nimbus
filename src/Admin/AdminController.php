@@ -4,68 +4,31 @@ declare(strict_types=1);
 
 namespace Nimbus\Admin;
 
-use Nimbus\Auth\Auth;
-use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Router;
-use Nimbus\Support\Config;
-use Nimbus\View\View;
 
 /**
- * The admin area: authentication + dashboard, and the shell (sidebar nav, top
- * bar) that the content/media/user/settings sections plug into. Those sections
- * register their own routes; the ones not yet built render a friendly stub.
+ * Authentication + dashboard + the not-yet-built section stubs. The admin shell
+ * (nav, view) lives in the base Controller; content sections have their own
+ * controllers.
  */
-final class AdminController
+final class AdminController extends Controller
 {
-    private View $view;
-
-    public function __construct(
-        private Connection $db,
-        private Auth $auth,
-    ) {
-        $this->view = new View(dirname(__DIR__) . '/View/themes/nimbus', [
-            'auth'    => $auth,
-            'appName' => Config::appName(),
-        ]);
-    }
-
     public function routes(Router $r): void
     {
         $r->get('/admin/login', fn (): string => $this->loginForm());
         $r->post('/admin/login', fn (): string => $this->login());
         $r->get('/admin/logout', fn (): string => $this->logout());
-        $r->get('/admin', fn (): string => $this->guard() ?? $this->dashboard());
-        $r->get('/admin/dashboard', fn (): string => $this->guard() ?? $this->dashboard());
+        $r->get('/admin', fn (): string => $this->dashboardPage());
+        $r->get('/admin/dashboard', fn (): string => $this->dashboardPage());
 
-        foreach (['collections', 'media', 'users', 'settings'] as $section) {
-            $r->get("/admin/{$section}", fn (): string => $this->guard() ?? $this->stub($section));
+        foreach (['media', 'users', 'settings'] as $section) {
+            $r->get("/admin/{$section}", function () use ($section): string {
+                $this->guard();
+                return $this->page('stub', $section, ['title' => ucfirst($section)]);
+            });
         }
-    }
-
-    /** @return array<int,array<string,mixed>> */
-    private function nav(string $active): array
-    {
-        $items = [
-            ['key' => 'dashboard',   'label' => 'Dashboard',   'url' => '/admin',             'icon' => '✦'],
-            ['key' => 'collections', 'label' => 'Collections', 'url' => '/admin/collections', 'icon' => '❑'],
-            ['key' => 'media',       'label' => 'Media',       'url' => '/admin/media',       'icon' => '❖'],
-            ['key' => 'users',       'label' => 'Users',       'url' => '/admin/users',       'icon' => '☾'],
-            ['key' => 'settings',    'label' => 'Settings',    'url' => '/admin/settings',    'icon' => '⚙'],
-        ];
-        foreach ($items as &$item) {
-            $item['active'] = $item['key'] === $active;
-        }
-        return $items;
-    }
-
-    private function guard(): ?string
-    {
-        if (!$this->auth->check()) {
-            $this->redirect('/admin/login');
-        }
-        return null;
     }
 
     private function loginForm(?string $error = null): string
@@ -94,10 +57,10 @@ final class AdminController
         $this->redirect('/admin/login');
     }
 
-    private function dashboard(): string
+    private function dashboardPage(): string
     {
-        return $this->view->render('dashboard', [
-            'nav'   => $this->nav('dashboard'),
+        $this->guard();
+        return $this->page('dashboard', 'dashboard', [
             'stats' => [
                 'collections' => $this->count('nb_collections'),
                 'entries'     => $this->count('nb_entries'),
@@ -107,23 +70,8 @@ final class AdminController
         ]);
     }
 
-    private function stub(string $key): string
-    {
-        return $this->view->render('stub', [
-            'nav'   => $this->nav($key),
-            'title' => ucfirst($key),
-        ]);
-    }
-
     private function count(string $table): int
     {
-        $row = $this->db->selectOne("SELECT COUNT(*) AS c FROM `{$table}`");
-        return (int) ($row['c'] ?? 0);
-    }
-
-    private function redirect(string $to): never
-    {
-        header('Location: ' . $to);
-        exit;
+        return (int) ($this->db->selectOne("SELECT COUNT(*) AS c FROM `{$table}`")['c'] ?? 0);
     }
 }

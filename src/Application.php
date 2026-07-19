@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus;
 
 use Nimbus\Admin\AdminController;
+use Nimbus\Admin\CollectionsController;
 use Nimbus\Auth\Auth;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Request;
@@ -49,6 +50,7 @@ final class Application
 
             $router = new Router();
             (new AdminController($this->db, $this->auth))->routes($router);
+            (new CollectionsController($this->db, $this->auth))->routes($router);
             $router->get('/', fn (): string => $this->home());
 
             $hit = $router->dispatch($request->method, $request->path);

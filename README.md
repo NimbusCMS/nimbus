@@ -69,7 +69,7 @@ field never means an `ALTER TABLE`.
 ## Roadmap
 
 - [x] Foundation: Docker stack, migrations, auth, themed admin shell
-- [ ] Collections & fields (content types) + entry CRUD
+- [x] Collections & fields (content types) + entry CRUD — extensible field-type registry, per-collection role permissions, event hooks
 - [ ] Media library
 - [ ] Headless JSON API + tokens
 - [ ] Rich-text / Markdown editor
