@@ -2,25 +2,33 @@
 
 declare(strict_types=1);
 
-namespace Panelix\Http;
+namespace Nimbus\Http;
 
-/** Read-only view over the current request's method + input. */
+/** Read-only view over the current request. */
 final class Request
 {
-    /**
-     * @param array<string,mixed> $get
-     * @param array<string,mixed> $post
-     */
     public function __construct(
         public readonly string $method,
-        private array $get,
+        public readonly string $path,
+        private array $query,
         private array $post,
+        private array $server,
+        private array $files,
     ) {
     }
 
     public static function fromGlobals(): self
     {
-        return new self(strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET'), $_GET, $_POST);
+        $uri  = $_SERVER['REQUEST_URI'] ?? '/';
+        $path = rawurldecode(parse_url($uri, PHP_URL_PATH) ?: '/');
+        return new self(
+            strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET'),
+            '/' . trim($path, '/'),
+            $_GET,
+            $_POST,
+            $_SERVER,
+            $_FILES,
+        );
     }
 
     public function isPost(): bool
@@ -30,7 +38,7 @@ final class Request
 
     public function query(string $key, ?string $default = null): ?string
     {
-        return isset($this->get[$key]) && !is_array($this->get[$key]) ? (string) $this->get[$key] : $default;
+        return isset($this->query[$key]) && !is_array($this->query[$key]) ? (string) $this->query[$key] : $default;
     }
 
     public function input(string $key, ?string $default = null): ?string
@@ -42,5 +50,23 @@ final class Request
     public function all(): array
     {
         return $this->post;
+    }
+
+    public function header(string $name): ?string
+    {
+        $key = 'HTTP_' . strtoupper(str_replace('-', '_', $name));
+        return isset($this->server[$key]) ? (string) $this->server[$key] : null;
+    }
+
+    public function bearerToken(): ?string
+    {
+        $header = $this->header('Authorization') ?? '';
+        return preg_match('/^Bearer\s+(.+)$/i', $header, $m) ? trim($m[1]) : null;
+    }
+
+    /** @return array<string,mixed>|null */
+    public function file(string $key): ?array
+    {
+        return $this->files[$key] ?? null;
     }
 }

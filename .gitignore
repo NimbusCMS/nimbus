@@ -1,4 +1,11 @@
 /vendor/
 composer.lock
+.env
+.phpunit.result.cache
+.phpunit.cache/
+/public/uploads/*
+!/public/uploads/.gitkeep
+/storage/*
+!/storage/.gitkeep
 .DS_Store
 *.log

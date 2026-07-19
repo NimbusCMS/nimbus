@@ -1,20 +1,31 @@
 {
-    "name": "danmat/panelix",
-    "description": "Panelix — a super-lightweight, config-driven PHP admin CMS: auth, roles, and generic CRUD over your existing tables.",
-    "type": "library",
-    "keywords": ["cms", "admin", "crud", "php", "lightweight"],
+    "name": "danmat/nimbus-cms",
+    "description": "NimbusCMS — a modern, lightweight PHP CMS: collections, media library, a headless JSON API, and a themeable admin + public site.",
+    "type": "project",
+    "keywords": ["cms", "php", "headless", "collections", "media-library", "lightweight"],
     "license": "MIT",
     "authors": [
         { "name": "DanMat" }
     ],
     "require": {
-        "php": ">=8.1",
-        "ext-pdo": "*"
+        "php": ">=8.2",
+        "ext-pdo": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
     },
     "autoload": {
-        "psr-4": {
-            "Panelix\\": "src/"
-        }
+        "psr-4": { "Nimbus\\": "src/" }
+    },
+    "autoload-dev": {
+        "psr-4": { "Nimbus\\Tests\\": "tests/" }
+    },
+    "bin": ["bin/nimbus"],
+    "scripts": {
+        "test": "phpunit",
+        "serve": "php -S 0.0.0.0:8080 -t public public/index.php"
     },
     "config": {
         "sort-packages": true

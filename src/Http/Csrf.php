@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Panelix\Http;
+namespace Nimbus\Http;
 
 /** Per-session CSRF token for state-changing requests. */
 final class Csrf
 {
-    private const KEY = '_panelix_csrf';
+    private const KEY = '_nimbus_csrf';
 
     public static function token(): string
     {

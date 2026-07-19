@@ -2,33 +2,28 @@
 
 declare(strict_types=1);
 
-namespace Panelix\View;
-
-use Panelix\Auth\Auth;
-use Panelix\Config\CmsConfig;
+namespace Nimbus\View;
 
 /**
- * Renders plain-PHP templates in an isolated scope. Templates get the page data
- * plus $config and $auth (for nav + current user), and use View::e() to escape.
- * render() wraps the template in the admin layout; renderBare() does not.
+ * Renders plain-PHP templates from the active theme in an isolated scope.
+ * render() wraps a template in the theme layout; renderBare() does not. Shared
+ * data (current user, app name, nav) is injected into every template.
  */
 final class View
 {
+    /** @param array<string,mixed> $shared */
     public function __construct(
-        private string $basePath,
-        private CmsConfig $config,
-        private Auth $auth,
+        private string $themePath,
+        private array $shared = [],
     ) {
     }
 
-    /** Render a template and wrap it in the admin layout. */
     public function render(string $template, array $data = []): string
     {
         $content = $this->partial($template, $data);
         return $this->partial('layout', array_merge($data, ['__content' => $content]));
     }
 
-    /** Render a template with no surrounding layout (login, errors). */
     public function renderBare(string $template, array $data = []): string
     {
         return $this->partial($template, $data);
@@ -36,19 +31,23 @@ final class View
 
     public function partial(string $template, array $data = []): string
     {
-        $file = $this->basePath . '/' . $template . '.php';
+        $file = $this->themePath . '/templates/' . $template . '.php';
         if (!is_file($file)) {
             throw new \RuntimeException("Template not found: {$template}");
         }
-        $config = $this->config;
-        $auth   = $this->auth;
+        $data = array_merge($this->shared, $data);
 
-        return (static function () use ($file, $data, $config, $auth): string {
+        return (static function () use ($file, $data): string {
             extract($data, EXTR_SKIP);
             ob_start();
             include $file;
             return (string) ob_get_clean();
         })();
+    }
+
+    public function themePath(): string
+    {
+        return $this->themePath;
     }
 
     public static function e(?string $value): string

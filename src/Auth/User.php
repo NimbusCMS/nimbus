@@ -2,20 +2,24 @@
 
 declare(strict_types=1);
 
-namespace Panelix\Auth;
+namespace Nimbus\Auth;
 
-/** The signed-in user, as stored in the session. */
+/** The signed-in user. */
 final class User
 {
     public function __construct(
         public readonly int $id,
-        public readonly string $username,
+        public readonly string $name,
+        public readonly string $email,
         public readonly string $role,
+        public readonly ?string $theme = null,
+        public readonly ?string $avatarUrl = null,
     ) {
     }
 
     public function initial(): string
     {
-        return mb_strtoupper(mb_substr($this->username, 0, 1));
+        $basis = $this->name !== '' ? $this->name : $this->email;
+        return mb_strtoupper(mb_substr($basis, 0, 1));
     }
 }

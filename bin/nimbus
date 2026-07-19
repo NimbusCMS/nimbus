@@ -1,0 +1,90 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/bootstrap.php';
+
+use Nimbus\Auth\Password;
+use Nimbus\Database\Connection;
+use Nimbus\Database\Migrator;
+use Nimbus\Support\Config;
+use Nimbus\Support\Env;
+
+Env::load(Config::basePath() . '/.env');
+
+$db          = new Connection(Config::db());
+$migrations  = dirname(__DIR__) . '/src/Database/migrations';
+$command     = $argv[1] ?? 'help';
+
+/** Read a --name=value option from argv. */
+$opt = static function (array $argv, string $name, ?string $default = null): ?string {
+    foreach ($argv as $arg) {
+        if (str_starts_with($arg, "--{$name}=")) {
+            return substr($arg, strlen("--{$name}="));
+        }
+    }
+    return $default;
+};
+
+$now = date('Y-m-d H:i:s');
+
+try {
+    switch ($command) {
+        case 'migrate':
+            $ran = (new Migrator($db, $migrations))->migrate();
+            echo $ran === [] ? "Nothing to migrate.\n" : 'Migrated: ' . implode(', ', $ran) . "\n";
+            break;
+
+        case 'install':
+            $ran = (new Migrator($db, $migrations))->migrate();
+            echo $ran === [] ? "Schema already present.\n" : 'Schema conjured (' . count($ran) . " migration(s)).\n";
+
+            $email    = $opt($argv, 'email', 'admin@nimbus.test');
+            $name     = $opt($argv, 'name', 'Administrator');
+            $password = $opt($argv, 'password', 'password');
+
+            if ($db->selectOne('SELECT id FROM nb_users WHERE email = :e', ['e' => $email]) !== null) {
+                echo "User {$email} already exists — skipping.\n";
+                break;
+            }
+            $db->execute(
+                'INSERT INTO nb_users (name, email, password, role, created_at, updated_at) VALUES (:n, :e, :p, :r, :c, :u)',
+                ['n' => $name, 'e' => $email, 'p' => Password::hash((string) $password), 'r' => 'admin', 'c' => $now, 'u' => $now]
+            );
+            echo "Created admin  →  {$email} / {$password}\n";
+            break;
+
+        case 'create-user':
+            $email = $opt($argv, 'email');
+            if ($email === null) {
+                fwrite(STDERR, "Usage: nimbus create-user --email=you@example.com [--password= --name= --role=]\n");
+                exit(1);
+            }
+            $db->execute(
+                'INSERT INTO nb_users (name, email, password, role, created_at, updated_at) VALUES (:n, :e, :p, :r, :c, :u)',
+                [
+                    'n' => $opt($argv, 'name', 'User'),
+                    'e' => $email,
+                    'p' => Password::hash((string) $opt($argv, 'password', 'password')),
+                    'r' => $opt($argv, 'role', 'editor'),
+                    'c' => $now, 'u' => $now,
+                ]
+            );
+            echo "Created user  →  {$email}\n";
+            break;
+
+        default:
+            echo <<<TXT
+            NimbusCMS
+
+              migrate                                          run pending migrations
+              install  [--email= --name= --password=]          migrate + create the admin user
+              create-user --email=  [--password= --name= --role=]
+
+            TXT;
+    }
+} catch (\Throwable $e) {
+    fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+    exit(1);
+}

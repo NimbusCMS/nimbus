@@ -2,20 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Panelix\Database;
+namespace Nimbus\Database;
 
 use PDO;
+use PDOException;
 
 /**
- * The DB layer: a thin, OO facade over a single PDO connection. Every query is
- * parameterised, so this is the only place SQL is executed. Lazily connects so
- * building the CMS object graph doesn't touch the database.
+ * The database layer: a thin, OO facade over a single lazily-opened PDO
+ * connection. Every query is a prepared statement, so this is the only place
+ * SQL runs.
  */
 final class Connection
 {
     private ?PDO $pdo = null;
 
-    /** @param array{host?:string,port?:int,name?:string,user?:string,pass?:string,charset?:string} $config */
+    /** @param array{host:string,port?:int,name:string,user:string,pass:string} $config */
     public function __construct(private array $config)
     {
     }
@@ -24,20 +25,25 @@ final class Connection
     {
         if ($this->pdo === null) {
             $c   = $this->config;
-            $dsn = sprintf(
-                'mysql:host=%s;port=%d;dbname=%s;charset=%s',
-                $c['host'] ?? '127.0.0.1',
-                $c['port'] ?? 3306,
-                $c['name'] ?? '',
-                $c['charset'] ?? 'utf8mb4'
-            );
-            $this->pdo = new PDO($dsn, $c['user'] ?? 'root', $c['pass'] ?? '', [
+            $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $c['host'], $c['port'] ?? 3306, $c['name']);
+            $this->pdo = new PDO($dsn, $c['user'], $c['pass'], [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ]);
         }
         return $this->pdo;
+    }
+
+    /** True when the connection can be established (used by the installer). */
+    public function isReady(): bool
+    {
+        try {
+            $this->pdo();
+            return true;
+        } catch (PDOException) {
+            return false;
+        }
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -64,10 +70,18 @@ final class Connection
         return $stmt->rowCount();
     }
 
-    /** Run an INSERT and return the new auto-increment id. */
     public function insert(string $sql, array $params = []): int
     {
         $this->execute($sql, $params);
         return (int) $this->pdo()->lastInsertId();
+    }
+
+    public function tableExists(string $table): bool
+    {
+        $row = $this->selectOne(
+            'SELECT COUNT(*) AS c FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = :t',
+            ['t' => $table]
+        );
+        return (int) ($row['c'] ?? 0) > 0;
     }
 }
