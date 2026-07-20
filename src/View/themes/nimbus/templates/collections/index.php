@@ -27,12 +27,13 @@ $e = static fn (?string $v): string => View::e($v);
                     <td>
                         <span class="nb-ic-badge"><?= $e($c->iconChar()) ?></span>
                         <a href="/admin/collections/<?= $e($c->handle) ?>/entries"><strong><?= $e($c->name) ?></strong></a>
+                        <?php if ($c->isSingle()): ?><span class="nb-badge nb-badge-muted">Single</span><?php endif; ?>
                     </td>
                     <td><code><?= $e($c->handle) ?></code></td>
                     <td><?= (int) $row['fields'] ?></td>
-                    <td><?= (int) $row['entries'] ?></td>
+                    <td><?= $c->isSingle() ? '—' : (int) $row['entries'] ?></td>
                     <td class="nb-row-actions">
-                        <a href="/admin/collections/<?= $e($c->handle) ?>/entries">Entries</a>
+                        <a href="/admin/collections/<?= $e($c->handle) ?>/entries"><?= $c->isSingle() ? 'Edit' : 'Entries' ?></a>
                         <?php if ($isAdmin): ?>
                             <a href="/admin/collections/<?= (int) $c->id ?>/edit">Edit</a>
                             <form method="post" action="/admin/collections/<?= (int) $c->id ?>/delete" onsubmit="return confirm('Delete this collection and all its entries?');">

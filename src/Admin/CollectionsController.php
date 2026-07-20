@@ -138,6 +138,14 @@ final class CollectionsController extends Controller
     {
         $collection = $this->mustFind($handle);
         $this->guard();
+
+        // A singleton has no list — go straight to editing its one entry.
+        if ($collection->isSingle()) {
+            $this->requireManage($collection);
+            $entry = $this->entries->firstForCollection($collection->id);
+            return $this->renderEntryForm($collection, $this->modelFromEntry($collection, $entry), [], Request::fromGlobals()->query('msg'));
+        }
+
         return $this->page('entries/index', 'collections', [
             'collection' => $collection,
             'rows'       => $this->entries->forCollection($collection->id, Request::fromGlobals()->query('q')),
@@ -165,13 +173,13 @@ final class CollectionsController extends Controller
         $req = Request::fromGlobals();
         $this->requireCsrf($req);
 
-        $model  = $this->modelFromRequest($collection, $req, null);
-        $errors = $this->validate($collection, $model);
-        if ($errors !== []) {
-            return $this->renderEntryForm($collection, $model, $errors);
+        // Singletons never create a second entry: update the existing one if present.
+        $id = null;
+        if ($collection->isSingle()) {
+            $existing = $this->entries->firstForCollection($collection->id);
+            $id = $existing !== null ? (int) $existing['id'] : null;
         }
-        $this->entries->create($collection->id, $this->attrsFromModel($collection, $model), $this->auth->user()?->id);
-        $this->redirect("/admin/collections/{$handle}/entries?msg=created");
+        return $this->saveEntry($collection, $req, $id);
     }
 
     private function entryUpdate(string $handle, int $id): string
@@ -184,13 +192,26 @@ final class CollectionsController extends Controller
         if ($this->entries->find($collection->id, $id) === null) {
             $this->redirect("/admin/collections/{$handle}/entries");
         }
+        return $this->saveEntry($collection, $req, $id);
+    }
+
+    /** Shared create/update: validate, and on failure re-render with errors. */
+    private function saveEntry(Collection $collection, Request $req, ?int $id): string
+    {
         $model  = $this->modelFromRequest($collection, $req, $id);
         $errors = $this->validate($collection, $model);
         if ($errors !== []) {
             return $this->renderEntryForm($collection, $model, $errors);
         }
-        $this->entries->update($collection->id, $id, $this->attrsFromModel($collection, $model));
-        $this->redirect("/admin/collections/{$handle}/entries?msg=updated");
+        $attrs = $this->attrsFromModel($collection, $model);
+        if ($id === null) {
+            $this->entries->create($collection->id, $attrs, $this->auth->user()?->id);
+            $msg = 'created';
+        } else {
+            $this->entries->update($collection->id, $id, $attrs);
+            $msg = $collection->isSingle() ? 'saved' : 'updated';
+        }
+        $this->redirect("/admin/collections/{$collection->handle}/entries?msg={$msg}");
     }
 
     private function entryDestroy(string $handle, int $id): string
@@ -204,12 +225,13 @@ final class CollectionsController extends Controller
 
     // =============================================================== helpers
 
-    private function renderEntryForm(Collection $collection, array $model, array $errors): string
+    private function renderEntryForm(Collection $collection, array $model, array $errors, ?string $flash = null): string
     {
         return $this->page('entries/form', 'collections', [
             'collection' => $collection,
             'model'      => $model,
             'errors'     => $errors,
+            'flash'      => $flash,
             'types'      => $this->types,
             'csrf'       => Csrf::token(),
         ]);
@@ -315,12 +337,13 @@ final class CollectionsController extends Controller
         return $defs;
     }
 
-    /** @return array<string,mixed> collection options (permissions) */
+    /** @return array<string,mixed> collection options (kind + permissions) */
     private function options(Request $req): array
     {
         $roles = $req->all()['roles'] ?? [];
         $roles = is_array($roles) ? array_values(array_intersect(Permissions::ROLES, $roles)) : [];
-        return ['permissions' => ['manage' => $roles]];
+        $kind  = $req->input('kind') === 'single' ? 'single' : 'collection';
+        return ['kind' => $kind, 'permissions' => ['manage' => $roles]];
     }
 
     private function icon(Request $req): string

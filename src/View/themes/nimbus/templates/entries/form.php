@@ -10,16 +10,20 @@ use Nimbus\View\View;
 
 $e       = static fn (?string $v): string => View::e($v);
 $editing = $model['id'] !== null;
+$single  = $collection->isSingle();
 $h       = $e($collection->handle);
 $action  = $editing
     ? '/admin/collections/' . $collection->handle . '/entries/' . (int) $model['id']
     : '/admin/collections/' . $collection->handle . '/entries';
+$backUrl = $single ? '/admin/collections' : '/admin/collections/' . $collection->handle . '/entries';
+$heading = $single ? $e($collection->name) : ($editing ? 'Edit' : 'New') . ' · ' . $e($collection->name);
 ?>
 <div class="nb-page-head">
-    <h1><?= $editing ? 'Edit' : 'New' ?> · <?= $e($collection->name) ?></h1>
-    <a class="nb-btn" href="/admin/collections/<?= $h ?>/entries">← Back</a>
+    <h1><?= $heading ?></h1>
+    <a class="nb-btn" href="<?= $e($backUrl) ?>">← Back</a>
 </div>
 
+<?php if (!empty($flash)): ?><div class="nb-alert nb-alert-ok"><?= $e(ucfirst($flash)) ?>.</div><?php endif; ?>
 <?php if ($errors !== []): ?>
     <div class="nb-alert nb-alert-error">Please fix the highlighted fields.</div>
 <?php endif; ?>
@@ -59,7 +63,7 @@ $action  = $editing
     </div>
 
     <div class="nb-form-actions">
-        <button type="submit" class="nb-btn nb-btn-primary"><?= $editing ? 'Save entry' : 'Create entry' ?></button>
-        <a class="nb-btn" href="/admin/collections/<?= $h ?>/entries">Cancel</a>
+        <button type="submit" class="nb-btn nb-btn-primary"><?= $single ? 'Save' : ($editing ? 'Save entry' : 'Create entry') ?></button>
+        <a class="nb-btn" href="<?= $e($backUrl) ?>">Cancel</a>
     </div>
 </form>

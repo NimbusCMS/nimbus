@@ -51,6 +51,17 @@ final class Collection
         return is_array($roles) ? array_values($roles) : [];
     }
 
+    /** 'collection' (many entries) or 'single' (exactly one — Homepage, Settings). */
+    public function kind(): string
+    {
+        return ($this->options['kind'] ?? 'collection') === 'single' ? 'single' : 'collection';
+    }
+
+    public function isSingle(): bool
+    {
+        return $this->kind() === 'single';
+    }
+
     public function iconChar(): string
     {
         return $this->icon !== '' ? $this->icon : '❑';

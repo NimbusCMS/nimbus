@@ -32,6 +32,16 @@ final class EntryRepository
         return array_map([$this, 'hydrate'], $this->db->select($sql, $params));
     }
 
+    /** The single entry of a collection (for singletons), or null. */
+    public function firstForCollection(int $collectionId): ?array
+    {
+        $row = $this->db->selectOne(
+            'SELECT * FROM nb_entries WHERE collection_id = :c ORDER BY id LIMIT 1',
+            ['c' => $collectionId]
+        );
+        return $row === null ? null : $this->hydrate($row);
+    }
+
     /** @return array<string,mixed>|null */
     public function find(int $collectionId, int $id): ?array
     {

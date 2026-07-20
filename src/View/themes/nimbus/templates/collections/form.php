@@ -41,6 +41,14 @@ $manageRoles = $editing ? $collection->managerRoles() : [];
     </div>
 
     <div class="nb-field">
+        <label>Type</label>
+        <select name="kind">
+            <option value="collection" <?= (!$editing || !$collection->isSingle()) ? 'selected' : '' ?>>Collection — many entries (Posts, Products…)</option>
+            <option value="single" <?= ($editing && $collection->isSingle()) ? 'selected' : '' ?>>Single — exactly one entry (Homepage, Settings…)</option>
+        </select>
+    </div>
+
+    <div class="nb-field">
         <label>Managed by <small class="nb-muted">— which roles may add/edit entries (admins always can)</small></label>
         <div class="nb-checks">
             <?php foreach ($roles as $role): ?>
