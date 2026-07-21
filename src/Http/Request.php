@@ -58,6 +58,15 @@ final class Request
         return isset($this->server[$key]) ? (string) $this->server[$key] : null;
     }
 
+    /**
+     * Client IP for throttling. Uses REMOTE_ADDR only — X-Forwarded-For is
+     * spoofable, so trusting it needs explicit trusted-proxy config (roadmap).
+     */
+    public function ip(): string
+    {
+        return (string) ($this->server['REMOTE_ADDR'] ?? '0.0.0.0');
+    }
+
     public function bearerToken(): ?string
     {
         $header = $this->header('Authorization') ?? '';

@@ -12,6 +12,7 @@ use Nimbus\Http\HttpException;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\SecurityHeaders;
 use Nimbus\Support\Config;
 use Nimbus\Support\Env;
 use Nimbus\View\View;
@@ -36,7 +37,7 @@ final class Application
     public function run(): void
     {
         $this->startSession();
-        $this->handle(Request::fromGlobals())->send();
+        SecurityHeaders::apply($this->handle(Request::fromGlobals()))->send();
     }
 
     private function handle(Request $request): Response

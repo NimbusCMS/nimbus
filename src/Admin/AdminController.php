@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nimbus\Admin;
 
+use Nimbus\Auth\LoginThrottle;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
@@ -48,9 +49,20 @@ final class AdminController extends Controller
         if (!Csrf::check($req->input('_token'))) {
             return $this->loginForm('Your session expired. Please try again.');
         }
+
+        $throttle = new LoginThrottle($this->db);
+        $key      = $req->ip();
+        if ($throttle->tooManyAttempts($key)) {
+            $minutes = (int) ceil($throttle->lockedFor($key) / 60);
+            return $this->loginForm("Too many attempts. Try again in {$minutes} minute(s).");
+        }
+
         if ($this->auth->attempt((string) $req->input('email'), (string) $req->input('password'))) {
+            $throttle->clear($key);
             return $this->redirect('/admin');
         }
+
+        $throttle->recordFailure($key);
         return $this->loginForm('Invalid email or password.');
     }
 

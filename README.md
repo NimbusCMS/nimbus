@@ -39,6 +39,10 @@ docker compose exec app php bin/nimbus install
 
 Open **http://localhost:8080/admin** and sign in with `admin@nimbus.test` / `password`.
 
+> These defaults only work with `APP_ENV=local`. In any other environment the
+> installer **refuses** to seed default/weak credentials — pass
+> `--email=` and a strong `--password=` (see below).
+
 ### CLI
 
 ```bash

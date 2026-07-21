@@ -17,7 +17,7 @@ abstract class IntegrationTestCase extends TestCase
         $this->db = new Connection(NB_TEST_DB);
         $pdo = $this->db->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
-        foreach (['nb_relations', 'nb_revisions', 'nb_entries', 'nb_fields', 'nb_collections', 'nb_media', 'nb_activity', 'nb_api_tokens', 'nb_users', 'nb_settings'] as $table) {
+        foreach (['nb_relations', 'nb_revisions', 'nb_entries', 'nb_fields', 'nb_collections', 'nb_media', 'nb_activity', 'nb_api_tokens', 'nb_users', 'nb_settings', 'nb_login_throttle'] as $table) {
             $pdo->exec("TRUNCATE TABLE {$table}");
         }
         $pdo->exec('SET FOREIGN_KEY_CHECKS=1');

@@ -40,9 +40,23 @@ try {
             $ran = (new Migrator($db, $migrations))->migrate();
             echo $ran === [] ? "Schema already present.\n" : 'Schema conjured (' . count($ran) . " migration(s)).\n";
 
-            $email    = $opt($argv, 'email', 'admin@nimbus.test');
+            $isDev = in_array(getenv('APP_ENV') ?: 'production', ['local', 'dev', 'development'], true);
+            $email    = $opt($argv, 'email', $isDev ? 'admin@nimbus.test' : null);
             $name     = $opt($argv, 'name', 'Administrator');
-            $password = $opt($argv, 'password', 'password');
+            $password = $opt($argv, 'password');
+
+            // Outside dev, refuse to seed weak/default credentials.
+            if (!$isDev) {
+                if ($email === null || $password === null) {
+                    fwrite(STDERR, "Refusing to install outside dev without --email and --password. (Set APP_ENV=local for a demo default.)\n");
+                    exit(1);
+                }
+                if (in_array(strtolower($password), ['password', 'admin', '123456', 'changeme'], true) || strlen($password) < 8) {
+                    fwrite(STDERR, "Refusing a weak admin password. Use at least 8 non-default characters.\n");
+                    exit(1);
+                }
+            }
+            $password ??= 'password'; // dev-only default
 
             if ($db->selectOne('SELECT id FROM nb_users WHERE email = :e', ['e' => $email]) !== null) {
                 echo "User {$email} already exists — skipping.\n";
