@@ -46,7 +46,10 @@ final class Connection
         }
     }
 
-    /** @return array<int,array<string,mixed>> */
+    /**
+     * @param array<string,mixed> $params
+     * @return array<int,array<string,mixed>>
+     */
     public function select(string $sql, array $params = []): array
     {
         $stmt = $this->pdo()->prepare($sql);
@@ -54,7 +57,10 @@ final class Connection
         return $stmt->fetchAll() ?: [];
     }
 
-    /** @return array<string,mixed>|null */
+    /**
+     * @param array<string,mixed> $params
+     * @return array<string,mixed>|null
+     */
     public function selectOne(string $sql, array $params = []): ?array
     {
         $stmt = $this->pdo()->prepare($sql);
@@ -63,6 +69,7 @@ final class Connection
         return $row === false ? null : $row;
     }
 
+    /** @param array<string,mixed> $params */
     public function execute(string $sql, array $params = []): int
     {
         $stmt = $this->pdo()->prepare($sql);
@@ -70,6 +77,7 @@ final class Connection
         return $stmt->rowCount();
     }
 
+    /** @param array<string,mixed> $params */
     public function insert(string $sql, array $params = []): int
     {
         $this->execute($sql, $params);

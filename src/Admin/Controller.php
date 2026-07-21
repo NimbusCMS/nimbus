@@ -45,13 +45,21 @@ abstract class Controller
         return $items;
     }
 
-    /** Render a template inside the admin shell. */
+    /**
+     * Render a template inside the admin shell.
+     *
+     * @param array<string,mixed> $data
+     */
     protected function page(string $template, string $navActive, array $data = []): Response
     {
         return Response::html($this->view->render($template, ['nav' => $this->nav($navActive)] + $data));
     }
 
-    /** Render a template with no shell (login, standalone pages). */
+    /**
+     * Render a template with no shell (login, standalone pages).
+     *
+     * @param array<string,mixed> $data
+     */
     protected function bare(string $template, array $data = []): Response
     {
         return Response::html($this->view->renderBare($template, $data));

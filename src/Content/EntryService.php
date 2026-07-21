@@ -95,11 +95,18 @@ final class EntryService
 
     public function delete(Collection $collection, int $entryId): void
     {
-        $this->db->transaction(fn (): int => $this->entries->delete($collection->id, $entryId) ?? 0);
+        $this->db->transaction(function () use ($collection, $entryId): void {
+            $this->entries->delete($collection->id, $entryId);
+        });
         Events::dispatch('entry.deleted', ['id' => $entryId, 'collection_id' => $collection->id]);
     }
 
-    /** Persist the entry + its relations atomically; returns the entry id. */
+    /**
+     * Persist the entry + its relations atomically; returns the entry id.
+     *
+     * @param array<string,mixed> $data
+     * @param array<int,int[]>    $relationValues
+     */
     private function persist(Collection $c, ?int $entryId, string $title, string $slug, string $status, array $data, array $relationValues, ?int $userId): int
     {
         return $this->db->transaction(function () use ($c, $entryId, $title, $slug, $status, $data, $relationValues, $userId): int {

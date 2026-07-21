@@ -18,17 +18,20 @@ final class View
     ) {
     }
 
+    /** @param array<string,mixed> $data */
     public function render(string $template, array $data = []): string
     {
         $content = $this->partial($template, $data);
         return $this->partial('layout', array_merge($data, ['__content' => $content]));
     }
 
+    /** @param array<string,mixed> $data */
     public function renderBare(string $template, array $data = []): string
     {
         return $this->partial($template, $data);
     }
 
+    /** @param array<string,mixed> $data */
     public function partial(string $template, array $data = []): string
     {
         $file = $this->themePath . '/templates/' . $template . '.php';

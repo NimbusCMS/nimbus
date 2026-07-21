@@ -16,6 +16,7 @@ final class PermissionsTest extends TestCase
         return new User(1, 'U', 'u@example.com', $role);
     }
 
+    /** @param string[] $manageRoles */
     private function collection(array $manageRoles): Collection
     {
         return new Collection(1, 'c', 'C', '#', '', [], ['permissions' => ['manage' => $manageRoles]]);

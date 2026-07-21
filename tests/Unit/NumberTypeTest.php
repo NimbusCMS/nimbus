@@ -40,7 +40,11 @@ final class NumberTypeTest extends TestCase
         );
     }
 
-    /** Mirror the controller: normalize the raw submission, then validate. */
+    /**
+     * Mirror the controller: normalize the raw submission, then validate.
+     *
+     * @return array<string,string>
+     */
     private function submit(mixed $raw, bool $required = false): array
     {
         return $this->validator->validate(
@@ -73,8 +77,7 @@ final class NumberTypeTest extends TestCase
     {
         $normalized = $this->type->normalize('0');
 
-        self::assertSame(0, $normalized);
-        self::assertIsInt($normalized);
+        self::assertSame(0, $normalized, 'not null, not "", not 0.0');
         // The regression this guards: 0 must not be mistaken for a blank field.
         self::assertSame([], $this->submit('0', required: true), '"0" must satisfy a required number');
     }

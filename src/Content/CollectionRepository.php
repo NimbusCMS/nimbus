@@ -91,7 +91,7 @@ final class CollectionRepository
      * Reconcile a collection's fields to match the submitted definitions:
      * upsert by handle, delete the rest, preserve order.
      *
-     * @param array<int,array{handle:string,label:string,type:string,required:bool,options:array}> $defs
+     * @param array<int,FieldDef> $defs
      */
     public function syncFields(int $collectionId, array $defs): void
     {

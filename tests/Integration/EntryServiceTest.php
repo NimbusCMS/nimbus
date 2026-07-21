@@ -28,6 +28,7 @@ final class EntryServiceTest extends IntegrationTestCase
         $this->service = new EntryService($this->db, $entries, new RelationRepository($this->db), new FieldTypeRegistry());
     }
 
+    /** @param array<string,mixed> $options */
     private function collection(string $handle, array $options = []): Collection
     {
         $options = $options ?: ['kind' => 'collection', 'permissions' => ['manage' => []]];

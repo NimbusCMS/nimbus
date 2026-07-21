@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 
 final class ValidatorTest extends TestCase
 {
+    /** @param array<int,\Nimbus\Content\Field> $fields */
     private function collection(array $fields): Collection
     {
         return new Collection(1, 'c', 'C', '#', '', $fields, []);

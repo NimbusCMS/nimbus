@@ -21,6 +21,7 @@ final class CollectionServiceTest extends IntegrationTestCase
         $this->service = new CollectionService($this->db, $this->repo);
     }
 
+    /** @param array<int,FieldDef> $fields */
     private function make(string $handle, array $fields = []): int
     {
         return $this->service->create($handle, ucfirst($handle), '#', '', ['kind' => 'collection', 'permissions' => ['manage' => []]], $fields);
