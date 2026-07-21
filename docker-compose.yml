@@ -8,6 +8,7 @@ services:
     volumes:
       - .:/app
     environment:
+      APP_ENV: local
       DB_HOST: db
       DB_PORT: "3306"
       DB_NAME: nimbus
