@@ -46,15 +46,23 @@ final class Application
         // The one place globals are read. Everything downstream shares this instance.
         $request = Request::fromGlobals();
         $this->startSession($request->isSecure());
-        SecurityHeaders::apply($this->handle($request))->send();
+        $this->handle($request)->send();
     }
 
     /**
      * Route one request to one response. Every exit path returns a Response:
      * no match is a 404, an HttpException becomes its own response, and any
      * other throwable becomes a logged reference plus a generic 500.
+     *
+     * Security headers are applied here rather than in run(), so error pages
+     * carry them too and the functional tests exercise the same path clients do.
      */
     public function handle(Request $request): Response
+    {
+        return SecurityHeaders::apply($this->respond($request));
+    }
+
+    private function respond(Request $request): Response
     {
         try {
             if (!$this->db->isReady()) {

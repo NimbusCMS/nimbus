@@ -93,6 +93,43 @@ final class ResponseContractTest extends HttpTestCase
         self::assertStringNotContainsString('nb_fields', $response->body);
     }
 
+    // ------------------------------------------------------ security headers
+
+    /** @return array<string,array{string,string}> */
+    public static function securityHeaders(): array
+    {
+        return [
+            'CSP'            => ['Content-Security-Policy', "default-src 'self'"],
+            'nosniff'        => ['X-Content-Type-Options', 'nosniff'],
+            'frame options'  => ['X-Frame-Options', 'DENY'],
+            'referrer'       => ['Referrer-Policy', 'same-origin'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('securityHeaders')]
+    public function test_responses_carry_security_headers(string $header, string $expected): void
+    {
+        self::assertStringContainsString($expected, (string) $this->get('/admin/login')->header($header));
+    }
+
+    public function test_error_pages_carry_security_headers_too(): void
+    {
+        // The gap this closes: headers used to be applied after handle(), so a
+        // 404 or 500 rendered outside the normal path could ship without them.
+        foreach ([$this->get('/no/such/path'), $this->get('/')] as $response) {
+            self::assertNotNull($response->header('Content-Security-Policy'));
+            self::assertSame('DENY', $response->header('X-Frame-Options'));
+        }
+    }
+
+    public function test_redirects_carry_security_headers(): void
+    {
+        $response = $this->get('/admin/collections'); // anonymous -> login
+
+        self::assertSame(302, $response->status);
+        self::assertSame('nosniff', $response->header('X-Content-Type-Options'));
+    }
+
     // ------------------------------------------- item 9: route handler contract
 
     public function test_every_registered_route_declares_a_response_return_type(): void

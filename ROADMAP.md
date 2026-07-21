@@ -9,46 +9,81 @@ contracts around fields, entry lifecycle, relations, permissions and API
 serialization. Plugins are first-class; themes are FE-first. **No** framework,
 ORM, DI container, command bus, or needless generic abstraction.
 
-Legend: `[x]` done · `[~]` partial · `[ ]` planned
+## Legend
+
+| Mark  | Meaning |
+|-------|---------|
+| `[ ]` | planned |
+| `[~]` | implemented but **not fully integrated or verified** |
+| `[x]` | integrated **and verified by CI** |
+
+A class existing in the repository is not enough for `[x]`. If nothing in CI
+would fail when the behaviour breaks, it is `[~]`.
+
+*Last audited against `main` after the core-convergence milestone (PRs #4–#9):
+172 tests / 571 assertions, PHPStan level 6, install+CRUD smoke test — all green.*
 
 ---
 
 ## ✅ Shipped (v0.x foundation)
 
-- [x] Foundation — Docker stack (PHP 8.3 + MySQL 8), migrations + installer CLI, argon2id auth, themed admin shell ("Nimbus" theme)
-- [x] Collections engine — user-defined content types, fields, entry CRUD; field-type **registry** (plugin seam)
-- [x] Field contract — render / normalize / validate / `toApi` / default / required / help; server-side validation with inline errors + preserved input; richer field config (default, placeholder, help)
-- [x] Singletons — single-entry collections (reserved `__singleton` slug, auto title)
-- [x] Relations — dedicated `nb_relations` table (referential cascade, reverse lookups)
-- [x] Write-path stabilization — `EntryService` + `CollectionService`, `Connection::transaction()`, DB-enforced uniqueness, events after commit, number-normalization fix, `JSON_THROW_ON_ERROR`, error logging with reference id
-- [x] Session/logout security — `nimbus_session` HttpOnly/SameSite=Lax/Secure-when-HTTPS/strict; logout POST + CSRF + destroy; login rotates session id
-- [x] PHPUnit suite (unit + integration vs MySQL) + GitHub Actions CI
+- [x] Foundation — Docker stack (PHP 8.3 + MySQL 8), migrations + installer CLI, argon2id auth, themed admin shell ("Nimbus" theme) · *installer proven by `tests/smoke.sh` in CI*
+- [x] Collections engine — user-defined content types, fields, entry CRUD · *`CollectionRoutesTest`, `EntryRoutesTest`*
+- [x] Field contract — render / normalize / validate / `toApi` / default / required / help; inline errors with preserved input · *`FieldTypeTest`, `ValidatorTest`, `NumberTypeTest`*
+- [x] Field-type **registry** with strict lookup — unknown types raise `UnknownFieldType` instead of silently becoming text; missing providers degrade through `MissingType` without data loss · *`FieldTypeRegistryTest`, `EntryServiceTest`*
+- [x] Singletons — single-entry collections (reserved `__singleton` slug, auto title) · *`EntryServiceTest`, `EntryRoutesTest`*
+- [x] Relations — dedicated `nb_relations` table (referential cascade, reverse lookups) · *`EntryRoutesTest` covers write + replace-on-update*
+- [x] Write-path stabilization — `EntryService` + `CollectionService` own every write; `Connection::transaction()`; DB-enforced uniqueness; **events after commit**; number normalization; `JSON_THROW_ON_ERROR`; error logging with reference id
+- [x] Duplicate collection handles — `DuplicateHandle` from the unique index (race-safe), re-rendered as a field error with the submission intact
+- [x] Session/logout security — `nimbus_session` HttpOnly/SameSite=Lax/Secure-when-HTTPS/strict; logout POST + CSRF + destroy; login rotates session id · *`AuthRoutesTest`*
+- [x] PHPUnit suite — unit + integration + HTTP-functional vs real MySQL, on GitHub Actions
 
 ## 🧹 Deferred hardening (from the stabilization "after" list — do opportunistically)
 
+- [x] Tiny HTTP **`Response`** object (HTML / redirect / JSON / download) — *shipped #1, hardened #5*
+- [x] **PHPStan** level 6 in CI — *#7*
+- [x] HTTP-functional tests: CSRF on write routes, permission enforcement, cross-collection entry-id isolation — *#8*
+- [ ] **PHP-CS-Fixer**/PHPCS in CI (PHPStan landed; formatting did not)
+- [ ] Raise PHPStan above level 6
 - [ ] Entry-list **pagination**
 - [ ] Collection-index **N+1 count** query fix
-- [ ] Tiny HTTP **`Response`** object (HTML / redirect / JSON)
-- [ ] **PHPStan** (or Psalm) + **PHP-CS-Fixer**/PHPCS in CI
-- [ ] HTTP-functional tests: CSRF on write routes, permission enforcement, cross-collection entry-id isolation
 - [ ] Migration-upgrade tests · upload-security tests · permission-matrix tests
 - [ ] **Structured validation errors** (before freezing the public API error contract)
+- [ ] Consume named routes in controllers — URL generation exists and is tested, but every controller still builds paths as strings, so the names are not yet load-bearing
+- [ ] Nonce-based CSP (drop `'unsafe-inline'` once inline theme/field-builder JS moves out)
+- [ ] Password reset flow (needs an email-transport decision)
+- [ ] Trusted-proxy config for URL generation (already used by sessions + throttling)
 - [ ] Separate field rendering from field domain behaviour (only when alt themes / non-HTML editors create real pressure)
 - [ ] Dependency vulnerability scanning · automated release artifacts · semver + CHANGELOG
 
 ---
 
-## 🧭 Pre-plugin stabilization milestone (immediate next — gates plugin work)
+## ✅ Pre-plugin stabilization milestone — COMPLETE (PRs #1–#3)
 
-Plugins create long-term contracts, so we harden the extension substrate before
-freezing any public API. Landing as separate PRs:
+1. [x] **HTTP `Response` object** — `html` / `redirect` / `json` / `download`; kernel sends it. No `header()` / `echo` / `exit` in controllers.
+2. [~] **Routing improvements** — middleware groups `[x]` (gate every admin route, proven by `AuthRoutesTest`); named routes + URL generation `[~]` — implemented and unit-tested, but no controller consumes `Router::url()` yet, so the names are not load-bearing.
+3. [x] **Security review** — CSP + security headers on *every* response including errors; progressive login throttling; installer refuses weak/default credentials outside dev. Upload validation lands with Media; password reset is deferred.
+4. [x] **Testing** — field contracts, validation, auth, permissions, routing, repositories, transactions.
 
-1. **HTTP `Response` object** — `html` / `redirect` / `json` / `download`; kernel sends it. No scattered `header()` / `echo` / `exit` in controllers.
-2. **Routing improvements** — named routes + URL generation + middleware groups. Explicit, not framework-y.
-3. **Security review** — session policy `[x]`, upload validation + MIME verification (lands with Media), CSP headers, auth hardening (throttling, password reset).
-4. **Testing** — expand PHPUnit around field contracts, validation, auth, permissions, routing, repositories, transactions, and (eventually) plugin loading.
+## ✅ Core convergence milestone — COMPLETE (PRs #4–#9)
+
+Making every new abstraction actually load-bearing, then proving it.
+
+1. [x] **Request through the router** — handlers are `fn(Request, array $params): Response`; `Request::fromGlobals()` is called exactly once, at the boundary. Thirteen controller actions previously re-read superglobals mid-request.
+2. [x] **Response hardening** — header injection rejected at construction; case-insensitive replacement; redirect-status validation; UTF-8 JSON; RFC 5987 download filenames.
+3. [x] **Centralized proxy trust** — `TRUSTED_PROXIES`; `X-Forwarded-*` ignored unless `REMOTE_ADDR` matches. One decision shared by session cookies and throttling.
+4. [x] **Strict field-type lookup** — see Shipped.
+5. [x] **PHPStan level 6** in CI, ahead of the tests.
+6. [x] **HTTP-functional tests** — real requests through the real kernel; 65 tests over auth, collections, entries and the response contract.
+7. [x] **Route-contract architecture test** — every registered route provably declares `Response` and takes `Request` first. `Application::routes()` builds the table once, so tested routes are served routes.
+8. [x] **Install + CRUD smoke test** — `tests/smoke.sh`, in CI.
 
 > Plugins should not be the first consumers of unstable APIs.
+
+## 🧭 Next: plugin architecture
+
+The substrate is stable and verified. Plugin work starts here — see
+[Extensibility](#-extensibility--plugin-architecture-design-build-after-the-milestone-above).
 
 ## 🎯 Release 0.1 — "usable CMS"
 
@@ -57,9 +92,9 @@ freezing any public API. Landing as separate PRs:
 3. **Field validation** `[x]` — extend with min/max, regex, unique-value constraints.
 4. **Entry-list usability** — search `[~]`, filters, sortable columns, configurable visible columns, pagination, bulk actions, status badges `[~]`, author + modified date, saved filters, duplicate entry, quick edit, keyboard nav.
 5. **Media library** — see [Media](#media-library-detail) below.
-6. **Auth hardening** — login rate limiting, account lockout / progressive delay, password reset flow, email verification for invited users, session revocation ("log out all devices"); **installer must require a password + refuse known defaults outside dev** (stop advertising `admin@nimbus.test` / `password`).
+6. **Auth hardening** — login rate limiting `[x]`, account lockout / progressive delay `[x]`, installer refuses weak/default credentials outside dev `[x]`; still open: password reset flow, email verification for invited users, session revocation ("log out all devices").
 7. **Basic revisions** — immutable snapshots, diff by field, restore, who/when, publish-vs-edit events, retention limits, revision notes, audit export.
-8. **Tests + CI** `[x]` — expand coverage.
+8. **Tests + CI** `[x]` — unit, integration, HTTP-functional, static analysis and a smoke test all run on every PR.
 
 ## 🎯 Release 0.2 — "headless-ready"
 
