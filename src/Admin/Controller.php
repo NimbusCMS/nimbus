@@ -6,8 +6,10 @@ namespace Nimbus\Admin;
 
 use Nimbus\Auth\Auth;
 use Nimbus\Database\Connection;
+use Nimbus\Http\Csrf;
 use Nimbus\Http\HttpException;
 use Nimbus\Http\Middleware\AuthMiddleware;
+use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Support\Config;
 use Nimbus\View\View;
@@ -74,5 +76,16 @@ abstract class Controller
     protected function abortTo(string $to): never
     {
         throw HttpException::redirect($to);
+    }
+
+    /**
+     * Reject a state-changing request without a valid CSRF token. Shared by
+     * every admin controller so no write path can forget it.
+     */
+    protected function requireCsrf(Request $request, string $abortTo = '/admin/collections'): void
+    {
+        if (!Csrf::check($request->input('_token'))) {
+            $this->abortTo($abortTo);
+        }
     }
 }

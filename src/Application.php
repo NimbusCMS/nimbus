@@ -6,6 +6,7 @@ namespace Nimbus;
 
 use Nimbus\Admin\AdminController;
 use Nimbus\Admin\CollectionsController;
+use Nimbus\Admin\EntriesController;
 use Nimbus\Auth\Auth;
 use Nimbus\Database\Connection;
 use Nimbus\Http\HttpException;
@@ -97,6 +98,7 @@ final class Application
         $router = new Router();
         (new AdminController($this->db, $this->auth))->routes($router);
         (new CollectionsController($this->db, $this->auth))->routes($router);
+        (new EntriesController($this->db, $this->auth))->routes($router);
         $router->get('/', fn (Request $req, array $p): Response => $this->home());
         return $router;
     }
