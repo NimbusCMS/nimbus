@@ -305,6 +305,8 @@ final class CollectionsController extends Controller
         if ($collection->isSingle() || $this->entries->find($collection->id, $id) === null) {
             return $this->redirect("/admin/collections/{$handle}/entries");
         }
+        // The redirect is the same either way — the user asked for it gone and
+        // it is gone. Only the event needs to know whether a row really went.
         $this->entryService->delete($collection, $id);
         return $this->redirect("/admin/collections/{$handle}/entries?msg=deleted");
     }
