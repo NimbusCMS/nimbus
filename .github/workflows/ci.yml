@@ -45,3 +45,14 @@ jobs:
           TEST_DB_NAME: nimbus_test
           TEST_DB_USER: root
           TEST_DB_PASS: root
+
+      # Installs from an empty database and drives real CRUD against the shipped
+      # entry point — the one thing the test suite cannot prove on its own.
+      - name: Smoke test (install + CRUD)
+        run: tests/smoke.sh
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '3306'
+          DB_NAME: nimbus_smoke
+          DB_USER: root
+          DB_PASS: root
