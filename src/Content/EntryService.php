@@ -6,7 +6,7 @@ namespace Nimbus\Content;
 
 use Nimbus\Database\Connection;
 use Nimbus\Support\CoreEvents;
-use Nimbus\Support\Events;
+use Nimbus\Support\EventDispatcher;
 use Nimbus\Support\Str;
 
 /**
@@ -28,6 +28,7 @@ final class EntryService
         private EntryRepository $entries,
         private RelationRepository $relations,
         private FieldTypeRegistry $types,
+        private EventDispatcher $events,
     ) {
         $this->validator = new Validator($types);
     }
@@ -86,10 +87,10 @@ final class EntryService
         }
 
         // Events fire only after a successful commit — consistency never depends on listeners.
-        Events::dispatch($created ? CoreEvents::ENTRY_CREATED : CoreEvents::ENTRY_UPDATED, [
+        $this->events->dispatch($created ? CoreEvents::ENTRY_CREATED : CoreEvents::ENTRY_UPDATED, [
             'id' => $id, 'collection_id' => $collection->id, 'title' => $title, 'slug' => $slug, 'status' => $input->status,
         ]);
-        Events::dispatch(CoreEvents::ENTRY_SAVED, ['id' => $id, 'collection_id' => $collection->id, 'created' => $created]);
+        $this->events->dispatch(CoreEvents::ENTRY_SAVED, ['id' => $id, 'collection_id' => $collection->id, 'created' => $created]);
 
         return SaveEntryResult::ok($id, $input);
     }
@@ -110,7 +111,7 @@ final class EntryService
         ) > 0;
 
         if ($deleted) {
-            Events::dispatch(CoreEvents::ENTRY_DELETED, ['id' => $entryId, 'collection_id' => $collection->id]);
+            $this->events->dispatch(CoreEvents::ENTRY_DELETED, ['id' => $entryId, 'collection_id' => $collection->id]);
         }
         return $deleted;
     }

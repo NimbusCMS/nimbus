@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nimbus\Admin;
 
+use Nimbus\Auth\Auth;
 use Nimbus\Content\Collection;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\EntryInput;
@@ -16,6 +17,8 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Database\Connection;
+use Nimbus\Support\EventDispatcher;
 
 /**
  * Managing content *inside* a collection: listing, creating, editing and
@@ -37,22 +40,28 @@ final class EntriesController extends Controller
     private CollectionRepository $collections;
     private EntryRepository $entries;
     private RelationRepository $relations;
-    private FieldTypeRegistry $types;
     private EntryService $entryService;
 
-    public function boot(): void
-    {
+    /**
+     * $fieldTypes and $events are the application's single instances. A plugin
+     * registering a field type registers it into *this* registry, so building a
+     * local one here would make plugin types invisible to entry forms.
+     */
+    public function __construct(
+        Connection $db,
+        Auth $auth,
+        private FieldTypeRegistry $types,
+        EventDispatcher $events,
+    ) {
+        parent::__construct($db, $auth);
         $this->collections  = new CollectionRepository($this->db);
         $this->entries      = new EntryRepository($this->db);
         $this->relations    = new RelationRepository($this->db);
-        $this->types        = new FieldTypeRegistry();
-        $this->entryService = new EntryService($this->db, $this->entries, $this->relations, $this->types);
+        $this->entryService = new EntryService($this->db, $this->entries, $this->relations, $this->types, $events);
     }
 
     public function routes(Router $r): void
     {
-        $this->boot();
-
         $r->group('/admin/collections/{handle}/entries', [$this->authMw], function (Router $g): void {
             $g->get('', fn (Request $req, array $p): Response => $this->index($req, $p['handle']))->name('admin.entries.index');
             $g->get('/new', fn (Request $req, array $p): Response => $this->form($p['handle'], null))->name('admin.entries.new');

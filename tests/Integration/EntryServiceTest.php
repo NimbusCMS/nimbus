@@ -13,20 +13,21 @@ use Nimbus\Content\EntryService;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Support\CoreEvents;
-use Nimbus\Support\Events;
+use Nimbus\Support\EventDispatcher;
 
 final class EntryServiceTest extends IntegrationTestCase
 {
     private EntryService $service;
     private CollectionRepository $collections;
+    private EventDispatcher $events;
 
     protected function setUp(): void
     {
         parent::setUp();
-        Events::reset();
         $this->collections = new CollectionRepository($this->db);
-        $entries = new EntryRepository($this->db);
-        $this->service = new EntryService($this->db, $entries, new RelationRepository($this->db), new FieldTypeRegistry());
+        $this->events      = new EventDispatcher();
+        $entries           = new EntryRepository($this->db);
+        $this->service     = new EntryService($this->db, $entries, new RelationRepository($this->db), new FieldTypeRegistry(), $this->events);
     }
 
     /** @param array<string,mixed> $options */
@@ -79,7 +80,7 @@ final class EntryServiceTest extends IntegrationTestCase
     public function test_failed_validation_writes_nothing_and_dispatches_no_events(): void
     {
         $fired = 0;
-        Events::listen('entry.saved', function () use (&$fired): void {
+        $this->events->listen('entry.saved', function () use (&$fired): void {
             $fired++;
         });
 
@@ -105,7 +106,7 @@ final class EntryServiceTest extends IntegrationTestCase
         $c = $this->collections->find($c->id);
 
         $fired = 0;
-        Events::listen('entry.saved', function () use (&$fired): void {
+        $this->events->listen('entry.saved', function () use (&$fired): void {
             $fired++;
         });
 
@@ -149,7 +150,7 @@ final class EntryServiceTest extends IntegrationTestCase
     public function test_deleting_a_real_entry_reports_true_and_dispatches(): void
     {
         $fired = [];
-        Events::listen(CoreEvents::ENTRY_DELETED, function (array $p) use (&$fired): void {
+        $this->events->listen(CoreEvents::ENTRY_DELETED, function (array $p) use (&$fired): void {
             $fired[] = $p;
         });
 
@@ -166,7 +167,7 @@ final class EntryServiceTest extends IntegrationTestCase
     public function test_deleting_a_missing_entry_reports_false_and_stays_silent(): void
     {
         $fired = 0;
-        Events::listen(CoreEvents::ENTRY_DELETED, function () use (&$fired): void {
+        $this->events->listen(CoreEvents::ENTRY_DELETED, function () use (&$fired): void {
             $fired++;
         });
 
@@ -181,7 +182,7 @@ final class EntryServiceTest extends IntegrationTestCase
     public function test_deleting_the_same_entry_twice_only_announces_once(): void
     {
         $fired = 0;
-        Events::listen(CoreEvents::ENTRY_DELETED, function () use (&$fired): void {
+        $this->events->listen(CoreEvents::ENTRY_DELETED, function () use (&$fired): void {
             $fired++;
         });
 
@@ -196,7 +197,7 @@ final class EntryServiceTest extends IntegrationTestCase
     public function test_deleting_an_entry_from_another_collection_is_a_no_op(): void
     {
         $fired = 0;
-        Events::listen(CoreEvents::ENTRY_DELETED, function () use (&$fired): void {
+        $this->events->listen(CoreEvents::ENTRY_DELETED, function () use (&$fired): void {
             $fired++;
         });
 
@@ -211,7 +212,7 @@ final class EntryServiceTest extends IntegrationTestCase
 
     public function test_a_throwing_listener_surfaces_rather_than_being_swallowed(): void
     {
-        Events::listen(CoreEvents::ENTRY_SAVED, function (): void {
+        $this->events->listen(CoreEvents::ENTRY_SAVED, function (): void {
             throw new \RuntimeException('listener exploded');
         });
 
@@ -231,10 +232,10 @@ final class EntryServiceTest extends IntegrationTestCase
     public function test_successful_save_dispatches_events_after_commit(): void
     {
         $events = [];
-        Events::listen('entry.created', function () use (&$events): void {
+        $this->events->listen('entry.created', function () use (&$events): void {
             $events[] = 'created';
         });
-        Events::listen('entry.saved', function () use (&$events): void {
+        $this->events->listen('entry.saved', function () use (&$events): void {
             $events[] = 'saved';
         });
 

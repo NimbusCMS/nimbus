@@ -7,9 +7,11 @@ namespace Nimbus\Tests\Http;
 use Nimbus\Admin\CollectionsController;
 use Nimbus\Admin\EntriesController;
 use Nimbus\Content\EntryRepository;
+use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\EntryService;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Http\Router;
+use Nimbus\Support\EventDispatcher;
 use ReflectionClass;
 
 /**
@@ -32,7 +34,7 @@ final class ControllerBoundaryTest extends HttpTestCase
 
     public function test_collections_controller_owns_no_entry_routes(): void
     {
-        foreach ($this->routesOf(new CollectionsController($this->db, $this->auth))->routes() as $route) {
+        foreach ($this->routesOf(new CollectionsController($this->db, $this->auth, new FieldTypeRegistry()))->routes() as $route) {
             self::assertStringNotContainsString(
                 '/entries',
                 $route->pattern,
@@ -43,7 +45,7 @@ final class ControllerBoundaryTest extends HttpTestCase
 
     public function test_entries_controller_owns_only_entry_routes(): void
     {
-        $routes = $this->routesOf(new EntriesController($this->db, $this->auth))->routes();
+        $routes = $this->routesOf(new EntriesController($this->db, $this->auth, new FieldTypeRegistry(), new EventDispatcher()))->routes();
 
         self::assertNotEmpty($routes);
         foreach ($routes as $route) {

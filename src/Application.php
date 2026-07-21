@@ -8,6 +8,7 @@ use Nimbus\Admin\AdminController;
 use Nimbus\Admin\CollectionsController;
 use Nimbus\Admin\EntriesController;
 use Nimbus\Auth\Auth;
+use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Http\HttpException;
 use Nimbus\Http\Request;
@@ -16,6 +17,7 @@ use Nimbus\Http\Router;
 use Nimbus\Http\SecurityHeaders;
 use Nimbus\Support\Config;
 use Nimbus\Support\Env;
+use Nimbus\Support\EventDispatcher;
 use Nimbus\View\View;
 
 /**
@@ -29,6 +31,14 @@ final class Application
     private Auth $auth;
 
     /**
+     * Composed once and shared. Anything that registers into these — core types
+     * today, plugins next — must receive these exact instances, or registration
+     * lands in an object nobody reads.
+     */
+    private FieldTypeRegistry $fieldTypes;
+    private EventDispatcher $events;
+
+    /**
      * Defaults to the configured database — pass one in to run the kernel
      * against a different connection (the HTTP-functional tests do this).
      */
@@ -38,8 +48,10 @@ final class Application
             Env::load(Config::basePath() . '/.env');
             $db = new Connection(Config::db());
         }
-        $this->db   = $db;
-        $this->auth = $auth ?? new Auth($this->db);
+        $this->db         = $db;
+        $this->auth       = $auth ?? new Auth($this->db);
+        $this->fieldTypes = new FieldTypeRegistry();
+        $this->events     = new EventDispatcher();
     }
 
     public function run(): void
@@ -97,8 +109,8 @@ final class Application
     {
         $router = new Router();
         (new AdminController($this->db, $this->auth))->routes($router);
-        (new CollectionsController($this->db, $this->auth))->routes($router);
-        (new EntriesController($this->db, $this->auth))->routes($router);
+        (new CollectionsController($this->db, $this->auth, $this->fieldTypes))->routes($router);
+        (new EntriesController($this->db, $this->auth, $this->fieldTypes, $this->events))->routes($router);
         $router->get('/', fn (Request $req, array $p): Response => $this->home());
         return $router;
     }

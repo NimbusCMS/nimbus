@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nimbus\Admin;
 
+use Nimbus\Auth\Auth;
 use Nimbus\Content\Collection;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\CollectionService;
@@ -11,6 +12,7 @@ use Nimbus\Content\DuplicateHandle;
 use Nimbus\Content\Field;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\Permissions;
+use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
@@ -28,20 +30,18 @@ use Nimbus\Support\Str;
 final class CollectionsController extends Controller
 {
     private CollectionRepository $collections;
-    private FieldTypeRegistry $types;
     private CollectionService $collectionService;
 
-    public function boot(): void
+    /** $fieldTypes is the application's single registry — never a local one. */
+    public function __construct(Connection $db, Auth $auth, private FieldTypeRegistry $types)
     {
+        parent::__construct($db, $auth);
         $this->collections       = new CollectionRepository($this->db);
-        $this->types             = new FieldTypeRegistry();
         $this->collectionService = new CollectionService($this->db, $this->collections);
     }
 
     public function routes(Router $r): void
     {
-        $this->boot();
-
         $r->group('/admin/collections', [$this->authMw], function (Router $g): void {
             $g->get('', fn (Request $req, array $p): Response => $this->index($req))->name('admin.collections.index');
             $g->get('/new', fn (Request $req, array $p): Response => $this->form(null))->name('admin.collections.new');
