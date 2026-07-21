@@ -35,7 +35,7 @@ final class FixturePlugin implements Plugin
     public function register(PluginContext $context): void
     {
         self::$registrations++;
-        $context->fieldTypes()->register(new FixtureFieldType(), 'nimbuscms.fixture');
+        $context->fieldTypes()->register(new FixtureFieldType());
     }
 }
 
@@ -54,7 +54,7 @@ final class ConflictingPlugin implements Plugin
             {
                 return '';
             }
-        }, 'nimbuscms.hijacker');
+        });
     }
 }
 
@@ -63,6 +63,26 @@ final class ExplodingPlugin implements Plugin
     public function register(PluginContext $context): void
     {
         throw new \RuntimeException('boom');
+    }
+}
+
+/** Registers one type successfully, then throws — the partial-state case. */
+final class HalfBrokenPlugin implements Plugin
+{
+    public function register(PluginContext $context): void
+    {
+        $context->fieldTypes()->register(new FixtureFieldType());
+        $context->fieldTypes()->register(new class () extends BaseType {
+            public function type(): string
+            {
+                return 'text'; // core already owns this — throws
+            }
+
+            public function renderInput(Field $field, mixed $value): string
+            {
+                return '';
+            }
+        });
     }
 }
 
@@ -116,7 +136,7 @@ final class PluginLoaderTest extends TestCase
     private function load(string $path, array $enabled = []): array
     {
         $loader      = new PluginLoader($path, $enabled);
-        $diagnostics = $loader->load(new PluginContext($this->registry));
+        $diagnostics = $loader->load($this->registry);
         return [$diagnostics, $loader];
     }
 
@@ -290,6 +310,87 @@ final class PluginLoaderTest extends TestCase
         self::assertTrue($this->registry->has('fixture'));
     }
 
+    // -------------------------------------------------- registration safety
+
+    public function test_a_failed_registration_leaves_nothing_behind(): void
+    {
+        $path = $this->installed($this->package('nimbuscms/halfbroken', [
+            'id' => 'nimbuscms.halfbroken', 'plugin' => HalfBrokenPlugin::class,
+        ]));
+
+        [$diagnostics, $loader] = $this->load($path);
+
+        self::assertCount(1, $diagnostics);
+        self::assertSame(PluginDiagnostic::REGISTER_FAILED, $diagnostics[0]->reason);
+        // The first type landed before the throw; it must not survive, or the
+        // diagnostics would say "failed" while the app is half-running it.
+        self::assertFalse($this->registry->has('fixture'), 'partial registration must be rolled back');
+        self::assertSame([], $loader->registered());
+        self::assertStringContainsString('Rolled back: fixture', $diagnostics[0]->message);
+    }
+
+    public function test_rollback_never_touches_core_types(): void
+    {
+        $path = $this->installed($this->package('nimbuscms/halfbroken', [
+            'id' => 'nimbuscms.halfbroken', 'plugin' => HalfBrokenPlugin::class,
+        ]));
+
+        $this->load($path);
+
+        foreach (['text', 'textarea', 'number', 'boolean', 'select', 'date', 'email', 'url', 'relation'] as $core) {
+            self::assertTrue($this->registry->has($core), "core type {$core} must survive a plugin failure");
+            self::assertSame('core', $this->registry->providerOf($core));
+        }
+    }
+
+    public function test_a_plugin_cannot_claim_to_be_another_provider(): void
+    {
+        // The loader binds the provider id, so a plugin cannot register under
+        // "core" and then have core's types rolled back when it fails.
+        $path = $this->installed($this->package('nimbuscms/fixture', [
+            'id' => 'nimbuscms.fixture', 'plugin' => FixturePlugin::class,
+        ]));
+
+        $this->load($path);
+
+        self::assertSame('nimbuscms.fixture', $this->registry->providerOf('fixture'));
+    }
+
+    // ------------------------------------------------- ids claimed on install
+
+    public function test_a_disabled_plugin_still_holds_its_id(): void
+    {
+        // Otherwise disabling the official plugin would silently hand its
+        // identity to any other installed package claiming the same id.
+        $path = $this->installed(
+            $this->package('official/thing', ['id' => 'shared.id', 'plugin' => FixturePlugin::class]),
+            $this->package('squatter/thing', ['id' => 'shared.id', 'plugin' => FixturePlugin::class]),
+        );
+
+        [$diagnostics, $loader] = $this->load($path, ['shared.id' => false]);
+
+        self::assertSame([], $loader->registered(), 'the disabled plugin is off, and nobody inherits its id');
+        self::assertFalse($this->registry->has('fixture'));
+
+        $reasons = array_map(static fn (PluginDiagnostic $d): string => $d->reason, $diagnostics);
+        self::assertContains(PluginDiagnostic::DUPLICATE_ID, $reasons);
+        self::assertContains(PluginDiagnostic::DISABLED, $reasons);
+    }
+
+    public function test_a_broken_plugin_still_holds_its_id(): void
+    {
+        $path = $this->installed(
+            $this->package('official/thing', ['id' => 'shared.id', 'plugin' => 'Nowhere\\Missing']),
+            $this->package('squatter/thing', ['id' => 'shared.id', 'plugin' => FixturePlugin::class]),
+        );
+
+        [$diagnostics, $loader] = $this->load($path);
+
+        self::assertSame([], $loader->registered());
+        self::assertFalse($this->registry->has('fixture'), 'a broken owner must not hand its id to another package');
+        self::assertCount(2, $diagnostics);
+    }
+
     public function test_loading_twice_does_not_double_register(): void
     {
         $path = $this->installed($this->package('nimbuscms/fixture', [
@@ -297,9 +398,9 @@ final class PluginLoaderTest extends TestCase
         ]));
 
         $loader = new PluginLoader($path);
-        $loader->load(new PluginContext($this->registry));
+        $loader->load($this->registry);
         // A second load against a fresh registry must behave identically.
-        $second = $loader->load(new PluginContext(new FieldTypeRegistry()));
+        $second = $loader->load(new FieldTypeRegistry());
 
         self::assertSame([], $second, 'no duplicate-id diagnostics from stale state');
         self::assertCount(1, $loader->registered());

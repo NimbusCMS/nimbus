@@ -71,6 +71,34 @@ final class FieldTypeRegistry
     }
 
     /**
+     * Remove everything a provider registered.
+     *
+     * Used by the plugin loader to undo a partial registration: a plugin that
+     * registers two types and throws on the second must not leave the first
+     * behind, or the diagnostics would say "failed" while the application is
+     * quietly half-running it.
+     *
+     * Core types are never removable — a plugin id can never be "core",
+     * because the loader binds the id rather than trusting the plugin.
+     *
+     * @return string[] the type keys that were removed
+     */
+    public function forgetProvider(string $provider): array
+    {
+        if ($provider === 'core') {
+            return [];
+        }
+        $removed = [];
+        foreach ($this->providers as $type => $owner) {
+            if ($owner === $provider) {
+                unset($this->types[$type], $this->providers[$type]);
+                $removed[] = $type;
+            }
+        }
+        return $removed;
+    }
+
+    /**
      * Strict lookup for normalization, validation, persistence and API
      * serialization. Falling back to text here would silently rewrite stored
      * values through the wrong type, so an unregistered type is an error.

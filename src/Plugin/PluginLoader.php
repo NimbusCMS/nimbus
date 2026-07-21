@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nimbus\Plugin;
 
+use Nimbus\Content\FieldTypeRegistry;
 use Throwable;
 
 /**
@@ -27,6 +28,17 @@ use Throwable;
  *       }}
  *     }
  *
+ * Loading is two-phase, and the split matters:
+ *
+ *   1. **Validate every manifest first.** Ids are claimed by *installation*,
+ *      not by successful registration. Reserving ids only on success would let
+ *      a second installed package quietly inherit an id whenever the rightful
+ *      owner was disabled or broken — so disabling a plugin could hand its
+ *      identity to another package.
+ *   2. **Then register, with rollback.** A plugin that registers two types and
+ *      throws on the second has its first registration undone, so a plugin
+ *      reported as failed is never partially active.
+ *
  * Every rejection produces a PluginDiagnostic rather than a silent skip.
  */
 final class PluginLoader
@@ -34,7 +46,7 @@ final class PluginLoader
     /** @var list<PluginDiagnostic> */
     private array $diagnostics = [];
 
-    /** @var array<string,string> plugin id => package name, for duplicate detection */
+    /** @var array<string,string> plugin id => package name, for the ones that registered */
     private array $loaded = [];
 
     /**
@@ -48,64 +60,101 @@ final class PluginLoader
     }
 
     /**
-     * Register every enabled plugin into the context.
+     * Register every enabled plugin into the registry.
      *
      * @return list<PluginDiagnostic> everything that did not register, and why
      */
-    public function load(PluginContext $context): array
+    public function load(FieldTypeRegistry $fieldTypes): array
     {
         $this->diagnostics = [];
         $this->loaded      = [];
 
-        foreach ($this->packages() as $package) {
-            $this->loadPackage($package, $context);
+        foreach ($this->validate($this->packages()) as $id => $candidate) {
+            $this->register($id, $candidate['package'], $candidate['class'], $fieldTypes);
         }
         return $this->diagnostics;
     }
 
-    /** @param array<string,mixed> $package */
-    private function loadPackage(array $package, PluginContext $context): void
+    /**
+     * Phase one: every manifest is checked, and ids are claimed by installation
+     * rather than by success. Enabled state is deliberately not consulted here.
+     *
+     * @param list<array<string,mixed>> $packages
+     * @return array<string,array{package:string,class:class-string<Plugin>}>
+     */
+    private function validate(array $packages): array
     {
-        $name = (string) ($package['name'] ?? 'unknown package');
-        $meta = $package['extra']['nimbus'] ?? null;
+        /** @var array<string,array{package:string,class:class-string<Plugin>}> $valid */
+        $valid = [];
+        /** @var array<string,string> $claimedBy */
+        $claimedBy = [];
 
-        if (!is_array($meta) || !is_string($meta['id'] ?? null) || !is_string($meta['plugin'] ?? null)) {
-            $this->fail($name, PluginDiagnostic::INVALID_MANIFEST, 'extra.nimbus must declare a string "id" and "plugin".');
-            return;
+        foreach ($packages as $package) {
+            $name = (string) ($package['name'] ?? 'unknown package');
+            $meta = $package['extra']['nimbus'] ?? null;
+
+            if (!is_array($meta) || !is_string($meta['id'] ?? null) || !is_string($meta['plugin'] ?? null)) {
+                $this->fail($name, PluginDiagnostic::INVALID_MANIFEST, 'extra.nimbus must declare a string "id" and "plugin".');
+                continue;
+            }
+
+            $id    = $meta['id'];
+            $class = $meta['plugin'];
+
+            if (isset($claimedBy[$id])) {
+                // Both packages are rejected on the *second* claim only; the
+                // first keeps the id. Two packages fighting over an id is a
+                // deployment mistake, and it must not resolve differently
+                // depending on which one happens to be enabled.
+                $this->fail($name, PluginDiagnostic::DUPLICATE_ID, "Plugin id \"{$id}\" is already claimed by {$claimedBy[$id]}.");
+                continue;
+            }
+            $claimedBy[$id] = $name;
+
+            if (!class_exists($class)) {
+                $this->fail($name, PluginDiagnostic::MISSING_CLASS, "Class {$class} was not found. Is the package autoloaded?");
+                continue;
+            }
+            if (!is_subclass_of($class, Plugin::class)) {
+                $this->fail($name, PluginDiagnostic::NOT_A_PLUGIN, "Class {$class} does not implement " . Plugin::class . '.');
+                continue;
+            }
+
+            /** @var class-string<Plugin> $class */
+            $valid[$id] = ['package' => $name, 'class' => $class];
         }
+        return $valid;
+    }
 
-        $id    = $meta['id'];
-        $class = $meta['plugin'];
-
-        if (isset($this->loaded[$id])) {
-            $this->fail($name, PluginDiagnostic::DUPLICATE_ID, "Plugin id \"{$id}\" is already provided by {$this->loaded[$id]}.");
-            return;
-        }
+    /**
+     * Phase two: instantiate and register, undoing anything a failing plugin
+     * managed to register before it threw.
+     *
+     * @param class-string<Plugin> $class
+     */
+    private function register(string $id, string $package, string $class, FieldTypeRegistry $fieldTypes): void
+    {
         if (!($this->enabled[$id] ?? $this->enabledByDefault)) {
-            $this->diagnostics[] = new PluginDiagnostic($name, PluginDiagnostic::DISABLED, "Plugin \"{$id}\" is disabled by configuration.");
-            return;
-        }
-        if (!class_exists($class)) {
-            $this->fail($name, PluginDiagnostic::MISSING_CLASS, "Class {$class} was not found. Is the package autoloaded?");
-            return;
-        }
-        if (!is_subclass_of($class, Plugin::class)) {
-            $this->fail($name, PluginDiagnostic::NOT_A_PLUGIN, "Class {$class} does not implement " . Plugin::class . '.');
+            $this->diagnostics[] = new PluginDiagnostic($package, PluginDiagnostic::DISABLED, "Plugin \"{$id}\" is disabled by configuration.");
             return;
         }
 
         try {
-            /** @var Plugin $plugin */
-            $plugin = new $class();
-            $plugin->register($context);
+            (new $class())->register(new PluginContext($fieldTypes, $id));
         } catch (Throwable $e) {
-            // A broken plugin must not take the whole admin down, but it must
-            // also not fail quietly — the diagnostic is the record.
-            $this->fail($name, PluginDiagnostic::REGISTER_FAILED, get_class($e) . ': ' . $e->getMessage());
+            // Undo whatever landed before the throw, so "failed" in the
+            // diagnostics and "inactive" in the application agree.
+            $rolledBack = $fieldTypes->forgetProvider($id);
+            $detail     = $rolledBack === [] ? '' : ' Rolled back: ' . implode(', ', $rolledBack) . '.';
+
+            // A broken plugin must not take the whole admin down — that is the
+            // only place an administrator can go to disable it — but it must
+            // also not fail quietly.
+            $this->fail($package, PluginDiagnostic::REGISTER_FAILED, get_class($e) . ': ' . $e->getMessage() . $detail);
             return;
         }
 
-        $this->loaded[$id] = $name;
+        $this->loaded[$id] = $package;
     }
 
     /**

@@ -1,11 +1,20 @@
 {
     "name": "nimbuscms/nimbus",
-    "description": "NimbusCMS — a modern, lightweight PHP CMS: collections, media library, a headless JSON API, and a themeable admin + public site.",
+    "description": "A lightweight, extensible PHP CMS: structured collections, a readable core, and Composer-based plugins.",
     "type": "project",
-    "keywords": ["cms", "php", "headless", "collections", "media-library", "lightweight"],
+    "keywords": [
+        "cms",
+        "php",
+        "headless",
+        "collections",
+        "plugins",
+        "lightweight"
+    ],
     "license": "MIT",
     "authors": [
-        { "name": "DanMat" }
+        {
+            "name": "DanMat"
+        }
     ],
     "require": {
         "php": ">=8.2",
@@ -18,12 +27,18 @@
         "phpunit/phpunit": "^11.0"
     },
     "autoload": {
-        "psr-4": { "Nimbus\\": "src/" }
+        "psr-4": {
+            "Nimbus\\": "src/"
+        }
     },
     "autoload-dev": {
-        "psr-4": { "Nimbus\\Tests\\": "tests/" }
+        "psr-4": {
+            "Nimbus\\Tests\\": "tests/"
+        }
     },
-    "bin": ["bin/nimbus"],
+    "bin": [
+        "bin/nimbus"
+    ],
     "scripts": {
         "test": "phpunit",
         "analyse": "phpstan analyse --memory-limit=512M",

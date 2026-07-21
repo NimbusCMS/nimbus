@@ -11,10 +11,13 @@ use Nimbus\Content\FieldTypeRegistry;
  *
  * Exactly one capability today: field types. That is not an oversight — it is
  * the only extension surface with a proven first-party consumer (nine built-in
- * types) and a reference plugin about to exercise it. Routes, events,
- * permissions, migrations and admin navigation get added one at a time, each
- * alongside a plugin that actually needs it, because a capability published
- * without a consumer is a guess that becomes a commitment.
+ * types) and a reference plugin exercising it. Routes, events, permissions,
+ * migrations and admin navigation get added one at a time, each alongside a
+ * plugin that actually needs it, because a capability published without a
+ * consumer is a guess that becomes a commitment.
+ *
+ * A context is built per plugin, so the plugin's id is bound to whatever it
+ * registers and cannot be spoofed.
  *
  * Deliberately absent, and staying absent:
  *
@@ -31,17 +34,22 @@ use Nimbus\Content\FieldTypeRegistry;
  */
 final class PluginContext
 {
-    public function __construct(
-        private FieldTypeRegistry $fieldTypes,
-    ) {
+    private FieldTypeRegistrar $fieldTypes;
+
+    public function __construct(FieldTypeRegistry $fieldTypes, private string $pluginId)
+    {
+        $this->fieldTypes = new FieldTypeRegistrar($fieldTypes, $pluginId);
     }
 
-    /**
-     * The application's field-type registry — the same instance the field
-     * builder, entry forms, validator and (later) API serializer read from.
-     */
-    public function fieldTypes(): FieldTypeRegistry
+    /** Register field types. Registrations are stamped with this plugin's id. */
+    public function fieldTypes(): FieldTypeRegistrar
     {
         return $this->fieldTypes;
+    }
+
+    /** The id this plugin was loaded under, from its Composer manifest. */
+    public function pluginId(): string
+    {
+        return $this->pluginId;
     }
 }
