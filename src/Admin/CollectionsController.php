@@ -144,7 +144,10 @@ final class CollectionsController extends Controller
         return $this->redirect('/admin/collections?msg=updated');
     }
 
-    /** @param array<string,mixed> $draft @param array<string,string> $errors */
+    /**
+     * @param array<string,mixed>  $draft
+     * @param array<string,string> $errors
+     */
     private function renderCollectionForm(?Collection $collection, array $draft, array $errors): Response
     {
         $collectionOptions = [];
@@ -167,14 +170,17 @@ final class CollectionsController extends Controller
     /** @return array<string,mixed> the form model: stored collection, or blank for a new one */
     private function draftFromCollection(?Collection $c): array
     {
+        if ($c === null) {
+            return ['name' => '', 'handle' => '', 'icon' => '❑', 'description' => '', 'kind' => 'collection', 'roles' => [], 'fields' => []];
+        }
         return [
-            'name'        => $c?->name ?? '',
-            'handle'      => $c?->handle ?? '',
-            'icon'        => $c?->icon ?? '❑',
-            'description' => $c?->description ?? '',
-            'kind'        => $c !== null && $c->isSingle() ? 'single' : 'collection',
-            'roles'       => $c?->managerRoles() ?? [],
-            'fields'      => $c?->fields ?? [],
+            'name'        => $c->name,
+            'handle'      => $c->handle,
+            'icon'        => $c->icon,
+            'description' => $c->description,
+            'kind'        => $c->isSingle() ? 'single' : 'collection',
+            'roles'       => $c->managerRoles(),
+            'fields'      => $c->fields,
         ];
     }
 
@@ -305,6 +311,10 @@ final class CollectionsController extends Controller
 
     // =============================================================== helpers
 
+    /**
+     * @param array<string,mixed>  $model
+     * @param array<string,string> $errors
+     */
     private function renderEntryForm(Collection $collection, array $model, array $errors, ?string $flash = null): Response
     {
         // Relation pickers need their target collection's entries (id => title).
@@ -326,7 +336,12 @@ final class CollectionsController extends Controller
         ]);
     }
 
-    /** Editing/new: build the form model from a stored entry (or field defaults). */
+    /**
+     * Editing/new: build the form model from a stored entry (or field defaults).
+     *
+     * @param array<string,mixed>|null $entry
+     * @return array<string,mixed>
+     */
     private function modelFromEntry(Collection $collection, ?array $entry): array
     {
         if ($entry !== null) {
@@ -371,15 +386,17 @@ final class CollectionsController extends Controller
         );
     }
 
-    /** Re-render the form after a failed save, preserving what the user typed. */
+    /**
+     * Re-render the form after a failed save, preserving what the user typed.
+     *
+     * @return array<string,mixed>
+     */
     private function modelFromInput(EntryInput $input, ?int $id): array
     {
         return ['id' => $id, 'title' => $input->title, 'slug' => $input->slug, 'status' => $input->status, 'values' => $input->values];
     }
 
-    /**
-     * @return array<int,array{handle:string,label:string,type:string,required:bool,options:array}>
-     */
+    /** @return array<int,FieldDef> */
     private function fieldDefs(Request $req): array
     {
         $defs   = [];

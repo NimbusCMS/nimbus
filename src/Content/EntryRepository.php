@@ -46,7 +46,11 @@ final class EntryRepository
         return $out;
     }
 
-    /** The single entry of a collection (for singletons), or null. */
+    /**
+     * The single entry of a collection (for singletons), or null.
+     *
+     * @return array<string,mixed>|null
+     */
     public function firstForCollection(int $collectionId): ?array
     {
         $row = $this->db->selectOne(
@@ -74,7 +78,7 @@ final class EntryRepository
         ) !== null;
     }
 
-    /** @param array{title:string,slug:string,status:string,data:array} $attrs */
+    /** @param array{title: string, slug: string, status: string, data: array<string,mixed>} $attrs */
     public function create(int $collectionId, array $attrs, ?int $authorId): int
     {
         $now       = date('Y-m-d H:i:s');
@@ -88,7 +92,7 @@ final class EntryRepository
         );
     }
 
-    /** @param array{title:string,slug:string,status:string,data:array} $attrs */
+    /** @param array{title: string, slug: string, status: string, data: array<string,mixed>} $attrs */
     public function update(int $collectionId, int $id, array $attrs): void
     {
         $now     = date('Y-m-d H:i:s');
@@ -113,6 +117,7 @@ final class EntryRepository
 
     /**
      * @param array<string,mixed> $row
+     * @return array<string,mixed>
      * @throws \JsonException when stored JSON is corrupt (never silently emptied)
      */
     private function hydrate(array $row): array

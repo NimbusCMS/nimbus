@@ -1,0 +1,28 @@
+parameters:
+    level: 6
+    paths:
+        - src
+        - tests
+        - bin
+        - bootstrap.php
+    excludePaths:
+        analyse:
+            # Themes are PHP templates rendered with extract()ed view data;
+            # their variables are documented in @var headers, not typed code.
+            - src/View/themes/*
+    treatPhpDocTypesAsCertain: false
+
+    typeAliases:
+        # One field definition as the field builder submits it and the
+        # repository stores it. Used across controller, service and repository.
+        FieldDef: 'array{handle: string, label: string, type: string, required: bool, options: array<string, mixed>}'
+
+    ignoreErrors:
+        # Defensive rollback guard. PHPStan assumes inTransaction() still
+        # reflects the value it saw before beginTransaction(); in reality the
+        # server can end a transaction on its own (deadlock, timeout), and
+        # calling rollBack() without one is a fatal.
+        -
+            message: '#If condition is always false\.#'
+            path: src/Database/Connection.php
+            count: 1

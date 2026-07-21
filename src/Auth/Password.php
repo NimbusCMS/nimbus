@@ -7,7 +7,7 @@ namespace Nimbus\Auth;
 /** Modern password hashing: argon2id when the runtime supports it, else bcrypt. */
 final class Password
 {
-    private static function algo(): string|int
+    private static function algo(): string
     {
         return defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
     }

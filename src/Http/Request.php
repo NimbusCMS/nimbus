@@ -11,6 +11,12 @@ final class Request
 {
     private TrustedProxies $proxies;
 
+    /**
+     * @param array<string,mixed> $query
+     * @param array<string,mixed> $post
+     * @param array<string,mixed> $server
+     * @param array<string,mixed> $files
+     */
     public function __construct(
         public readonly string $method,
         public readonly string $path,

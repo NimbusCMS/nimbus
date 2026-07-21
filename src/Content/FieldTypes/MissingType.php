@@ -53,7 +53,8 @@ final class MissingType extends BaseType
         return $input;
     }
 
-    public function validate(Field $field, mixed $value): ?string
+    /** Always an error — narrower than the interface's ?string on purpose. */
+    public function validate(Field $field, mixed $value): string
     {
         return 'The “' . $this->missing . '” field type is unavailable, so this entry cannot be saved.';
     }

@@ -21,7 +21,7 @@ final class CollectionService
 
     /**
      * @param array<string,mixed> $options
-     * @param array<int,array{handle:string,label:string,type:string,required:bool,options:array}> $fieldDefs
+     * @param array<int,FieldDef> $fieldDefs
      */
     public function create(string $handle, string $name, string $icon, string $description, array $options, array $fieldDefs): int
     {
@@ -43,7 +43,7 @@ final class CollectionService
 
     /**
      * @param array<string,mixed> $options
-     * @param array<int,array{handle:string,label:string,type:string,required:bool,options:array}> $fieldDefs
+     * @param array<int,FieldDef> $fieldDefs
      */
     public function update(int $id, string $name, string $icon, string $description, array $options, array $fieldDefs): void
     {

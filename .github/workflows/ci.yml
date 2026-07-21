@@ -33,6 +33,10 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      # Runs before the tests: a type error should fail fast, and it needs no database.
+      - name: Static analysis
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=512M
+
       - name: Run tests
         run: vendor/bin/phpunit
         env:
