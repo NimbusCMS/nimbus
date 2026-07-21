@@ -30,6 +30,29 @@ Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a smal
 - 🔒 **Auth & hardening** — argon2id hashing, CSRF-guarded writes, session rotation on login, progressive login throttling, CSP + security headers on every response, configurable trusted proxies
 - 🎨 **"Nimbus" admin theme** — night-sky admin skin, recolourable via CSS variables
 
+### 🔌 Plugins
+
+Plugins are ordinary Composer packages. Install one and it works:
+
+```bash
+composer require nimbuscms/markdown
+```
+
+Discovery is Composer's `installed.json` — there is no upload step and no
+in-admin installer, because downloading and executing arbitrary code needs
+signing, compatibility and rollback policies designed first.
+
+Disable a plugin in `config/plugins.php` and your content is safe: entries
+using its field type stay in the database untouched, the admin shows them
+read-only and names the missing provider, and saves are refused until it is
+back. See [ADR 0001](docs/adr/0001-plugin-contract.md) for the contract and
+[plugin-markdown](https://github.com/NimbusCMS/plugin-markdown) for a worked
+example.
+
+Today a plugin can register **field types**. Routes, events, permissions,
+migrations and admin navigation are added one at a time, each alongside a
+plugin that actually needs it.
+
 ### 🧪 Experimental — works, but the shape may still change
 
 - 🔌 **Event hooks** — `entry.created` / `updated` / `saved` / `deleted`, dispatched after commit. Useful now; the event names and payloads are not yet frozen.
@@ -97,7 +120,7 @@ field never means an `ALTER TABLE`.
 - [x] Collections & fields + entry CRUD — field-type registry, relations, singletons, per-collection role permissions, post-commit events
 - [x] Hardened HTTP core — `Response` object, middleware-gated routes, CSP + security headers, login throttling, trusted proxies
 - [x] Test & analysis baseline — unit, integration and HTTP-functional suites, PHPStan level 6, install + CRUD smoke test, all on CI
-- [ ] Plugin system — first contract designed in [ADR 0001](docs/adr/0001-plugin-contract.md); one reference plugin next
+- [x] Plugin system — `Plugin` + `PluginContext` + Composer-driven loader, proven by [plugin-markdown](https://github.com/NimbusCMS/plugin-markdown)
 - [ ] Media library
 - [ ] Headless JSON API + tokens
 - [ ] Rich-text / Markdown editor

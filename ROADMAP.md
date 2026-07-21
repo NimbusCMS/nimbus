@@ -20,8 +20,9 @@ ORM, DI container, command bus, or needless generic abstraction.
 A class existing in the repository is not enough for `[x]`. If nothing in CI
 would fail when the behaviour breaks, it is `[~]`.
 
-*Last audited against `main` after the plugin-readiness milestone (PRs #4–#12):
-183 tests / 630 assertions, PHPStan level 6, install+CRUD smoke test — all green.*
+*Last audited against `main` after the plugin-foundation milestone (PRs #4–#16):
+203 core tests / 686 assertions plus 21 plugin tests, PHPStan level 6 in both
+repositories, install+CRUD smoke test — all green.*
 
 ---
 
@@ -134,12 +135,40 @@ The last core-boundary cleanup before the plugin loader.
 4. [x] **Plugin contract on paper** — [ADR 0001](docs/adr/0001-plugin-contract.md).
    Design only, nothing implemented.
 
-## 🧭 Next: one small reference plugin
+## ✅ Plugin foundation milestone — COMPLETE
 
-The substrate is stable and verified, and the first contract is written down in
-[ADR 0001](docs/adr/0001-plugin-contract.md). The next step is deliberately
-small: build **one official reference plugin** against that contract and let it
-prove or break the design before anything is declared stable. See
+Built together with the reference plugin, so the API was derived from a real
+consumer rather than designed in isolation.
+
+1. [x] **Application-owned registries** — one `FieldTypeRegistry` and one
+   `EventDispatcher`, composed in `Application` and passed to controllers and
+   services. Three registries existed before; a plugin registering into one
+   would have been invisible to the others.
+2. [x] **Instance event dispatcher** — static `Events` removed. Static
+   listeners leak between tests, between application instances, and duplicate
+   on a double bootstrap.
+3. [x] **`Plugin` contract** — one method. No lifecycle methods until a
+   concrete requirement exists.
+4. [x] **`PluginContext`** — exposes `fieldTypes()` and nothing else. No
+   `Application`, controllers, connection, repositories, session or `get()`.
+5. [x] **Duplicate registration fails** — first registration wins; the registry
+   records provenance so the error names both providers.
+6. [x] **`PluginLoader`** — Composer `installed.json` discovery, manifest and
+   class validation, duplicate-id rejection, enable/disable config, structured
+   diagnostics, and containment of a plugin that throws.
+7. [x] **Reference plugin** —
+   [nimbuscms/markdown](https://github.com/NimbusCMS/plugin-markdown), its own
+   repository and CI, installed through Composer with no core changes.
+8. [x] **Degradation proven** — disabling the plugin leaves stored data
+   byte-identical, shows it read-only, blocks saves, and re-enabling restores
+   editing.
+
+## 🧭 Next: a second reference plugin
+
+Field types are proven. Each remaining capability — routes, events,
+permissions, migrations, admin navigation — gets added **one at a time**,
+alongside a plugin that actually needs it. Never a batch of extension points
+designed in advance. See
 [Extensibility](#-extensibility--plugin-architecture-design-build-after-the-milestone-above).
 
 ## 🎯 Release 0.1 — "usable CMS"
