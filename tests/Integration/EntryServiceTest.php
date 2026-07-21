@@ -12,6 +12,7 @@ use Nimbus\Content\EntryRepository;
 use Nimbus\Content\EntryService;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\RelationRepository;
+use Nimbus\Support\CoreEvents;
 use Nimbus\Support\Events;
 
 final class EntryServiceTest extends IntegrationTestCase
@@ -141,6 +142,90 @@ final class EntryServiceTest extends IntegrationTestCase
         $after = $this->db->selectOne('SELECT title, data FROM nb_entries WHERE id = :i', ['i' => $row['id']]);
         self::assertSame('Kept', $after['title']);
         self::assertSame($row['data'], $after['data'], 'stored values must be byte-for-byte untouched');
+    }
+
+    // ------------------------------------------------------- delete events
+
+    public function test_deleting_a_real_entry_reports_true_and_dispatches(): void
+    {
+        $fired = [];
+        Events::listen(CoreEvents::ENTRY_DELETED, function (array $p) use (&$fired): void {
+            $fired[] = $p;
+        });
+
+        $c  = $this->collection('posts');
+        $id = (int) $this->service->save($c, new EntryInput('Doomed', '', 'draft', []), null, null)->entryId;
+
+        self::assertTrue($this->service->delete($c, $id));
+        self::assertSame(0, $this->entryCount($c->id));
+        self::assertCount(1, $fired);
+        self::assertSame($id, $fired[0]['id']);
+        self::assertSame($c->id, $fired[0]['collection_id']);
+    }
+
+    public function test_deleting_a_missing_entry_reports_false_and_stays_silent(): void
+    {
+        $fired = 0;
+        Events::listen(CoreEvents::ENTRY_DELETED, function () use (&$fired): void {
+            $fired++;
+        });
+
+        $c = $this->collection('posts');
+
+        // Nothing was removed, so nothing may be announced — a listener acting
+        // on this would be reacting to a deletion that never happened.
+        self::assertFalse($this->service->delete($c, 999999));
+        self::assertSame(0, $fired);
+    }
+
+    public function test_deleting_the_same_entry_twice_only_announces_once(): void
+    {
+        $fired = 0;
+        Events::listen(CoreEvents::ENTRY_DELETED, function () use (&$fired): void {
+            $fired++;
+        });
+
+        $c  = $this->collection('posts');
+        $id = (int) $this->service->save($c, new EntryInput('Doomed', '', 'draft', []), null, null)->entryId;
+
+        self::assertTrue($this->service->delete($c, $id));
+        self::assertFalse($this->service->delete($c, $id));
+        self::assertSame(1, $fired);
+    }
+
+    public function test_deleting_an_entry_from_another_collection_is_a_no_op(): void
+    {
+        $fired = 0;
+        Events::listen(CoreEvents::ENTRY_DELETED, function () use (&$fired): void {
+            $fired++;
+        });
+
+        $posts = $this->collection('posts');
+        $pages = $this->collection('pages');
+        $id    = (int) $this->service->save($posts, new EntryInput('Safe', '', 'draft', []), null, null)->entryId;
+
+        self::assertFalse($this->service->delete($pages, $id), 'wrong collection must not delete');
+        self::assertSame(1, $this->entryCount($posts->id), 'the entry survives');
+        self::assertSame(0, $fired);
+    }
+
+    public function test_a_throwing_listener_surfaces_rather_than_being_swallowed(): void
+    {
+        Events::listen(CoreEvents::ENTRY_SAVED, function (): void {
+            throw new \RuntimeException('listener exploded');
+        });
+
+        $c = $this->collection('posts');
+
+        try {
+            $this->service->save($c, new EntryInput('Hello', '', 'draft', []), null, null);
+            self::fail('a listener exception must propagate to the error boundary');
+        } catch (\RuntimeException $e) {
+            self::assertSame('listener exploded', $e->getMessage());
+        }
+
+        // Dispatch is post-commit, so the write stands even though the listener failed.
+        self::assertSame(1, $this->entryCount($c->id));
     }
 
     public function test_successful_save_dispatches_events_after_commit(): void

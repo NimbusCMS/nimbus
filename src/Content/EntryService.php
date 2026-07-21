@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Content;
 
 use Nimbus\Database\Connection;
+use Nimbus\Support\CoreEvents;
 use Nimbus\Support\Events;
 use Nimbus\Support\Str;
 
@@ -85,20 +86,33 @@ final class EntryService
         }
 
         // Events fire only after a successful commit — consistency never depends on listeners.
-        Events::dispatch($created ? 'entry.created' : 'entry.updated', [
+        Events::dispatch($created ? CoreEvents::ENTRY_CREATED : CoreEvents::ENTRY_UPDATED, [
             'id' => $id, 'collection_id' => $collection->id, 'title' => $title, 'slug' => $slug, 'status' => $input->status,
         ]);
-        Events::dispatch('entry.saved', ['id' => $id, 'collection_id' => $collection->id, 'created' => $created]);
+        Events::dispatch(CoreEvents::ENTRY_SAVED, ['id' => $id, 'collection_id' => $collection->id, 'created' => $created]);
 
         return SaveEntryResult::ok($id, $input);
     }
 
-    public function delete(Collection $collection, int $entryId): void
+    /**
+     * Delete an entry.
+     *
+     * Returns whether a row was actually removed, and dispatches ENTRY_DELETED
+     * only in that case. A delete for an id that is absent — or that belongs to
+     * a different collection — is a no-op, and a listener that heard about it
+     * would be acting on a deletion that never happened. Callers are free to
+     * redirect identically either way; events must not be.
+     */
+    public function delete(Collection $collection, int $entryId): bool
     {
-        $this->db->transaction(function () use ($collection, $entryId): void {
-            $this->entries->delete($collection->id, $entryId);
-        });
-        Events::dispatch('entry.deleted', ['id' => $entryId, 'collection_id' => $collection->id]);
+        $deleted = $this->db->transaction(
+            fn (): int => $this->entries->delete($collection->id, $entryId)
+        ) > 0;
+
+        if ($deleted) {
+            Events::dispatch(CoreEvents::ENTRY_DELETED, ['id' => $entryId, 'collection_id' => $collection->id]);
+        }
+        return $deleted;
     }
 
     /**

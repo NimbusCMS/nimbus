@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Tests\Integration;
 
 use Nimbus\Database\Connection;
+use Nimbus\Support\Events;
 use PHPUnit\Framework\TestCase;
 
 /** Base for tests that hit the real (test) database; truncates between cases. */
@@ -14,6 +15,10 @@ abstract class IntegrationTestCase extends TestCase
 
     protected function setUp(): void
     {
+        // Listeners are static, so one registered in a previous test class would
+        // otherwise fire for every case that follows it.
+        Events::reset();
+
         $this->db = new Connection(NB_TEST_DB);
         $pdo = $this->db->pdo();
         $pdo->exec('SET FOREIGN_KEY_CHECKS=0');

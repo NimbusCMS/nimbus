@@ -110,9 +110,13 @@ final class EntryRepository
         );
     }
 
-    public function delete(int $collectionId, int $id): void
+    /** @return int rows removed — 0 when the entry was absent or belongs to another collection */
+    public function delete(int $collectionId, int $id): int
     {
-        $this->db->execute('DELETE FROM nb_entries WHERE collection_id = :c AND id = :id', ['c' => $collectionId, 'id' => $id]);
+        return $this->db->execute(
+            'DELETE FROM nb_entries WHERE collection_id = :c AND id = :id',
+            ['c' => $collectionId, 'id' => $id]
+        );
     }
 
     /**
