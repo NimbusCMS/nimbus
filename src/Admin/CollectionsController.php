@@ -47,28 +47,29 @@ final class CollectionsController extends Controller
     {
         $this->boot();
 
-        // ---- collections (structural: admin only) ----
-        $r->get('/admin/collections', fn (): Response => $this->index());
-        $r->get('/admin/collections/new', fn (): Response => $this->form(null));
-        $r->post('/admin/collections', fn (): Response => $this->store());
-        $r->get('/admin/collections/{id}/edit', fn (array $p): Response => $this->form((int) $p['id']));
-        $r->post('/admin/collections/{id}', fn (array $p): Response => $this->update((int) $p['id']));
-        $r->post('/admin/collections/{id}/delete', fn (array $p): Response => $this->destroy((int) $p['id']));
+        $r->group('/admin/collections', [$this->authMw], function (Router $g): void {
+            // ---- collections (structural: admin only) ----
+            $g->get('', fn (): Response => $this->index())->name('admin.collections.index');
+            $g->get('/new', fn (): Response => $this->form(null))->name('admin.collections.new');
+            $g->post('', fn (): Response => $this->store());
+            $g->get('/{id}/edit', fn (array $p): Response => $this->form((int) $p['id']))->name('admin.collections.edit');
+            $g->post('/{id}', fn (array $p): Response => $this->update((int) $p['id']));
+            $g->post('/{id}/delete', fn (array $p): Response => $this->destroy((int) $p['id']));
 
-        // ---- entries ----
-        $r->get('/admin/collections/{handle}/entries', fn (array $p): Response => $this->entriesIndex($p['handle']));
-        $r->get('/admin/collections/{handle}/entries/new', fn (array $p): Response => $this->entryForm($p['handle'], null));
-        $r->post('/admin/collections/{handle}/entries', fn (array $p): Response => $this->entryStore($p['handle']));
-        $r->get('/admin/collections/{handle}/entries/{id}/edit', fn (array $p): Response => $this->entryForm($p['handle'], (int) $p['id']));
-        $r->post('/admin/collections/{handle}/entries/{id}', fn (array $p): Response => $this->entryUpdate($p['handle'], (int) $p['id']));
-        $r->post('/admin/collections/{handle}/entries/{id}/delete', fn (array $p): Response => $this->entryDestroy($p['handle'], (int) $p['id']));
+            // ---- entries ----
+            $g->get('/{handle}/entries', fn (array $p): Response => $this->entriesIndex($p['handle']))->name('admin.entries.index');
+            $g->get('/{handle}/entries/new', fn (array $p): Response => $this->entryForm($p['handle'], null))->name('admin.entries.new');
+            $g->post('/{handle}/entries', fn (array $p): Response => $this->entryStore($p['handle']));
+            $g->get('/{handle}/entries/{id}/edit', fn (array $p): Response => $this->entryForm($p['handle'], (int) $p['id']))->name('admin.entries.edit');
+            $g->post('/{handle}/entries/{id}', fn (array $p): Response => $this->entryUpdate($p['handle'], (int) $p['id']));
+            $g->post('/{handle}/entries/{id}/delete', fn (array $p): Response => $this->entryDestroy($p['handle'], (int) $p['id']));
+        });
     }
 
     // =========================================================== collections
 
     private function index(): Response
     {
-        $this->guard();
         $rows = [];
         foreach ($this->collections->all() as $c) {
             $rows[] = [
@@ -159,7 +160,6 @@ final class CollectionsController extends Controller
     private function entriesIndex(string $handle): Response
     {
         $collection = $this->mustFind($handle);
-        $this->guard();
 
         // A singleton has no list — go straight to editing its one entry.
         if ($collection->isSingle()) {
@@ -389,7 +389,6 @@ final class CollectionsController extends Controller
 
     private function requireAdmin(): void
     {
-        $this->guard();
         if (!Permissions::isAdmin($this->auth->user())) {
             $this->abortTo('/admin/collections');
         }
@@ -397,7 +396,6 @@ final class CollectionsController extends Controller
 
     private function requireManage(Collection $collection): void
     {
-        $this->guard();
         if (!Permissions::canManage($this->auth->user(), $collection)) {
             $this->abortTo("/admin/collections/{$collection->handle}/entries");
         }

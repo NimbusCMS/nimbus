@@ -7,23 +7,26 @@ namespace Nimbus\Admin;
 use Nimbus\Auth\Auth;
 use Nimbus\Database\Connection;
 use Nimbus\Http\HttpException;
+use Nimbus\Http\Middleware\AuthMiddleware;
 use Nimbus\Http\Response;
 use Nimbus\Support\Config;
 use Nimbus\View\View;
 
-/** Shared admin plumbing: the themed view, sidebar nav, auth guard, redirects. */
+/** Shared admin plumbing: the themed view, sidebar nav, auth middleware, redirects. */
 abstract class Controller
 {
     protected View $view;
+    protected AuthMiddleware $authMw;
 
     public function __construct(
         protected Connection $db,
         protected Auth $auth,
     ) {
-        $this->view = new View(dirname(__DIR__) . '/View/themes/nimbus', [
+        $this->view   = new View(dirname(__DIR__) . '/View/themes/nimbus', [
             'auth'    => $auth,
             'appName' => Config::appName(),
         ]);
+        $this->authMw = new AuthMiddleware($auth);
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -63,12 +66,5 @@ abstract class Controller
     protected function abortTo(string $to): never
     {
         throw HttpException::redirect($to);
-    }
-
-    protected function guard(): void
-    {
-        if (!$this->auth->check()) {
-            $this->abortTo('/admin/login');
-        }
     }
 }

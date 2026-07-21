@@ -54,11 +54,8 @@ final class Application
             (new CollectionsController($this->db, $this->auth))->routes($router);
             $router->get('/', fn (): Response => $this->home());
 
-            $hit = $router->dispatch($request->method, $request->path);
-            if ($hit === null) {
-                return $this->notice('Not found', 'Nothing lives at <code>' . View::e($request->path) . '</code>.', 404);
-            }
-            return $hit['result'];
+            return $router->dispatch($request)
+                ?? $this->notice('Not found', 'Nothing lives at <code>' . View::e($request->path) . '</code>.', 404);
         } catch (HttpException $e) {
             return $e->response;
         } catch (\Throwable $e) {
