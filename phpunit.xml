@@ -13,6 +13,9 @@
         <testsuite name="integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <testsuite name="http">
+            <directory>tests/Http</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

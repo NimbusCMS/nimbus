@@ -10,6 +10,12 @@ declare(strict_types=1);
  */
 require __DIR__ . '/../vendor/autoload.php';
 
+// Sessions in CLI: there is nowhere to send a cookie, and attempting to would
+// warn once PHPUnit has printed anything. The HTTP-functional tests still get
+// real session storage, real ids, and real session_regenerate_id().
+ini_set('session.use_cookies', '0');
+ini_set('session.cache_limiter', '');
+
 use Nimbus\Database\Connection;
 use Nimbus\Database\Migrator;
 

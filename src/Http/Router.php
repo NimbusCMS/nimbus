@@ -62,6 +62,17 @@ final class Router
     }
 
     /**
+     * Every registered route, in match order. Read-only introspection — used
+     * by tests to assert the handler contract, and by future route listings.
+     *
+     * @return Route[]
+     */
+    public function routes(): array
+    {
+        return $this->routes;
+    }
+
+    /**
      * Generate a URL for a named route.
      *
      * @param array<string,mixed> $params

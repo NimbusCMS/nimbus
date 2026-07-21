@@ -27,6 +27,7 @@
     "scripts": {
         "test": "phpunit",
         "analyse": "phpstan analyse --memory-limit=512M",
+        "smoke": "tests/smoke.sh",
         "check": [
             "@analyse",
             "@test"

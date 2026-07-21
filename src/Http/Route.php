@@ -40,6 +40,12 @@ final class Route
         return $this->name;
     }
 
+    /** The registered handler, for introspection (route listings, contract tests). */
+    public function handler(): callable
+    {
+        return $this->handler;
+    }
+
     public function middleware(callable ...$middleware): self
     {
         $this->middleware = array_merge($this->middleware, $middleware);

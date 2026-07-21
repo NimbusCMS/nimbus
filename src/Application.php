@@ -27,11 +27,18 @@ final class Application
     private Connection $db;
     private Auth $auth;
 
-    public function __construct()
+    /**
+     * Defaults to the configured database — pass one in to run the kernel
+     * against a different connection (the HTTP-functional tests do this).
+     */
+    public function __construct(?Connection $db = null, ?Auth $auth = null)
     {
-        Env::load(Config::basePath() . '/.env');
-        $this->db   = new Connection(Config::db());
-        $this->auth = new Auth($this->db);
+        if ($db === null) {
+            Env::load(Config::basePath() . '/.env');
+            $db = new Connection(Config::db());
+        }
+        $this->db   = $db;
+        $this->auth = $auth ?? new Auth($this->db);
     }
 
     public function run(): void
@@ -42,7 +49,12 @@ final class Application
         SecurityHeaders::apply($this->handle($request))->send();
     }
 
-    private function handle(Request $request): Response
+    /**
+     * Route one request to one response. Every exit path returns a Response:
+     * no match is a 404, an HttpException becomes its own response, and any
+     * other throwable becomes a logged reference plus a generic 500.
+     */
+    public function handle(Request $request): Response
     {
         try {
             if (!$this->db->isReady()) {
@@ -52,12 +64,7 @@ final class Application
                 return $this->notice('Not installed yet', 'Run <code>php bin/nimbus install</code> to conjure the schema and your first user.', 503);
             }
 
-            $router = new Router();
-            (new AdminController($this->db, $this->auth))->routes($router);
-            (new CollectionsController($this->db, $this->auth))->routes($router);
-            $router->get('/', fn (Request $req, array $p): Response => $this->home());
-
-            return $router->dispatch($request)
+            return $this->routes()->dispatch($request)
                 ?? $this->notice('Not found', 'Nothing lives at <code>' . View::e($request->path) . '</code>.', 404);
         } catch (HttpException $e) {
             return $e->response;
@@ -70,6 +77,20 @@ final class Application
                 : 'An unexpected error occurred. Reference: <code>' . $ref . '</code>';
             return $this->notice('Something went wrong', $message, 500);
         }
+    }
+
+    /**
+     * Every route the application serves, in match order. Building this in one
+     * place keeps the served routes and the introspected routes identical —
+     * the route-contract test asserts against exactly what ships.
+     */
+    public function routes(): Router
+    {
+        $router = new Router();
+        (new AdminController($this->db, $this->auth))->routes($router);
+        (new CollectionsController($this->db, $this->auth))->routes($router);
+        $router->get('/', fn (Request $req, array $p): Response => $this->home());
+        return $router;
     }
 
     /** Start the session with secure cookie defaults set BEFORE session_start(). */
