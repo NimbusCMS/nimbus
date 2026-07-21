@@ -166,6 +166,24 @@ consumer rather than designed in isolation.
    byte-identical, shows it read-only, blocks saves, and re-enabling restores
    editing.
 
+## 🧩 Plugin lifecycle hardening
+
+- [x] **Registration rollback** — a plugin that registers two types and throws
+      on the second has the first undone, so "failed" in the diagnostics and
+      "inactive" in the application can never disagree
+- [x] **Ids claimed on installation, not on success** — a disabled or broken
+      plugin keeps its id, so disabling the official plugin cannot hand its
+      identity to another installed package
+- [x] **Provider ids bound by the loader** — a plugin cannot register under
+      another provider's name (and so cannot get their types rolled back)
+- [x] **Compatibility policy** — [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)
+- [ ] **Read-only admin plugin screen** — installed / enabled / disabled /
+      failed, with the diagnostic. Read-only on purpose: no install, no remote
+      update, no upload.
+- [ ] **Cross-repository integration test** — install core and the Markdown
+      package through Composer and drive the whole lifecycle, proving the
+      package boundary rather than the field implementation
+
 ## 📦 Release & packaging (blocks a stable plugin ecosystem)
 
 Neither `nimbuscms/nimbus` nor `nimbuscms/markdown` is on Packagist, so the

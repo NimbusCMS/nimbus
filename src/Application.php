@@ -15,7 +15,6 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\SecurityHeaders;
-use Nimbus\Plugin\PluginContext;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
 use Nimbus\Support\Config;
@@ -75,7 +74,7 @@ final class Application
             Config::basePath() . '/vendor/composer/installed.json',
             Config::enabledPlugins(),
         );
-        $this->pluginDiagnostics = $loader->load(new PluginContext($this->fieldTypes));
+        $this->pluginDiagnostics = $loader->load($this->fieldTypes);
 
         foreach ($this->pluginDiagnostics as $diagnostic) {
             if ($diagnostic->isFailure()) {
