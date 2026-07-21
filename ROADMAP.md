@@ -38,6 +38,18 @@ Legend: `[x]` done · `[~]` partial · `[ ]` planned
 
 ---
 
+## 🧭 Pre-plugin stabilization milestone (immediate next — gates plugin work)
+
+Plugins create long-term contracts, so we harden the extension substrate before
+freezing any public API. Landing as separate PRs:
+
+1. **HTTP `Response` object** — `html` / `redirect` / `json` / `download`; kernel sends it. No scattered `header()` / `echo` / `exit` in controllers.
+2. **Routing improvements** — named routes + URL generation + middleware groups. Explicit, not framework-y.
+3. **Security review** — session policy `[x]`, upload validation + MIME verification (lands with Media), CSP headers, auth hardening (throttling, password reset).
+4. **Testing** — expand PHPUnit around field contracts, validation, auth, permissions, routing, repositories, transactions, and (eventually) plugin loading.
+
+> Plugins should not be the first consumers of unstable APIs.
+
 ## 🎯 Release 0.1 — "usable CMS"
 
 1. **Publishing workflow** — draft / published / scheduled / archived; `published_at` + `unpublished_at`; preview unpublished; publish/unpublish actions; autosave / recoverable drafts; unsaved-changes warning; bulk publish/archive/delete; optional approval flow (author → editor → publisher). *Lifecycle fields stay on indexed columns, never JSON.*
@@ -72,15 +84,34 @@ Legend: `[x]` done · `[~]` partial · `[ ]` planned
 
 ---
 
-## 🔌 Extensibility (cross-cutting — plugins first-class)
+## 🔌 Extensibility — plugin architecture (design; build **after** the milestone above)
 
-- [ ] **Formal Plugin / service-provider interface** ← *next up* — register field types, routes, admin-nav items, event listeners, and migrations; versioned extension API; isolated from private classes.
-- [x] Field-type interface + registry
+**Vocabulary.** *Core* = the small kernel (routing, HTTP, auth, DB, migrations,
+collections, entries, validation, plugin/theme loading, event dispatcher, stable
+extension registries); defines invariants. *Plugin* = the only installable
+extension unit (independently versioned/enabled/disabled; Composer now,
+marketplace later); provides *features*. *Theme* = presentation package; never
+owns business logic; may depend on plugins. *Feature* = user-facing capability
+(product language) — may live in Core or a plugin. *Capability* = a stable Core
+extension point (architecture language, **not** a second installable concept).
+
+**Plugins consume capabilities via an explicit `PluginContext`** — the small,
+deliberate public surface:
+
+- [ ] Field types · Routes · Events · Permissions · Admin navigation · Dashboard widgets · API resources · Asset providers · Migrations
+- [ ] Plugins get **no** unrestricted access to `Application`, controllers, internal repositories, session internals, or a service locator.
+- [ ] `Plugin` interface + loader (register into `PluginContext`); versioned; enable/disable.
+- [x] Field-type interface + registry (first capability, already live)
 - [~] Event dispatcher — synchronous; documented events (`entry.created/updated/saved/deleted`); add `EntrySaving/Published` as consumers appear
 - [ ] Storage adapter interface (local / S3-compatible)
 - [ ] Cache adapter interface
-- [ ] Plugin CLI-command registration
-- [ ] Plugin migration mechanism
+
+**Official plugins** (Media, SEO, Markdown, Search, Revisions, Redirects,
+Activity Log) are maintained by Nimbus but optional, and use the **exact same
+public APIs** as community plugins — no privileged plugin architecture. If an
+official plugin needs an internal API, that API is evaluated for promotion into
+the public surface. Later: an official **marketplace** (browse/install/update/
+enable/disable) with review-based submission, and an official theme directory.
 
 ## 🔐 RBAC / permissions
 
