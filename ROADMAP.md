@@ -62,7 +62,10 @@ repositories, install+CRUD smoke test — all green.*
 - [x] **PHPStan** level 6 in CI — *#7*
 - [x] HTTP-functional tests: CSRF on write routes, permission enforcement,
   cross-collection entry-id isolation — *#8*
-- [ ] **PHP-CS-Fixer**/PHPCS in CI (PHPStan landed; formatting did not)
+- [ ] **PHP-CS-Fixer**/PHPCS in CI — PHPStan landed, formatting did not. Wanted
+      **before outside contributions arrive**: with several repositories and
+      contributors, formatting noise multiplies and every review starts
+      arguing about whitespace. PSR-12-oriented, small config.
 - [ ] Raise PHPStan above level 6
 - [ ] Entry-list **pagination**
 - [ ] Collection-index **N+1 count** query fix
@@ -162,6 +165,45 @@ consumer rather than designed in isolation.
 8. [x] **Degradation proven** — disabling the plugin leaves stored data
    byte-identical, shows it read-only, blocks saves, and re-enabling restores
    editing.
+
+## 📦 Release & packaging (blocks a stable plugin ecosystem)
+
+Neither `nimbuscms/nimbus` nor `nimbuscms/markdown` is on Packagist, so the
+plugin currently requires core through a VCS repository at `dev-main`:
+
+```json
+"require-dev": { "nimbuscms/nimbus": "dev-main" },
+"repositories": [
+    { "type": "vcs", "url": "https://github.com/NimbusCMS/nimbus" }
+]
+```
+
+That works, and it is the right call while the API is still moving — but it
+means every plugin build tracks core's `main`, so a breaking change to core
+breaks every plugin's CI the moment it merges, with no way to pin. And nobody
+outside the project can `composer require nimbuscms/markdown` at all.
+
+Ordered, because each step depends on the one before:
+
+- [ ] Decide the **public API surface** — which namespaces a plugin may rely on
+      (`Nimbus\Plugin\*` and the `FieldType` contract today) and which are
+      internal and free to change without notice
+- [ ] Adopt **semantic versioning** + a `CHANGELOG.md`, and document which core
+      versions each plugin supports
+- [ ] **Tag `0.1.0`** on core — the first point at which a plugin can pin `^0.1`
+- [ ] **Publish to Packagist**, so `composer require` works with no
+      `repositories` block
+- [ ] Switch `plugin-markdown` from `dev-main` to `^0.1` and test against the
+      **lowest and current** supported core versions in its matrix
+- [ ] Decide whether reusable contracts eventually split into a separate
+      `nimbuscms/core` package — **only** when installing Nimbus as a
+      dependency becomes a real requirement. Splitting now buys release and
+      synchronisation overhead before the plugin API has been proven.
+
+> Renaming packages or moving repositories after third parties depend on them
+> is the expensive version of this work. Doing it while nothing is published
+> costs nothing — which is exactly why core moved to `NimbusCMS/nimbus` before
+> the first plugin shipped.
 
 ## 🧭 Next: a second reference plugin
 
