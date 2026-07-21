@@ -18,18 +18,20 @@ final class AdminController extends Controller
 {
     public function routes(Router $r): void
     {
-        $r->get('/admin/login', fn (): Response => $this->loginForm());
+        // Public (no auth middleware).
+        $r->get('/admin/login', fn (): Response => $this->loginForm())->name('admin.login');
         $r->post('/admin/login', fn (): Response => $this->login());
-        $r->post('/admin/logout', fn (): Response => $this->logout());
-        $r->get('/admin', fn (): Response => $this->dashboardPage());
-        $r->get('/admin/dashboard', fn (): Response => $this->dashboardPage());
+        $r->post('/admin/logout', fn (): Response => $this->logout())->name('admin.logout');
 
-        foreach (['media', 'users', 'settings'] as $section) {
-            $r->get("/admin/{$section}", function () use ($section): Response {
-                $this->guard();
-                return $this->page('stub', $section, ['title' => ucfirst($section)]);
-            });
-        }
+        // Everything else is gated by the auth middleware.
+        $r->group('/admin', [$this->authMw], function (Router $g): void {
+            $g->get('', fn (): Response => $this->dashboardPage())->name('admin.dashboard');
+            $g->get('/dashboard', fn (): Response => $this->dashboardPage());
+
+            foreach (['media', 'users', 'settings'] as $section) {
+                $g->get("/{$section}", fn (): Response => $this->page('stub', $section, ['title' => ucfirst($section)]))->name("admin.{$section}");
+            }
+        });
     }
 
     private function loginForm(?string $error = null): Response
@@ -68,7 +70,6 @@ final class AdminController extends Controller
 
     private function dashboardPage(): Response
     {
-        $this->guard();
         return $this->page('dashboard', 'dashboard', [
             'stats' => [
                 'collections' => $this->count('nb_collections'),

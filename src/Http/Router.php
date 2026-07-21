@@ -5,45 +5,84 @@ declare(strict_types=1);
 namespace Nimbus\Http;
 
 /**
- * A tiny regex router. Patterns use {name} placeholders, e.g.
- * "/admin/collections/{handle}/entries/{id}". The first matching route wins;
- * its handler receives an array of captured params.
+ * A small, explicit router. Routes use `{name}` placeholders; the first match
+ * wins. Supports named routes (for URL generation) and middleware groups
+ * (a shared prefix + middleware applied to routes registered inside).
  */
 final class Router
 {
-    /** @var array<int,array{0:string,1:string,2:callable}> */
+    /** @var Route[] */
     private array $routes = [];
 
-    public function get(string $pattern, callable $handler): void
+    /** @var string[] active group-prefix stack */
+    private array $prefixes = [];
+
+    /** @var array<int,array<int,callable>> active group-middleware stack */
+    private array $middlewareStack = [];
+
+    public function get(string $pattern, callable $handler): Route
     {
-        $this->routes[] = ['GET', $pattern, $handler];
+        return $this->add('GET', $pattern, $handler);
     }
 
-    public function post(string $pattern, callable $handler): void
+    public function post(string $pattern, callable $handler): Route
     {
-        $this->routes[] = ['POST', $pattern, $handler];
+        return $this->add('POST', $pattern, $handler);
     }
 
     /**
-     * Dispatch; returns the handler result, or null when nothing matched.
+     * Register routes under a shared path prefix + middleware.
+     *
+     * @param array<int,callable> $middleware
      */
-    public function dispatch(string $method, string $path): mixed
+    public function group(string $prefix, array $middleware, callable $register): void
     {
-        foreach ($this->routes as [$routeMethod, $pattern, $handler]) {
-            if ($routeMethod !== $method) {
+        $this->prefixes[]        = $prefix;
+        $this->middlewareStack[] = $middleware;
+        $register($this);
+        array_pop($this->prefixes);
+        array_pop($this->middlewareStack);
+    }
+
+    /** Dispatch a request. Returns the Response, or null when nothing matched. */
+    public function dispatch(Request $request): ?Response
+    {
+        foreach ($this->routes as $route) {
+            if ($route->method !== $request->method) {
                 continue;
             }
-            if (preg_match($this->toRegex($pattern), $path, $matches)) {
-                $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
-                return ['matched' => true, 'result' => $handler($params)];
+            $params = $route->match($request->path);
+            if ($params !== null) {
+                return $route->run($request, $params);
             }
         }
         return null;
     }
 
-    private function toRegex(string $pattern): string
+    /**
+     * Generate a URL for a named route.
+     *
+     * @param array<string,mixed> $params
+     */
+    public function url(string $name, array $params = []): string
     {
-        $regex = preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $pattern);
-        return '#^' . $regex . '/?$#';
+        foreach ($this->routes as $route) {
+            if ($route->routeName() === $name) {
+                return $route->url($params);
+            }
+        }
+        throw new \RuntimeException("Unknown route name: {$name}");
+    }
+
+    private function add(string $method, string $pattern, callable $handler): Route
+    {
+        $route = new Route(
+            $method,
+            implode('', $this->prefixes) . $pattern,
+            $handler,
+            $this->middlewareStack === [] ? [] : array_merge(...$this->middlewareStack),
+        );
+        $this->routes[] = $route;
+        return $route;
     }
 }
