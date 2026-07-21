@@ -22,7 +22,7 @@ $name     = 'fields[' . $i . ']';
 <div class="nb-field-row" data-row>
     <div class="nb-field-row-main">
         <input class="nb-fr-label" name="<?= $e($name) ?>[label]" placeholder="Field label" value="<?= $e($label) ?>" data-label>
-        <input class="nb-fr-handle" name="<?= $e($name) ?>[handle]" placeholder="handle" value="<?= $e($handle) ?>" <?= $f ? 'readonly title="Handle can’t change once entries exist"' : '' ?> data-handle>
+        <input class="nb-fr-handle" name="<?= $e($name) ?>[handle]" placeholder="handle" value="<?= $e($handle) ?>" <?= ($f && ($lockHandles ?? true)) ? 'readonly title="Handle can’t change once entries exist"' : '' ?> data-handle>
         <select class="nb-fr-type" name="<?= $e($name) ?>[type]" data-type>
             <?php foreach ($typeChoices as $tk => $tl): ?>
                 <option value="<?= $e($tk) ?>" <?= $type === $tk ? 'selected' : '' ?>><?= $e($tl) ?></option>

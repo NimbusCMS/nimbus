@@ -47,7 +47,7 @@ $h          = $e($collection->handle);
                         <br><code class="nb-slug"><?= $e($row['slug']) ?></code>
                     </td>
                     <?php foreach ($listFields as $lf): ?>
-                        <td><?= $types->get($lf->type)->renderCell($lf, $row['data'][$lf->handle] ?? null) ?></td>
+                        <td><?= $types->forDisplay($lf->type)->renderCell($lf, $row['data'][$lf->handle] ?? null) ?></td>
                     <?php endforeach; ?>
                     <td><span class="nb-badge nb-badge-<?= $row['status'] === 'published' ? 'ok' : 'muted' ?>"><?= $e(ucfirst((string) $row['status'])) ?></span></td>
                     <td class="nb-muted"><?= $e(date('M j, Y', strtotime((string) $row['updated_at']))) ?></td>

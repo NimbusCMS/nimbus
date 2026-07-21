@@ -7,7 +7,9 @@ namespace Nimbus\Admin;
 use Nimbus\Content\Collection;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\CollectionService;
+use Nimbus\Content\DuplicateHandle;
 use Nimbus\Content\EntryInput;
+use Nimbus\Content\Field;
 use Nimbus\Content\EntryRepository;
 use Nimbus\Content\EntryService;
 use Nimbus\Content\FieldTypeRegistry;
@@ -92,12 +94,67 @@ final class CollectionsController extends Controller
         if ($id !== null && $collection === null) {
             return $this->redirect('/admin/collections');
         }
+        return $this->renderCollectionForm($collection, $this->draftFromCollection($collection), []);
+    }
+
+    private function store(Request $req): Response
+    {
+        $this->requireAdmin();
+        $this->requireCsrf($req);
+
+        $draft  = $this->draftFromRequest($req);
+        $errors = $this->validateDraft($draft);
+
+        if ($errors === []) {
+            try {
+                $this->collectionService->create(
+                    $draft['handle'],
+                    $draft['name'],
+                    $draft['icon'],
+                    $draft['description'],
+                    $this->options($req),
+                    $this->fieldDefs($req),
+                );
+                return $this->redirect('/admin/collections?msg=created');
+            } catch (DuplicateHandle $e) {
+                $errors['handle'] = 'The handle “' . $e->handle . '” is already taken. Pick another.';
+            }
+        }
+        // Re-render what was submitted rather than throwing the work away.
+        return $this->renderCollectionForm(null, $draft, $errors);
+    }
+
+    private function update(Request $req, int $id): Response
+    {
+        $this->requireAdmin();
+        $this->requireCsrf($req);
+
+        $collection = $this->collections->find($id);
+        if ($collection === null) {
+            return $this->redirect('/admin/collections');
+        }
+
+        $draft  = $this->draftFromRequest($req);
+        $errors = $this->validateDraft($draft);
+        if ($errors !== []) {
+            return $this->renderCollectionForm($collection, $draft, $errors);
+        }
+
+        $this->collectionService->update($id, $draft['name'], $draft['icon'], $draft['description'], $this->options($req), $this->fieldDefs($req));
+        return $this->redirect('/admin/collections?msg=updated');
+    }
+
+    /** @param array<string,mixed> $draft @param array<string,string> $errors */
+    private function renderCollectionForm(?Collection $collection, array $draft, array $errors): Response
+    {
         $collectionOptions = [];
         foreach ($this->collections->all() as $c) {
             $collectionOptions[$c->handle] = $c->name;
         }
         return $this->page('collections/form', 'collections', [
             'collection'        => $collection,
+            'draft'             => $draft,
+            'errors'            => $errors,
             'typeChoices'       => $this->types->choices(),
             'choiceTypes'       => $this->choiceTypes(),
             'relationTypes'     => ['relation'],
@@ -107,42 +164,56 @@ final class CollectionsController extends Controller
         ]);
     }
 
-    private function store(Request $req): Response
+    /** @return array<string,mixed> the form model: stored collection, or blank for a new one */
+    private function draftFromCollection(?Collection $c): array
     {
-        $this->requireAdmin();
-        $this->requireCsrf($req);
-
-        $name   = trim((string) $req->input('name'));
-        $handle = Str::handle($req->input('handle') ?: $name);
-        if ($name === '' || $handle === '' || $this->collections->handleExists($handle)) {
-            return $this->redirect('/admin/collections/new');
-        }
-
-        try {
-            $this->collectionService->create($handle, $name, $this->icon($req), (string) $req->input('description'), $this->options($req), $this->fieldDefs($req));
-        } catch (\PDOException $e) {
-            if (\Nimbus\Database\Connection::isDuplicateKey($e)) {
-                return $this->redirect('/admin/collections/new'); // handle taken (race)
-            }
-            throw $e;
-        }
-        return $this->redirect('/admin/collections?msg=created');
+        return [
+            'name'        => $c?->name ?? '',
+            'handle'      => $c?->handle ?? '',
+            'icon'        => $c?->icon ?? '❑',
+            'description' => $c?->description ?? '',
+            'kind'        => $c !== null && $c->isSingle() ? 'single' : 'collection',
+            'roles'       => $c?->managerRoles() ?? [],
+            'fields'      => $c?->fields ?? [],
+        ];
     }
 
-    private function update(Request $req, int $id): Response
+    /** @return array<string,mixed> the form model rebuilt from a submission */
+    private function draftFromRequest(Request $req): array
     {
-        $this->requireAdmin();
-        $this->requireCsrf($req);
+        $name    = trim((string) $req->input('name'));
+        $options = $this->options($req);
 
-        if ($this->collections->find($id) === null) {
-            return $this->redirect('/admin/collections');
+        return [
+            'name'        => $name,
+            'handle'      => Str::handle(($req->input('handle') ?? '') !== '' ? (string) $req->input('handle') : $name),
+            'icon'        => $this->icon($req),
+            'description' => (string) $req->input('description'),
+            'kind'        => $options['kind'],
+            'roles'       => $options['permissions']['manage'],
+            // Field defs are already normalized; wrap them so the builder can
+            // re-render the rows exactly as they were submitted.
+            'fields'      => array_map(
+                static fn (array $d): Field => new Field($d['handle'], $d['label'], $d['type'], $d['required'], $d['options']),
+                $this->fieldDefs($req),
+            ),
+        ];
+    }
+
+    /**
+     * @param array<string,mixed> $draft
+     * @return array<string,string>
+     */
+    private function validateDraft(array $draft): array
+    {
+        $errors = [];
+        if ($draft['name'] === '') {
+            $errors['name'] = 'Name is required.';
         }
-        $name = trim((string) $req->input('name'));
-        if ($name === '') {
-            return $this->redirect("/admin/collections/{$id}/edit");
+        if ($draft['handle'] === '') {
+            $errors['handle'] = 'Handle is required (it is normally derived from the name).';
         }
-        $this->collectionService->update($id, $name, $this->icon($req), (string) $req->input('description'), $this->options($req), $this->fieldDefs($req));
-        return $this->redirect('/admin/collections?msg=updated');
+        return $errors;
     }
 
     private function destroy(Request $req, int $id): Response
@@ -287,7 +358,10 @@ final class CollectionsController extends Controller
         $values = [];
         foreach ($collection->fields as $field) {
             $raw = is_array($posted) ? ($posted[$field->handle] ?? null) : null;
-            $values[$field->handle] = $this->types->get($field->type)->normalize($raw);
+            // forDisplay(), not get(): an unavailable type must not fatal here.
+            // MissingType hands the value back untouched, and EntryService then
+            // rejects the save with a message naming the missing provider.
+            $values[$field->handle] = $this->types->forDisplay($field->type)->normalize($raw);
         }
         return new EntryInput(
             trim((string) $req->input('title')),

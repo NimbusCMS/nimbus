@@ -33,6 +33,17 @@ final class EntryService
 
     public function save(Collection $collection, EntryInput $input, ?int $entryId, ?int $userId): SaveEntryResult
     {
+        // Refuse to write through a field type nobody provides: normalizing the
+        // value with the wrong type would silently rewrite what is stored.
+        // Nothing is touched, so the data survives until the plugin is back.
+        $missing = $this->types->missingFor($collection->fields);
+        if ($missing !== []) {
+            return SaveEntryResult::failed([
+                '__types' => 'This entry cannot be saved: the field type(s) “' . implode('”, “', $missing)
+                    . '” are unavailable. Install or reactivate the plugin that provides them. Existing content is unchanged.',
+            ], $input);
+        }
+
         // A singleton never creates a second row: target the existing one if present.
         if ($collection->isSingle() && $entryId === null) {
             $existing = $this->entries->firstForCollection($collection->id);

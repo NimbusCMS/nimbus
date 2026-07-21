@@ -7,6 +7,7 @@ namespace Nimbus\Content;
 use Nimbus\Content\FieldTypes\BooleanType;
 use Nimbus\Content\FieldTypes\DateType;
 use Nimbus\Content\FieldTypes\EmailType;
+use Nimbus\Content\FieldTypes\MissingType;
 use Nimbus\Content\FieldTypes\NumberType;
 use Nimbus\Content\FieldTypes\RelationType;
 use Nimbus\Content\FieldTypes\SelectType;
@@ -46,14 +47,48 @@ final class FieldTypeRegistry
         $this->types[$type->type()] = $type;
     }
 
+    /**
+     * Strict lookup for normalization, validation, persistence and API
+     * serialization. Falling back to text here would silently rewrite stored
+     * values through the wrong type, so an unregistered type is an error.
+     *
+     * @throws UnknownFieldType
+     */
     public function get(string $type): FieldType
     {
-        return $this->types[$type] ?? $this->types['text'];
+        return $this->types[$type] ?? throw new UnknownFieldType($type);
+    }
+
+    /**
+     * Lookup for admin display only. Unknown types render through MissingType,
+     * which shows the stored value read-only and names what is missing, so a
+     * deactivated plugin degrades a screen instead of breaking the admin.
+     */
+    public function forDisplay(string $type): FieldType
+    {
+        return $this->types[$type] ?? new MissingType($type);
     }
 
     public function has(string $type): bool
     {
         return isset($this->types[$type]);
+    }
+
+    /**
+     * Which of a collection's field types have no provider registered.
+     *
+     * @param array<int,Field> $fields
+     * @return string[] distinct missing type keys
+     */
+    public function missingFor(array $fields): array
+    {
+        $missing = [];
+        foreach ($fields as $field) {
+            if (!$this->has($field->type)) {
+                $missing[$field->type] = true;
+            }
+        }
+        return array_keys($missing);
     }
 
     /** @return array<string,string> type key => label, for the field-type picker */

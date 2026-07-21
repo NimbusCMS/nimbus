@@ -90,6 +90,58 @@ final class EntryServiceTest extends IntegrationTestCase
         self::assertSame(0, $this->entryCount($c->id));
     }
 
+    public function test_missing_field_type_blocks_the_save_without_touching_data(): void
+    {
+        // A collection whose field type is provided by a plugin that is no
+        // longer installed — the state you are left in after deactivating one.
+        $c = $this->collection('places', ['kind' => 'collection', 'permissions' => ['manage' => []]]);
+        $this->db->execute(
+            "INSERT INTO nb_fields (collection_id, handle, label, type, required, sort, created_at)
+             VALUES (:c, 'where', 'Where', 'geolocation', 0, 0, NOW())",
+            ['c' => $c->id]
+        );
+        $c = $this->collections->find($c->id);
+
+        $fired = 0;
+        Events::listen('entry.saved', function () use (&$fired): void {
+            $fired++;
+        });
+
+        $result = $this->service->save($c, new EntryInput('Trafalgar Square', '', 'draft', ['where' => '51.5,-0.12']), null, null);
+
+        self::assertFalse($result->successful);
+        self::assertArrayHasKey('__types', $result->errors);
+        self::assertStringContainsString('geolocation', $result->errors['__types']);
+        self::assertSame(0, $this->entryCount($c->id), 'nothing may be written');
+        self::assertSame(0, $fired, 'no events for a refused save');
+    }
+
+    public function test_existing_entries_survive_a_missing_field_type(): void
+    {
+        $c = $this->collection('places', ['kind' => 'collection', 'permissions' => ['manage' => []]]);
+        $this->db->execute(
+            "INSERT INTO nb_fields (collection_id, handle, label, type, required, sort, created_at)
+             VALUES (:c, 'body', 'Body', 'text', 0, 0, NOW())",
+            ['c' => $c->id]
+        );
+        $c = $this->collections->find($c->id);
+
+        // Saved while the type was available...
+        self::assertTrue($this->service->save($c, new EntryInput('Kept', '', 'draft', ['body' => 'original']), null, null)->successful);
+
+        // ...then the provider disappears.
+        $this->db->execute('UPDATE nb_fields SET type = :t WHERE collection_id = :c', ['t' => 'geolocation', 'c' => $c->id]);
+        $c   = $this->collections->find($c->id);
+        $row = $this->db->selectOne('SELECT id, data FROM nb_entries WHERE collection_id = :c', ['c' => $c->id]);
+
+        $result = $this->service->save($c, new EntryInput('Overwritten', '', 'draft', ['body' => 'clobbered']), (int) $row['id'], null);
+
+        self::assertFalse($result->successful);
+        $after = $this->db->selectOne('SELECT title, data FROM nb_entries WHERE id = :i', ['i' => $row['id']]);
+        self::assertSame('Kept', $after['title']);
+        self::assertSame($row['data'], $after['data'], 'stored values must be byte-for-byte untouched');
+    }
+
     public function test_successful_save_dispatches_events_after_commit(): void
     {
         $events = [];

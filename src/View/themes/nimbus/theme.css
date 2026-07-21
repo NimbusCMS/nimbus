@@ -220,3 +220,9 @@ body.nb-night::before {
   .nb-nav { flex-direction: row; }
   .nb-side-foot { display: none; }
 }
+
+/* ---- unavailable field type (provider plugin missing) ---- */
+.nb-missing-type { border: 1px dashed var(--nb-danger); border-radius: 10px; padding: 12px 14px; background: #fff8f8; }
+.nb-missing-type p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: #8a3034; }
+.nb-missing-type__value { margin: 0; padding: 8px 10px; border-radius: 8px; background: #fff; border: 1px solid var(--nb-border); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+.nb-missing-type__cell { color: var(--nb-danger); font-weight: 600; }

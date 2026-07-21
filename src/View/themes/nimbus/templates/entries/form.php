@@ -24,7 +24,9 @@ $heading = $single ? $e($collection->name) : ($editing ? 'Edit' : 'New') . ' · 
 </div>
 
 <?php if (!empty($flash)): ?><div class="nb-alert nb-alert-ok"><?= $e(ucfirst($flash)) ?>.</div><?php endif; ?>
-<?php if ($errors !== []): ?>
+<?php if (isset($errors['__types'])): ?>
+    <div class="nb-alert nb-alert-error"><?= $e($errors['__types']) ?></div>
+<?php elseif ($errors !== []): ?>
     <div class="nb-alert nb-alert-error">Please fix the highlighted fields.</div>
 <?php endif; ?>
 
@@ -67,7 +69,7 @@ $heading = $single ? $e($collection->name) : ($editing ? 'Edit' : 'New') . ' · 
                     </select>
                 <?php endif; ?>
             <?php else: ?>
-                <?= $types->get($f->type)->renderInput($f, $model['values'][$f->handle] ?? '') ?>
+                <?= $types->forDisplay($f->type)->renderInput($f, $model['values'][$f->handle] ?? '') ?>
             <?php endif; ?>
 
             <?php if ((string) $f->option('help', '') !== ''): ?><span class="nb-help"><?= $e((string) $f->option('help')) ?></span><?php endif; ?>

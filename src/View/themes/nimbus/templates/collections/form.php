@@ -1,6 +1,8 @@
 <?php
 /**
- * @var \Nimbus\Content\Collection|null $collection
+ * @var \Nimbus\Content\Collection|null $collection  stored collection (null when creating)
+ * @var array<string,mixed>             $draft       form values: stored, blank, or resubmitted
+ * @var array<string,string>            $errors      field handle => message
  * @var array<string,string>            $typeChoices
  * @var string[]                        $choiceTypes
  * @var string[]                        $roles
@@ -11,8 +13,17 @@ use Nimbus\View\View;
 $e           = static fn (?string $v): string => View::e($v);
 $editing     = $collection !== null;
 $action      = $editing ? '/admin/collections/' . $collection->id : '/admin/collections';
-$manageRoles = $editing ? $collection->managerRoles() : [];
+$manageRoles = $draft['roles'] ?? [];
+$draftFields = $draft['fields'] ?? [];
+$isSingle    = ($draft['kind'] ?? 'collection') === 'single';
+$lockHandles = $editing;
+$err         = static fn (string $k): string => isset($errors[$k])
+    ? '<p class="nb-field-error">' . View::e($errors[$k]) . '</p>'
+    : '';
 ?>
+<?php if ($errors !== []): ?>
+    <div class="nb-alert nb-alert-error">Please fix the highlighted field<?= count($errors) > 1 ? 's' : '' ?> below — nothing has been saved yet.</div>
+<?php endif; ?>
 <div class="nb-page-head">
     <h1><?= $editing ? 'Edit' : 'New' ?> collection</h1>
     <a class="nb-btn" href="/admin/collections">← Back</a>
@@ -22,29 +33,31 @@ $manageRoles = $editing ? $collection->managerRoles() : [];
     <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
 
     <div class="nb-grid-2">
-        <div class="nb-field">
+        <div class="nb-field <?= isset($errors['name']) ? 'has-error' : '' ?>">
             <label>Name</label>
-            <input name="name" value="<?= $e($editing ? $collection->name : '') ?>" required>
+            <input name="name" value="<?= $e($draft['name'] ?? '') ?>" required>
+            <?= $err('name') ?>
         </div>
-        <div class="nb-field">
+        <div class="nb-field <?= isset($errors['handle']) ? 'has-error' : '' ?>">
             <label>Handle <small class="nb-muted">(used in URLs &amp; the API)</small></label>
-            <input name="handle" value="<?= $e($editing ? $collection->handle : '') ?>" <?= $editing ? 'readonly' : '' ?> placeholder="auto from name">
+            <input name="handle" value="<?= $e($draft['handle'] ?? '') ?>" <?= $editing ? 'readonly' : '' ?> placeholder="auto from name">
+            <?= $err('handle') ?>
         </div>
         <div class="nb-field">
             <label>Icon</label>
-            <input name="icon" value="<?= $e($editing ? $collection->icon : '❑') ?>" maxlength="4">
+            <input name="icon" value="<?= $e($draft['icon'] ?? '❑') ?>" maxlength="4">
         </div>
         <div class="nb-field">
             <label>Description</label>
-            <input name="description" value="<?= $e($editing ? $collection->description : '') ?>">
+            <input name="description" value="<?= $e($draft['description'] ?? '') ?>">
         </div>
     </div>
 
     <div class="nb-field">
         <label>Type</label>
         <select name="kind">
-            <option value="collection" <?= (!$editing || !$collection->isSingle()) ? 'selected' : '' ?>>Collection — many entries (Posts, Products…)</option>
-            <option value="single" <?= ($editing && $collection->isSingle()) ? 'selected' : '' ?>>Single — exactly one entry (Homepage, Settings…)</option>
+            <option value="collection" <?= !$isSingle ? 'selected' : '' ?>>Collection — many entries (Posts, Products…)</option>
+            <option value="single" <?= $isSingle ? 'selected' : '' ?>>Single — exactly one entry (Homepage, Settings…)</option>
         </select>
     </div>
 
@@ -60,7 +73,7 @@ $manageRoles = $editing ? $collection->managerRoles() : [];
 
     <h2 class="nb-section-title">Fields</h2>
     <div class="nb-fields" id="nb-fields">
-        <?php foreach (($editing ? $collection->fields : []) as $i => $f): ?>
+        <?php foreach ($draftFields as $i => $f): ?>
             <?php include __DIR__ . '/_field_row.php'; ?>
         <?php endforeach; ?>
     </div>
