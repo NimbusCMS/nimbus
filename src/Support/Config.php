@@ -55,6 +55,24 @@ final class Config
         return (string) Env::get('UPLOAD_URL', '/uploads');
     }
 
+    /**
+     * Enabled plugins, by plugin id. A plugin absent from this file is enabled
+     * by default — installing it was already a deliberate act. Listing it as
+     * false disables it without uninstalling, which is how an administrator
+     * recovers from a plugin that breaks their site.
+     *
+     * @return array<string,bool>
+     */
+    public static function enabledPlugins(): array
+    {
+        $file = self::basePath() . '/config/plugins.php';
+        if (!is_file($file)) {
+            return [];
+        }
+        $enabled = require $file;
+        return is_array($enabled) ? $enabled : [];
+    }
+
     public static function basePath(): string
     {
         return dirname(__DIR__, 2);

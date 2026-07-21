@@ -25,6 +25,9 @@ final class FieldTypeRegistry
     /** @var array<string,FieldType> */
     private array $types = [];
 
+    /** @var array<string,string> type key => who registered it */
+    private array $providers = [];
+
     public function __construct()
     {
         foreach ([
@@ -38,13 +41,33 @@ final class FieldTypeRegistry
             new UrlType(),
             new RelationType(),
         ] as $type) {
-            $this->register($type);
+            $this->register($type, 'core');
         }
     }
 
-    public function register(FieldType $type): void
+    /**
+     * Add a field type. First registration wins: a second provider claiming the
+     * same key fails rather than silently replacing the first, which would let
+     * a plugin hijack "text" and reinterpret every existing entry.
+     *
+     * $provider names who is registering, so the error can say which plugin.
+     *
+     * @throws DuplicateFieldType
+     */
+    public function register(FieldType $type, string $provider = 'a plugin'): void
     {
-        $this->types[$type->type()] = $type;
+        $key = $type->type();
+        if (isset($this->types[$key])) {
+            throw new DuplicateFieldType($key, $this->providers[$key] ?? 'core', $provider);
+        }
+        $this->types[$key]     = $type;
+        $this->providers[$key] = $provider;
+    }
+
+    /** Who provides a registered type — "core" for built-ins, else the plugin id. */
+    public function providerOf(string $type): ?string
+    {
+        return $this->providers[$type] ?? null;
     }
 
     /**

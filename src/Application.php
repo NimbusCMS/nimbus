@@ -15,6 +15,9 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\SecurityHeaders;
+use Nimbus\Plugin\PluginContext;
+use Nimbus\Plugin\PluginDiagnostic;
+use Nimbus\Plugin\PluginLoader;
 use Nimbus\Support\Config;
 use Nimbus\Support\Env;
 use Nimbus\Support\EventDispatcher;
@@ -38,6 +41,9 @@ final class Application
     private FieldTypeRegistry $fieldTypes;
     private EventDispatcher $events;
 
+    /** @var list<PluginDiagnostic> */
+    private array $pluginDiagnostics = [];
+
     /**
      * Defaults to the configured database — pass one in to run the kernel
      * against a different connection (the HTTP-functional tests do this).
@@ -52,6 +58,36 @@ final class Application
         $this->auth       = $auth ?? new Auth($this->db);
         $this->fieldTypes = new FieldTypeRegistry();
         $this->events     = new EventDispatcher();
+
+        $this->loadPlugins();
+    }
+
+    /**
+     * Register enabled plugins before anything reads the registries.
+     *
+     * A plugin that fails to load is recorded and logged, never fatal: one
+     * broken third-party package must not make the admin unreachable, which is
+     * also the only way an administrator can get in to disable it.
+     */
+    private function loadPlugins(): void
+    {
+        $loader = new PluginLoader(
+            Config::basePath() . '/vendor/composer/installed.json',
+            Config::enabledPlugins(),
+        );
+        $this->pluginDiagnostics = $loader->load(new PluginContext($this->fieldTypes));
+
+        foreach ($this->pluginDiagnostics as $diagnostic) {
+            if ($diagnostic->isFailure()) {
+                error_log('[nimbus plugin] ' . $diagnostic);
+            }
+        }
+    }
+
+    /** @return list<PluginDiagnostic> why installed plugins did not register */
+    public function pluginDiagnostics(): array
+    {
+        return $this->pluginDiagnostics;
     }
 
     public function run(): void
