@@ -30,6 +30,9 @@ jobs:
           extensions: pdo_mysql, gd, mbstring
           coverage: none
 
+      - name: Validate composer.json
+        run: composer validate --strict
+
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
