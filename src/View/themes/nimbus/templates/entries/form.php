@@ -77,13 +77,23 @@ $heading = $single ? $e($collection->name) : ($editing ? 'Edit' : 'New') . ' · 
         </div>
     <?php endforeach; ?>
 
-    <div class="nb-field">
-        <label>Status</label>
-        <select name="status">
-            <option value="draft" <?= $model['status'] === 'draft' ? 'selected' : '' ?>>Draft</option>
-            <option value="published" <?= $model['status'] === 'published' ? 'selected' : '' ?>>Published</option>
-        </select>
+    <div class="nb-grid-2">
+        <div class="nb-field">
+            <label>Status</label>
+            <select name="status">
+                <option value="draft" <?= $model['status'] === 'draft' ? 'selected' : '' ?>>Draft</option>
+                <option value="published" <?= $model['status'] === 'published' ? 'selected' : '' ?>>Published</option>
+                <option value="archived" <?= $model['status'] === 'archived' ? 'selected' : '' ?>>Archived</option>
+            </select>
+        </div>
+        <div class="nb-field">
+            <label>Publish at <small class="nb-muted">— a future time schedules it</small></label>
+            <input type="datetime-local" name="published_at" value="<?= $e($model['published_at_input'] ?? '') ?>">
+        </div>
     </div>
+    <?php if (($model['state'] ?? '') === 'scheduled'): ?>
+        <p class="nb-help">Scheduled — this entry goes live automatically at the time above.</p>
+    <?php endif; ?>
 
     <div class="nb-form-actions">
         <button type="submit" class="nb-btn nb-btn-primary"><?= $single ? 'Save' : ($editing ? 'Save entry' : 'Create entry') ?></button>

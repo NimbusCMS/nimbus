@@ -5,6 +5,7 @@
  * @var \Nimbus\Content\FieldTypeRegistry $types
  * @var bool                             $canManage
  */
+use Nimbus\Content\Publication;
 use Nimbus\Http\Csrf;
 use Nimbus\View\View;
 
@@ -49,11 +50,22 @@ $h          = $e($collection->handle);
                     <?php foreach ($listFields as $lf): ?>
                         <td><?= $types->forDisplay($lf->type)->renderCell($lf, $row['data'][$lf->handle] ?? null) ?></td>
                     <?php endforeach; ?>
-                    <td><span class="nb-badge nb-badge-<?= $row['status'] === 'published' ? 'ok' : 'muted' ?>"><?= $e(ucfirst((string) $row['status'])) ?></span></td>
+                    <?php $state = Publication::state((string) $row['status'], $row['published_at'] ?? null); ?>
+                    <td>
+                        <span class="nb-badge nb-badge-state-<?= $e($state) ?>"><?= $e(Publication::label($state)) ?></span>
+                        <?php if ($state === 'scheduled'): ?>
+                            <div class="nb-muted nb-sched-at"><?= $e(date('M j, Y · g:ia', strtotime((string) $row['published_at']))) ?></div>
+                        <?php endif; ?>
+                    </td>
                     <td class="nb-muted"><?= $e(date('M j, Y', strtotime((string) $row['updated_at']))) ?></td>
                     <td class="nb-row-actions">
                         <?php if ($canManage): ?>
                             <a href="/admin/collections/<?= $h ?>/entries/<?= (int) $row['id'] ?>/edit">Edit</a>
+                            <?php $action = $state === 'published' || $state === 'scheduled' ? 'unpublish' : 'publish'; ?>
+                            <form method="post" action="/admin/collections/<?= $h ?>/entries/<?= (int) $row['id'] ?>/<?= $action ?>">
+                                <input type="hidden" name="_token" value="<?= $e(Csrf::token()) ?>">
+                                <button type="submit" class="nb-link"><?= $action === 'publish' ? 'Publish' : 'Unpublish' ?></button>
+                            </form>
                             <form method="post" action="/admin/collections/<?= $h ?>/entries/<?= (int) $row['id'] ?>/delete" onsubmit="return confirm('Delete this entry?');">
                                 <input type="hidden" name="_token" value="<?= $e(Csrf::token()) ?>">
                                 <button type="submit" class="nb-link-danger">Delete</button>

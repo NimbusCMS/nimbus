@@ -12,6 +12,7 @@ use Nimbus\Content\EntryRepository;
 use Nimbus\Content\EntryService;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\Permissions;
+use Nimbus\Content\Publication;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
@@ -68,6 +69,8 @@ final class EntriesController extends Controller
             $g->post('', fn (Request $req, array $p): Response => $this->store($req, $p['handle']));
             $g->get('/{id}/edit', fn (Request $req, array $p): Response => $this->form($p['handle'], (int) $p['id']))->name('admin.entries.edit');
             $g->post('/{id}', fn (Request $req, array $p): Response => $this->update($req, $p['handle'], (int) $p['id']));
+            $g->post('/{id}/publish', fn (Request $req, array $p): Response => $this->setStatus($req, $p['handle'], (int) $p['id'], Publication::PUBLISHED));
+            $g->post('/{id}/unpublish', fn (Request $req, array $p): Response => $this->setStatus($req, $p['handle'], (int) $p['id'], Publication::DRAFT));
             $g->post('/{id}/delete', fn (Request $req, array $p): Response => $this->destroy($req, $p['handle'], (int) $p['id']));
         });
     }
@@ -145,6 +148,38 @@ final class EntriesController extends Controller
         return $this->redirect("/admin/collections/{$handle}/entries?msg=deleted");
     }
 
+    /**
+     * Publish / unpublish quick action: flip only the status, keeping the
+     * entry's fields exactly as stored. Goes through EntryService like any
+     * other save, so validation, events and the published_at rules all apply —
+     * publishing sets the time to now (or keeps an existing one), unpublishing
+     * to draft keeps it for a later re-publish.
+     */
+    private function setStatus(Request $req, string $handle, int $id, string $status): Response
+    {
+        $collection = $this->mustFind($handle);
+        $this->requireManage($collection);
+        $this->requireCsrf($req);
+
+        $entry = $this->entries->find($collection->id, $id);
+        if ($entry === null || $collection->isSingle()) {
+            return $this->redirect("/admin/collections/{$handle}/entries");
+        }
+
+        // Rebuild the input from what is stored, changing only the status.
+        $values = is_array($entry['data']) ? $entry['data'] : [];
+        foreach ($collection->fields as $field) {
+            if ($field->type === 'relation') {
+                $values[$field->handle] = $this->relations->targets($id, $field->id);
+            }
+        }
+        $input  = new EntryInput((string) $entry['title'], (string) $entry['slug'], $status, $values);
+        $result = $this->entryService->save($collection, $input, $id, $this->auth->user()?->id);
+
+        $msg = $result->successful ? ($status === Publication::PUBLISHED ? 'published' : 'unpublished') : 'error';
+        return $this->redirect("/admin/collections/{$handle}/entries?msg={$msg}");
+    }
+
     /** Request -> EntryInput -> EntryService; re-render with errors, or redirect. */
     private function save(Collection $collection, Request $req, ?int $id): Response
     {
@@ -201,19 +236,29 @@ final class EntriesController extends Controller
                     $values[$field->handle] = $this->relations->targets((int) $entry['id'], $field->id);
                 }
             }
+            $status      = (string) $entry['status'];
+            $publishedAt = $entry['published_at'] ?? null;
             return [
-                'id'     => (int) $entry['id'],
-                'title'  => (string) $entry['title'],
-                'slug'   => (string) $entry['slug'],
-                'status' => (string) $entry['status'],
-                'values' => $values,
+                'id'                 => (int) $entry['id'],
+                'title'              => (string) $entry['title'],
+                'slug'               => (string) $entry['slug'],
+                'status'             => $status,
+                'published_at_input' => $this->toDatetimeLocal($publishedAt),
+                'state'              => Publication::state($status, $publishedAt),
+                'values'             => $values,
             ];
         }
         $values = [];
         foreach ($collection->fields as $field) {
             $values[$field->handle] = $field->type === 'relation' ? [] : $field->option('default', '');
         }
-        return ['id' => null, 'title' => '', 'slug' => '', 'status' => 'draft', 'values' => $values];
+        return ['id' => null, 'title' => '', 'slug' => '', 'status' => 'draft', 'published_at_input' => '', 'state' => 'draft', 'values' => $values];
+    }
+
+    /** A stored "Y-m-d H:i:s" as the "Y-m-d\TH:i" a datetime-local input expects. */
+    private function toDatetimeLocal(?string $stored): string
+    {
+        return $stored !== null && $stored !== '' ? date('Y-m-d\TH:i', strtotime($stored)) : '';
     }
 
     /** Build the typed input object from the request (with normalized values). */
@@ -228,12 +273,23 @@ final class EntriesController extends Controller
             // rejects the save with a message naming the missing provider.
             $values[$field->handle] = $this->types->forDisplay($field->type)->normalize($raw);
         }
+        $status = (string) $req->input('status');
+        $status = Publication::isStoredStatus($status) ? $status : Publication::DRAFT;
+
         return new EntryInput(
             trim((string) $req->input('title')),
             trim((string) $req->input('slug')),
-            in_array($req->input('status'), ['draft', 'published'], true) ? (string) $req->input('status') : 'draft',
+            $status,
             $values,
+            $this->publishedAtInput($req),
         );
+    }
+
+    /** The submitted publish time, or null. Empty/whitespace means "let the service decide". */
+    private function publishedAtInput(Request $req): ?string
+    {
+        $raw = trim((string) $req->input('published_at'));
+        return $raw !== '' ? $raw : null;
     }
 
     /**
@@ -243,7 +299,15 @@ final class EntriesController extends Controller
      */
     private function modelFromInput(EntryInput $input, ?int $id): array
     {
-        return ['id' => $id, 'title' => $input->title, 'slug' => $input->slug, 'status' => $input->status, 'values' => $input->values];
+        return [
+            'id'                 => $id,
+            'title'              => $input->title,
+            'slug'               => $input->slug,
+            'status'             => $input->status,
+            'published_at_input' => $input->publishedAt !== null ? $this->toDatetimeLocal($input->publishedAt) : '',
+            'state'              => Publication::state($input->status, $input->publishedAt),
+            'values'             => $input->values,
+        ];
     }
 
     private function mustFind(string $handle): Collection
