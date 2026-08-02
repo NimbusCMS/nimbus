@@ -239,3 +239,15 @@ body.nb-night::before {
 .nb-badge-state-draft     { background: #eef0f6; color: var(--nb-muted); }
 .nb-badge-state-archived  { background: #f3eefe; color: #6b4bd6; }
 .nb-sched-at { font-size: 11px; margin-top: 3px; }
+
+/* ---- media library ---- */
+.nb-media-upload { background: var(--nb-surface); border: 1px solid var(--nb-line); border-radius: var(--nb-radius); box-shadow: var(--nb-shadow); padding: 18px 20px; margin-bottom: 22px; }
+.nb-media-upload .nb-field { margin-bottom: 12px; }
+.nb-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+.nb-media-card { margin: 0; background: var(--nb-surface); border: 1px solid var(--nb-line); border-radius: 12px; overflow: hidden; box-shadow: var(--nb-shadow); }
+.nb-media-thumb { aspect-ratio: 4 / 3; background: #f3f4fa; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.nb-media-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.nb-media-file { font-weight: 700; letter-spacing: .08em; color: var(--nb-muted); }
+.nb-media-card figcaption { padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.nb-media-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nb-media-card figcaption form { margin-top: 4px; }
