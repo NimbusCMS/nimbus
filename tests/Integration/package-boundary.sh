@@ -17,7 +17,7 @@
 # then `composer require nimbuscms/markdown` inside $WORK/app, exactly as a
 # real operator installs a plugin into their site.
 #
-# Usage: tests/integration/package-boundary.sh
+# Usage: tests/Integration/package-boundary.sh
 #   env: DB_HOST DB_PORT DB_NAME DB_USER DB_PASS   (a reachable MySQL)
 #        PLUGIN_REPO   git URL or local path of plugin-markdown
 #        PLUGIN_REF    branch/tag to test against (default: main)

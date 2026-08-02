@@ -61,7 +61,7 @@ jobs:
       # and drives its whole lifecycle across the package boundary. Proves the
       # two repositories work as independently packaged software.
       - name: Package-boundary test (Composer install + Markdown lifecycle)
-        run: tests/integration/package-boundary.sh
+        run: tests/Integration/package-boundary.sh
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: '3306'
