@@ -13,6 +13,7 @@ use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
+use Nimbus\Media\MediaRepository;
 use Nimbus\Support\EventDispatcher;
 
 /**
@@ -214,6 +215,49 @@ final class ApiRoutesTest extends HttpTestCase
 
         self::assertSame(20, $meta['per_page']);
         self::assertSame(1, $meta['page']);
+    }
+
+    // --------------------------------------------------------------- media
+
+    public function test_a_media_field_is_expanded_to_a_full_object(): void
+    {
+        $media = new MediaRepository($this->db);
+        $mid   = $media->create([
+            'filename' => 'hero.png', 'path' => '2026/08/x.png', 'url' => '/uploads/2026/08/x.png',
+            'mime' => 'image/png', 'size' => 2048, 'width' => 800, 'height' => 600, 'alt' => 'A hero',
+        ], null);
+
+        $c = $this->makeCollection('posts', [$this->field('image', 'media')]);
+        $this->publish($c, 'Post', 'post', 'published', null, ['image' => $mid]);
+
+        $data = $this->json($this->api('/api/v1/collections/posts/entries/post'))['data'];
+
+        self::assertSame([
+            'id' => $mid, 'url' => '/uploads/2026/08/x.png', 'alt' => 'A hero',
+            'mime' => 'image/png', 'width' => 800, 'height' => 600,
+        ], $data['fields']['image'], 'the client gets the URL without a second request');
+    }
+
+    public function test_an_unset_media_field_is_null(): void
+    {
+        $c = $this->makeCollection('posts', [$this->field('image', 'media')]);
+        $this->publish($c, 'Post', 'post', 'published', null, ['image' => null]);
+
+        $data = $this->json($this->api('/api/v1/collections/posts/entries/post'))['data'];
+
+        self::assertNull($data['fields']['image']);
+    }
+
+    public function test_a_deleted_media_reference_reads_as_null_not_an_error(): void
+    {
+        $c = $this->makeCollection('posts', [$this->field('image', 'media')]);
+        // Reference an id that does not exist — a file deleted after the entry.
+        $this->publish($c, 'Post', 'post', 'published', null, ['image' => 4242]);
+
+        $response = $this->api('/api/v1/collections/posts/entries/post');
+
+        self::assertSame(200, $response->status, 'a dangling media reference must not error a public request');
+        self::assertNull($this->json($response)['data']['fields']['image']);
     }
 
     // ------------------------------------------------------------ not found

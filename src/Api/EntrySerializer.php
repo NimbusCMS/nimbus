@@ -7,6 +7,7 @@ namespace Nimbus\Api;
 use Nimbus\Content\Collection;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\RelationRepository;
+use Nimbus\Media\MediaRepository;
 
 /**
  * Turns a stored entry row into the API's public JSON shape.
@@ -21,6 +22,7 @@ final class EntrySerializer
     public function __construct(
         private FieldTypeRegistry $types,
         private RelationRepository $relations,
+        private MediaRepository $media,
     ) {
     }
 
@@ -36,6 +38,12 @@ final class EntrySerializer
 
         $fields = [];
         foreach ($collection->fields as $field) {
+            if ($field->type === 'media') {
+                // Expand the stored media id to a full, ready-to-use object so a
+                // client gets the URL without a second request.
+                $fields[$field->handle] = $this->media($data[$field->handle] ?? null);
+                continue;
+            }
             // Relations live in their own table, not the entry's JSON.
             $value = $field->type === 'relation'
                 ? $this->relations->targets($id, $field->id)
@@ -60,6 +68,32 @@ final class EntrySerializer
     public function many(Collection $collection, array $rows): array
     {
         return array_map(fn (array $row): array => $this->one($collection, $row), array_values($rows));
+    }
+
+    /**
+     * Expand a stored media id to a public object, or null when unset or the
+     * file has since been deleted — a dangling reference reads as absent, it
+     * does not error a public request.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function media(mixed $id): ?array
+    {
+        if ($id === null || $id === '' || (int) $id <= 0) {
+            return null;
+        }
+        $item = $this->media->find((int) $id);
+        if ($item === null) {
+            return null;
+        }
+        return [
+            'id'     => $item->id,
+            'url'    => $item->url,
+            'alt'    => $item->alt,
+            'mime'   => $item->mime,
+            'width'  => $item->width,
+            'height' => $item->height,
+        ];
     }
 
     private function iso(?string $stored): ?string

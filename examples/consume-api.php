@@ -73,7 +73,12 @@ $single = api("{$base}/api/v1/collections/{$handle}/entries/{$slug}", $token)['d
 echo "\nNewest entry in full:\n";
 echo "  title: {$single['title']}\n";
 foreach ($single['fields'] as $handle => $value) {
+    // A media field arrives as an object with a ready-to-use url.
+    if (is_array($value) && isset($value['url'])) {
+        printf("  %s: %s  (%s)\n", $handle, $value['url'], $value['mime'] ?? 'file');
+        continue;
+    }
     $rendered = is_scalar($value) ? (string) $value : json_encode($value);
-    printf("  %s: %s\n", $handle, mb_strimwidth($rendered, 0, 70, '…'));
+    printf("  %s: %s\n", $handle, mb_strimwidth((string) $rendered, 0, 70, '…'));
 }
 echo "\n";
