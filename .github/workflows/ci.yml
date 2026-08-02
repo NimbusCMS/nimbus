@@ -56,3 +56,17 @@ jobs:
           DB_NAME: nimbus_smoke
           DB_USER: root
           DB_PASS: root
+
+      # Installs the official Markdown plugin through real Composer resolution
+      # and drives its whole lifecycle across the package boundary. Proves the
+      # two repositories work as independently packaged software.
+      - name: Package-boundary test (Composer install + Markdown lifecycle)
+        run: tests/Integration/package-boundary.sh
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: '3306'
+          DB_NAME: nimbus_pkg
+          DB_USER: root
+          DB_PASS: root
+          PLUGIN_REPO: https://github.com/NimbusCMS/plugin-markdown
+          PLUGIN_REF: main

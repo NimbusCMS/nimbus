@@ -180,9 +180,9 @@ consumer rather than designed in isolation.
 - [ ] **Read-only admin plugin screen** — installed / enabled / disabled /
       failed, with the diagnostic. Read-only on purpose: no install, no remote
       update, no upload.
-- [ ] **Cross-repository integration test** — install core and the Markdown
-      package through Composer and drive the whole lifecycle, proving the
-      package boundary rather than the field implementation
+- [x] **Cross-repository integration test** — `tests/Integration/package-boundary.sh`
+      in CI installs the Markdown package through real Composer resolution and
+      drives its whole lifecycle across the package boundary
 
 ## 📦 Release & packaging (blocks a stable plugin ecosystem)
 
