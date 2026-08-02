@@ -23,12 +23,13 @@ Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a smal
 
 - 🗂️ **Collections** — define content types and fields in the admin; entries stored as JSON, so adding a field never means an `ALTER TABLE`
 - ✍️ **Entry CRUD** — create, edit, publish and delete, with server-side validation, inline errors and your input preserved on failure
-- 🧩 **Nine field types** — text, textarea, number, boolean, select, date, email, URL, relation — behind a registry that plugins will extend
+- 🧩 **Nine field types** — text, textarea, number, boolean, select, date, email, URL, relation — behind a registry that plugins extend
 - 🔗 **Relations** between collections, with referential cascade
 - 📄 **Singletons** — single-entry collections for things like Site Settings
 - 👤 **Roles** — per-collection manage permissions with an admin override
 - 🔒 **Auth & hardening** — argon2id hashing, CSRF-guarded writes, session rotation on login, progressive login throttling, CSP + security headers on every response, configurable trusted proxies
 - 🎨 **"Nimbus" admin theme** — night-sky admin skin, recolourable via CSS variables
+- 🧩 **Plugins** — official [Markdown](https://github.com/NimbusCMS/plugin-markdown) plugin, a Composer-driven loader, and a read-only Plugins admin page
 
 ### 🔌 Plugins
 
@@ -49,6 +50,11 @@ back. See [ADR 0001](docs/adr/0001-plugin-contract.md) for the contract and
 [plugin-markdown](https://github.com/NimbusCMS/plugin-markdown) for a worked
 example.
 
+**System → Plugins** in the admin lists what Composer installed and the state
+the loader made of each package — enabled, disabled or failed, with the reason.
+It is a diagnostic view, not an installer: plugins are managed with
+`composer require`/`remove` and enabled or disabled in `config/plugins.php`.
+
 Today a plugin can register **field types**. Routes, events, permissions,
 migrations and admin navigation are added one at a time, each alongside a
 plugin that actually needs it.
@@ -61,7 +67,7 @@ plugin that actually needs it.
 ### 🗺️ Roadmap — not built yet
 
 - 🖼️ Media library · 🔌 headless JSON API + tokens · ✍️ rich text / Markdown editor
-- 📚 Entry revisions · 📋 activity log · 🌐 themeable public site · 🧱 plugin system
+- 📚 Entry revisions · 📋 activity log · 🌐 themeable public site
 
 ### 🚧 Not production-ready
 
