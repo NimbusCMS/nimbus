@@ -8,3 +8,4 @@
 !/storage/.gitkeep
 .DS_Store
 *.log
+.php-cs-fixer.cache

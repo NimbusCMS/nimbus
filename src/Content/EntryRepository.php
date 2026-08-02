@@ -55,7 +55,7 @@ final class EntryRepository
     {
         $row = $this->db->selectOne(
             'SELECT * FROM nb_entries WHERE collection_id = :c ORDER BY id LIMIT 1',
-            ['c' => $collectionId]
+            ['c' => $collectionId],
         );
         return $row === null ? null : $this->hydrate($row);
     }
@@ -65,7 +65,7 @@ final class EntryRepository
     {
         $row = $this->db->selectOne(
             'SELECT * FROM nb_entries WHERE collection_id = :c AND id = :id',
-            ['c' => $collectionId, 'id' => $id]
+            ['c' => $collectionId, 'id' => $id],
         );
         return $row === null ? null : $this->hydrate($row);
     }
@@ -74,7 +74,7 @@ final class EntryRepository
     {
         return $this->db->selectOne(
             'SELECT id FROM nb_entries WHERE collection_id = :c AND slug = :s AND id <> :e',
-            ['c' => $collectionId, 's' => $slug, 'e' => $exceptId]
+            ['c' => $collectionId, 's' => $slug, 'e' => $exceptId],
         ) !== null;
     }
 
@@ -88,7 +88,7 @@ final class EntryRepository
             'INSERT INTO nb_entries (collection_id, title, slug, status, data, author_id, published_at, created_at, updated_at)
              VALUES (:c, :t, :sl, :st, :d, :a, :p, :cr, :u)',
             ['c' => $collectionId, 't' => $attrs['title'], 'sl' => $attrs['slug'], 'st' => $attrs['status'],
-             'd' => json_encode($attrs['data'], JSON_THROW_ON_ERROR), 'a' => $authorId, 'p' => $published, 'cr' => $now, 'u' => $now]
+             'd' => json_encode($attrs['data'], JSON_THROW_ON_ERROR), 'a' => $authorId, 'p' => $published, 'cr' => $now, 'u' => $now],
         );
     }
 
@@ -106,7 +106,7 @@ final class EntryRepository
             'UPDATE nb_entries SET title = :t, slug = :sl, status = :st, data = :d, published_at = :p, updated_at = :u
              WHERE collection_id = :c AND id = :id',
             ['t' => $attrs['title'], 'sl' => $attrs['slug'], 'st' => $attrs['status'], 'd' => json_encode($attrs['data'], JSON_THROW_ON_ERROR),
-             'p' => $published, 'u' => $now, 'c' => $collectionId, 'id' => $id]
+             'p' => $published, 'u' => $now, 'c' => $collectionId, 'id' => $id],
         );
     }
 
@@ -115,7 +115,7 @@ final class EntryRepository
     {
         return $this->db->execute(
             'DELETE FROM nb_entries WHERE collection_id = :c AND id = :id',
-            ['c' => $collectionId, 'id' => $id]
+            ['c' => $collectionId, 'id' => $id],
         );
     }
 

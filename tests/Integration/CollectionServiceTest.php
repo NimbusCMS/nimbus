@@ -81,7 +81,7 @@ final class CollectionServiceTest extends IntegrationTestCase
         $this->expectException(\PDOException::class);
         $this->db->execute(
             "INSERT INTO nb_fields (collection_id, handle, label, type, required, sort, created_at) VALUES (:c, 'body', 'Body 2', 'text', 0, 1, NOW())",
-            ['c' => $id]
+            ['c' => $id],
         );
     }
 

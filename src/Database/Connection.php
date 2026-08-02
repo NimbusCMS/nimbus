@@ -118,7 +118,7 @@ final class Connection
     {
         $row = $this->selectOne(
             'SELECT COUNT(*) AS c FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = :t',
-            ['t' => $table]
+            ['t' => $table],
         );
         return (int) ($row['c'] ?? 0) > 0;
     }

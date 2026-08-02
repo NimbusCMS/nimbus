@@ -125,7 +125,7 @@ abstract class HttpTestCase extends IntegrationTestCase
     {
         return $this->db->insert(
             'INSERT INTO nb_users (name, email, password, role, created_at, updated_at) VALUES (:n, :e, :p, :r, NOW(), NOW())',
-            ['n' => ucfirst($role), 'e' => $email, 'p' => Password::hash($password), 'r' => $role]
+            ['n' => ucfirst($role), 'e' => $email, 'p' => Password::hash($password), 'r' => $role],
         );
     }
 
@@ -196,7 +196,7 @@ abstract class HttpTestCase extends IntegrationTestCase
     {
         return (int) $this->db->selectOne(
             'SELECT COUNT(*) AS c FROM nb_entries WHERE collection_id = :c',
-            ['c' => $collectionId]
+            ['c' => $collectionId],
         )['c'];
     }
 }

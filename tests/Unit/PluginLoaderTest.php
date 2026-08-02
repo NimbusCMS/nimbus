@@ -418,10 +418,10 @@ final class PluginLoaderTest extends TestCase
     public function test_statuses_cover_every_discovered_package(): void
     {
         $path = $this->installed(
-            $this->package('nimbuscms/ok',       ['id' => 'a', 'plugin' => FixturePlugin::class]),
-            $this->package('vendor/off',         ['id' => 'b', 'plugin' => FixturePlugin::class]),
-            $this->package('vendor/broken',      ['id' => 'c', 'plugin' => ExplodingPlugin::class]),
-            $this->package('vendor/no-class',    ['id' => 'd', 'plugin' => 'Nowhere\\X']),
+            $this->package('nimbuscms/ok', ['id' => 'a', 'plugin' => FixturePlugin::class]),
+            $this->package('vendor/off', ['id' => 'b', 'plugin' => FixturePlugin::class]),
+            $this->package('vendor/broken', ['id' => 'c', 'plugin' => ExplodingPlugin::class]),
+            $this->package('vendor/no-class', ['id' => 'd', 'plugin' => 'Nowhere\\X']),
         );
 
         [, $loader] = $this->load($path, ['b' => false]);
@@ -430,12 +430,12 @@ final class PluginLoaderTest extends TestCase
             $byId[$s->id] = $s;
         }
 
-        self::assertSame(PluginStatus::HEALTHY,  $byId['a']->state);
+        self::assertSame(PluginStatus::HEALTHY, $byId['a']->state);
         self::assertSame(PluginStatus::DISABLED, $byId['b']->state);
         self::assertFalse($byId['b']->enabled);
-        self::assertSame(PluginStatus::FAILED,   $byId['c']->state);
+        self::assertSame(PluginStatus::FAILED, $byId['c']->state);
         self::assertStringContainsString('boom', $byId['c']->message);
-        self::assertSame(PluginStatus::INVALID,  $byId['d']->state);
+        self::assertSame(PluginStatus::INVALID, $byId['d']->state);
         self::assertTrue($byId['c']->isProblem());
         self::assertTrue($byId['d']->isProblem());
         self::assertFalse($byId['b']->official, 'the vendor/ prefix is community');

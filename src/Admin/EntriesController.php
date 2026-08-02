@@ -13,11 +13,11 @@ use Nimbus\Content\EntryService;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\Permissions;
 use Nimbus\Content\RelationRepository;
+use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
-use Nimbus\Database\Connection;
 use Nimbus\Support\EventDispatcher;
 
 /**

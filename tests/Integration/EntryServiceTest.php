@@ -101,7 +101,7 @@ final class EntryServiceTest extends IntegrationTestCase
         $this->db->execute(
             "INSERT INTO nb_fields (collection_id, handle, label, type, required, sort, created_at)
              VALUES (:c, 'where', 'Where', 'geolocation', 0, 0, NOW())",
-            ['c' => $c->id]
+            ['c' => $c->id],
         );
         $c = $this->collections->find($c->id);
 
@@ -125,7 +125,7 @@ final class EntryServiceTest extends IntegrationTestCase
         $this->db->execute(
             "INSERT INTO nb_fields (collection_id, handle, label, type, required, sort, created_at)
              VALUES (:c, 'body', 'Body', 'text', 0, 0, NOW())",
-            ['c' => $c->id]
+            ['c' => $c->id],
         );
         $c = $this->collections->find($c->id);
 

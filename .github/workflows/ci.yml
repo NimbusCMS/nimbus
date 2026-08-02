@@ -33,7 +33,11 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      # Runs before the tests: a type error should fail fast, and it needs no database.
+      # Formatting and static analysis run before the tests: fast, no database,
+      # and a good place to fail early.
+      - name: Formatting
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
       - name: Static analysis
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=512M
 

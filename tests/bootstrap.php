@@ -32,7 +32,7 @@ $pdo = new PDO(
     sprintf('mysql:host=%s;port=%d;charset=utf8mb4', NB_TEST_DB['host'], NB_TEST_DB['port']),
     NB_TEST_DB['user'],
     NB_TEST_DB['pass'],
-    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
 );
 $pdo->exec('CREATE DATABASE IF NOT EXISTS nimbus_test CHARACTER SET utf8mb4');
 

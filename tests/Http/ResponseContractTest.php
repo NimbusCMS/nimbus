@@ -168,7 +168,7 @@ final class ResponseContractTest extends HttpTestCase
         $entryId    = $this->db->insert(
             "INSERT INTO nb_entries (collection_id, title, slug, status, data, created_at, updated_at)
              VALUES (:c, 'Fixture', 'fixture', 'draft', '{}', NOW(), NOW())",
-            ['c' => $collection->id]
+            ['c' => $collection->id],
         );
 
         $substitutions = ['{id}' => (string) $collection->id, '{handle}' => 'posts'];
