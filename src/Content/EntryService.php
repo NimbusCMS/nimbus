@@ -65,9 +65,14 @@ final class EntryService
         [$title, $slug] = $this->resolveTitleSlug($collection, $input, $entryId);
         [$data, $relationValues] = $this->splitValues($collection, $input);
 
+        // Publishing with no time goes live now; a future time schedules it;
+        // draft/archived keep the existing timestamp. One definition, in Publication.
+        $current     = $entryId !== null ? $this->entries->publishedAt($collection->id, $entryId) : null;
+        $publishedAt = Publication::resolvePublishedAt($input->status, $input->publishedAt, $current);
+
         $created = $entryId === null;
         try {
-            $id = $this->persist($collection, $entryId, $title, $slug, $input->status, $data, $relationValues, $userId);
+            $id = $this->persist($collection, $entryId, $title, $slug, $input->status, $publishedAt, $data, $relationValues, $userId);
         } catch (\PDOException $e) {
             if (!Connection::isDuplicateKey($e)) {
                 throw $e;
@@ -83,7 +88,7 @@ final class EntryService
             } else {
                 $slug = $this->uniqueSlug($collection->id, $slug . '-' . bin2hex(random_bytes(2)), $entryId ?? 0);
             }
-            $id = $this->persist($collection, $entryId, $title, $slug, $input->status, $data, $relationValues, $userId);
+            $id = $this->persist($collection, $entryId, $title, $slug, $input->status, $publishedAt, $data, $relationValues, $userId);
         }
 
         // Events fire only after a successful commit — consistency never depends on listeners.
@@ -122,10 +127,10 @@ final class EntryService
      * @param array<string,mixed> $data
      * @param array<int,int[]>    $relationValues
      */
-    private function persist(Collection $c, ?int $entryId, string $title, string $slug, string $status, array $data, array $relationValues, ?int $userId): int
+    private function persist(Collection $c, ?int $entryId, string $title, string $slug, string $status, ?string $publishedAt, array $data, array $relationValues, ?int $userId): int
     {
-        return $this->db->transaction(function () use ($c, $entryId, $title, $slug, $status, $data, $relationValues, $userId): int {
-            $attrs = ['title' => $title, 'slug' => $slug, 'status' => $status, 'data' => $data];
+        return $this->db->transaction(function () use ($c, $entryId, $title, $slug, $status, $publishedAt, $data, $relationValues, $userId): int {
+            $attrs = ['title' => $title, 'slug' => $slug, 'status' => $status, 'published_at' => $publishedAt, 'data' => $data];
             if ($entryId === null) {
                 $id = $this->entries->create($c->id, $attrs, $userId);
             } else {

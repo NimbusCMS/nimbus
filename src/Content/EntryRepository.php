@@ -78,35 +78,78 @@ final class EntryRepository
         ) !== null;
     }
 
-    /** @param array{title: string, slug: string, status: string, data: array<string,mixed>} $attrs */
+    /** @param array{title: string, slug: string, status: string, data: array<string,mixed>, published_at: ?string} $attrs */
     public function create(int $collectionId, array $attrs, ?int $authorId): int
     {
-        $now       = date('Y-m-d H:i:s');
-        $published = $attrs['status'] === 'published' ? $now : null;
+        $now = date('Y-m-d H:i:s');
 
         return $this->db->insert(
             'INSERT INTO nb_entries (collection_id, title, slug, status, data, author_id, published_at, created_at, updated_at)
              VALUES (:c, :t, :sl, :st, :d, :a, :p, :cr, :u)',
             ['c' => $collectionId, 't' => $attrs['title'], 'sl' => $attrs['slug'], 'st' => $attrs['status'],
-             'd' => json_encode($attrs['data'], JSON_THROW_ON_ERROR), 'a' => $authorId, 'p' => $published, 'cr' => $now, 'u' => $now],
+             'd' => json_encode($attrs['data'], JSON_THROW_ON_ERROR), 'a' => $authorId, 'p' => $attrs['published_at'], 'cr' => $now, 'u' => $now],
         );
     }
 
-    /** @param array{title: string, slug: string, status: string, data: array<string,mixed>} $attrs */
+    /** @param array{title: string, slug: string, status: string, data: array<string,mixed>, published_at: ?string} $attrs */
     public function update(int $collectionId, int $id, array $attrs): void
     {
-        $now     = date('Y-m-d H:i:s');
-        $current = $this->db->selectOne('SELECT published_at FROM nb_entries WHERE id = :id', ['id' => $id]);
-        $published = $current['published_at'] ?? null;
-        if ($attrs['status'] === 'published' && $published === null) {
-            $published = $now;
-        }
+        $now = date('Y-m-d H:i:s');
 
         $this->db->execute(
             'UPDATE nb_entries SET title = :t, slug = :sl, status = :st, data = :d, published_at = :p, updated_at = :u
              WHERE collection_id = :c AND id = :id',
             ['t' => $attrs['title'], 'sl' => $attrs['slug'], 'st' => $attrs['status'], 'd' => json_encode($attrs['data'], JSON_THROW_ON_ERROR),
-             'p' => $published, 'u' => $now, 'c' => $collectionId, 'id' => $id],
+             'p' => $attrs['published_at'], 'u' => $now, 'c' => $collectionId, 'id' => $id],
+        );
+    }
+
+    /** The published_at currently stored for an entry, or null. */
+    public function publishedAt(int $collectionId, int $id): ?string
+    {
+        $row = $this->db->selectOne('SELECT published_at FROM nb_entries WHERE collection_id = :c AND id = :id', ['c' => $collectionId, 'id' => $id]);
+        return $row['published_at'] ?? null;
+    }
+
+    /**
+     * Live entries of a collection, newest first — the public set the API
+     * serves. "Live" is the single predicate from Publication: published, with
+     * a publish time that has arrived.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function liveForCollection(int $collectionId, int $limit, int $offset): array
+    {
+        return $this->db->select(
+            "SELECT * FROM nb_entries
+             WHERE collection_id = :c AND status = 'published' AND published_at IS NOT NULL AND published_at <= NOW()
+             ORDER BY published_at DESC, id DESC
+             LIMIT {$limit} OFFSET {$offset}",
+            ['c' => $collectionId],
+        );
+    }
+
+    /** How many live entries a collection has — for API pagination totals. */
+    public function countLive(int $collectionId): int
+    {
+        return (int) $this->db->selectOne(
+            "SELECT COUNT(*) AS c FROM nb_entries
+             WHERE collection_id = :c AND status = 'published' AND published_at IS NOT NULL AND published_at <= NOW()",
+            ['c' => $collectionId],
+        )['c'];
+    }
+
+    /**
+     * A single live entry by slug, or null — the public single-entry lookup.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findLiveBySlug(int $collectionId, string $slug): ?array
+    {
+        return $this->db->selectOne(
+            "SELECT * FROM nb_entries
+             WHERE collection_id = :c AND slug = :s AND status = 'published' AND published_at IS NOT NULL AND published_at <= NOW()",
+            ['c' => $collectionId, 's' => $slug],
         );
     }
 

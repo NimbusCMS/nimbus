@@ -229,6 +229,108 @@ final class EntryServiceTest extends IntegrationTestCase
         self::assertSame(1, $this->entryCount($c->id));
     }
 
+    // ------------------------------------------------- publication lifecycle
+
+    public function test_publishing_now_makes_an_entry_live(): void
+    {
+        $c  = $this->collection('posts');
+        $id = (int) $this->service->save($c, new EntryInput('Live', '', 'published', []), null, null)->entryId;
+
+        $entries = new EntryRepository($this->db);
+        self::assertSame(1, $entries->countLive($c->id));
+        self::assertSame($id, (int) $entries->liveForCollection($c->id, 10, 0)[0]['id']);
+    }
+
+    public function test_a_draft_is_not_live(): void
+    {
+        $c = $this->collection('posts');
+        $this->service->save($c, new EntryInput('Hidden', '', 'draft', []), null, null);
+
+        self::assertSame(0, (new EntryRepository($this->db))->countLive($c->id));
+    }
+
+    public function test_a_scheduled_entry_is_not_live_until_its_time(): void
+    {
+        $c        = $this->collection('posts');
+        $future   = (new \DateTimeImmutable('+2 days'))->format('Y-m-d H:i:s');
+        $entries  = new EntryRepository($this->db);
+
+        $id = (int) $this->service->save($c, new EntryInput('Soon', '', 'published', [], $future), null, null)->entryId;
+
+        // Stored as published with a future date — scheduled, not yet live.
+        self::assertSame(0, $entries->countLive($c->id), 'a future publish date must not be live');
+        $row = $this->db->selectOne('SELECT status, published_at FROM nb_entries WHERE id = :i', ['i' => $id]);
+        self::assertSame('published', $row['status']);
+        self::assertSame(\Nimbus\Content\Publication::STATE_SCHEDULED, \Nimbus\Content\Publication::state($row['status'], $row['published_at']));
+    }
+
+    public function test_a_back_dated_publish_is_immediately_live(): void
+    {
+        $c    = $this->collection('posts');
+        $past = (new \DateTimeImmutable('-2 days'))->format('Y-m-d H:i:s');
+        $this->service->save($c, new EntryInput('Backdated', '', 'published', [], $past), null, null);
+
+        self::assertSame(1, (new EntryRepository($this->db))->countLive($c->id));
+    }
+
+    public function test_unpublishing_removes_an_entry_from_the_live_set_but_keeps_its_date(): void
+    {
+        $c       = $this->collection('posts');
+        $entries = new EntryRepository($this->db);
+        $id      = (int) $this->service->save($c, new EntryInput('On', '', 'published', []), null, null)->entryId;
+        self::assertSame(1, $entries->countLive($c->id));
+
+        $originalDate = $entries->publishedAt($c->id, $id);
+        $this->service->save($c, new EntryInput('On', 'on', 'draft', []), $id, null);
+
+        self::assertSame(0, $entries->countLive($c->id), 'a draft leaves the live set at once');
+        self::assertSame($originalDate, $entries->publishedAt($c->id, $id), 'the publish date is kept for re-publishing');
+    }
+
+    public function test_live_lookup_by_slug_ignores_drafts_and_schedules(): void
+    {
+        $c       = $this->collection('posts');
+        $entries = new EntryRepository($this->db);
+        $future  = (new \DateTimeImmutable('+1 day'))->format('Y-m-d H:i:s');
+
+        $this->service->save($c, new EntryInput('Public', 'public', 'published', []), null, null);
+        $this->service->save($c, new EntryInput('Draft', 'secret', 'draft', []), null, null);
+        $this->service->save($c, new EntryInput('Later', 'later', 'published', [], $future), null, null);
+
+        self::assertNotNull($entries->findLiveBySlug($c->id, 'public'));
+        self::assertNull($entries->findLiveBySlug($c->id, 'secret'), 'a draft must not be reachable by slug');
+        self::assertNull($entries->findLiveBySlug($c->id, 'later'), 'a scheduled entry must not be reachable by slug');
+    }
+
+    public function test_live_entries_are_newest_first(): void
+    {
+        $c       = $this->collection('posts');
+        $entries = new EntryRepository($this->db);
+        $old     = (new \DateTimeImmutable('-10 days'))->format('Y-m-d H:i:s');
+        $recent  = (new \DateTimeImmutable('-1 day'))->format('Y-m-d H:i:s');
+
+        $this->service->save($c, new EntryInput('Older', 'older', 'published', [], $old), null, null);
+        $this->service->save($c, new EntryInput('Newer', 'newer', 'published', [], $recent), null, null);
+
+        $slugs = array_column($entries->liveForCollection($c->id, 10, 0), 'slug');
+        self::assertSame(['newer', 'older'], $slugs);
+    }
+
+    public function test_live_pagination_offsets_correctly(): void
+    {
+        $c       = $this->collection('posts');
+        $entries = new EntryRepository($this->db);
+        for ($i = 1; $i <= 5; $i++) {
+            $at = (new \DateTimeImmutable("-{$i} days"))->format('Y-m-d H:i:s');
+            $this->service->save($c, new EntryInput("Post {$i}", "post-{$i}", 'published', [], $at), null, null);
+        }
+
+        self::assertSame(5, $entries->countLive($c->id));
+        self::assertCount(2, $entries->liveForCollection($c->id, 2, 0));
+        self::assertCount(2, $entries->liveForCollection($c->id, 2, 2));
+        self::assertCount(1, $entries->liveForCollection($c->id, 2, 4), 'the last page is partial');
+    }
+
     public function test_successful_save_dispatches_events_after_commit(): void
     {
         $events = [];
