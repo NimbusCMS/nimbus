@@ -60,7 +60,7 @@ final class FieldTypeTest extends TestCase
     public function test_custom_field_type_registers_without_core_changes(): void
     {
         $registry = new FieldTypeRegistry();
-        $custom = new class extends BaseType {
+        $custom = new class () extends BaseType {
             public function type(): string
             {
                 return 'stars';

@@ -179,7 +179,7 @@ final class Application
     {
         return $this->notice(
             Config::appName(),
-            'Your public site will render here soon. Head to <a href="/admin">/admin</a> to manage content.'
+            'Your public site will render here soon. Head to <a href="/admin">/admin</a> to manage content.',
         );
     }
 
@@ -190,7 +190,7 @@ final class Application
             "<!doctype html><meta charset=\"utf-8\"><title>{$t}</title>"
             . '<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:640px;margin:14vh auto;padding:0 24px;color:#1e2330">'
             . "<h1 style=\"letter-spacing:-.02em\">{$t}</h1><p style=\"color:#6b7280;line-height:1.6\">{$html}</p></div>",
-            $status
+            $status,
         );
     }
 }

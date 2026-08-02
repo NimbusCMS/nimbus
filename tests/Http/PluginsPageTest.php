@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Nimbus\Tests\Http;
 
 use Nimbus\Admin\AdminController;
-use Nimbus\Auth\Auth;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;

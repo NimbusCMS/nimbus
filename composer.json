@@ -23,6 +23,7 @@
         "ext-mbstring": "*"
     },
     "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^11.0"
     },
@@ -42,7 +43,8 @@
     "scripts": {
         "test": "phpunit",
         "analyse": "phpstan analyse --memory-limit=512M",
-        "smoke": "tests/smoke.sh",
+        "format": "php-cs-fixer fix",
+        "format:check": "php-cs-fixer fix --dry-run --diff",
         "check": [
             "@analyse",
             "@test"

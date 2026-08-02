@@ -107,7 +107,7 @@ final class EntryService
     public function delete(Collection $collection, int $entryId): bool
     {
         $deleted = $this->db->transaction(
-            fn (): int => $this->entries->delete($collection->id, $entryId)
+            fn (): int => $this->entries->delete($collection->id, $entryId),
         ) > 0;
 
         if ($deleted) {

@@ -30,7 +30,7 @@ final class Auth
         if (Password::needsRehash((string) $row['password'])) {
             $this->db->execute(
                 'UPDATE nb_users SET password = :p, updated_at = :t WHERE id = :id',
-                ['p' => Password::hash($password), 't' => date('Y-m-d H:i:s'), 'id' => $row['id']]
+                ['p' => Password::hash($password), 't' => date('Y-m-d H:i:s'), 'id' => $row['id']],
             );
         }
         session_regenerate_id(true);

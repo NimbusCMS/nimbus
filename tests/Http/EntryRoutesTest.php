@@ -23,7 +23,7 @@ final class EntryRoutesTest extends HttpTestCase
         $this->post("/admin/collections/{$collection->handle}/entries", ['title' => $title, 'status' => 'draft']);
         return (int) $this->db->selectOne(
             'SELECT id FROM nb_entries WHERE collection_id = :c ORDER BY id DESC LIMIT 1',
-            ['c' => $collection->id]
+            ['c' => $collection->id],
         )['id'];
     }
 

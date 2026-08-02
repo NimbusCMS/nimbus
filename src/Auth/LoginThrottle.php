@@ -57,7 +57,7 @@ final class LoginThrottle
         $this->db->execute(
             'INSERT INTO nb_login_throttle (id, attempts, last_attempt, locked_until) VALUES (:k, :a, :t, :l) AS new
              ON DUPLICATE KEY UPDATE attempts = new.attempts, last_attempt = new.last_attempt, locked_until = new.locked_until',
-            ['k' => $key, 'a' => $attempts, 't' => date('Y-m-d H:i:s', $now), 'l' => $lockedUntil]
+            ['k' => $key, 'a' => $attempts, 't' => date('Y-m-d H:i:s', $now), 'l' => $lockedUntil],
         );
     }
 

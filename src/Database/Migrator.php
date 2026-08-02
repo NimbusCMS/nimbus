@@ -39,7 +39,7 @@ final class Migrator
             }
             $this->db->execute(
                 'INSERT INTO nb_migrations (migration, applied_at) VALUES (:m, :t)',
-                ['m' => $name, 't' => date('c')]
+                ['m' => $name, 't' => date('c')],
             );
             $ran[] = $name;
         }
@@ -61,7 +61,7 @@ final class Migrator
                 id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                 migration VARCHAR(191) NOT NULL UNIQUE,
                 applied_at VARCHAR(40) NOT NULL
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
         );
     }
 
@@ -70,7 +70,7 @@ final class Migrator
     {
         return array_map(
             static fn (array $r): string => (string) $r['migration'],
-            $this->db->select('SELECT migration FROM nb_migrations')
+            $this->db->select('SELECT migration FROM nb_migrations'),
         );
     }
 

@@ -22,13 +22,13 @@ return [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
     // ---- settings (key/value) ----
-    "CREATE TABLE nb_settings (
+    'CREATE TABLE nb_settings (
         `key`   VARCHAR(120) NOT NULL PRIMARY KEY,
         `value` TEXT NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
 
     // ---- collections (content types) ----
-    "CREATE TABLE nb_collections (
+    'CREATE TABLE nb_collections (
         id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         handle      VARCHAR(80)  NOT NULL UNIQUE,
         name        VARCHAR(120) NOT NULL,
@@ -38,7 +38,7 @@ return [
         sort        INT NOT NULL DEFAULT 0,
         created_at  DATETIME NOT NULL,
         updated_at  DATETIME NOT NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
 
     // ---- fields (belong to a collection) ----
     "CREATE TABLE nb_fields (
@@ -86,7 +86,7 @@ return [
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
 
     // ---- media library ----
-    "CREATE TABLE nb_media (
+    'CREATE TABLE nb_media (
         id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         filename   VARCHAR(255) NOT NULL,
         path       VARCHAR(255) NOT NULL,
@@ -99,10 +99,10 @@ return [
         title      VARCHAR(255) NULL,
         author_id  INT UNSIGNED NULL,
         created_at DATETIME NOT NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
 
     // ---- activity log ----
-    "CREATE TABLE nb_activity (
+    'CREATE TABLE nb_activity (
         id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         user_id      INT UNSIGNED NULL,
         action       VARCHAR(40)  NOT NULL,
@@ -111,15 +111,15 @@ return [
         summary      VARCHAR(255) NULL,
         created_at   DATETIME NOT NULL,
         KEY idx_activity_created (created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
 
     // ---- API tokens (headless access) ----
-    "CREATE TABLE nb_api_tokens (
+    'CREATE TABLE nb_api_tokens (
         id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         name         VARCHAR(120) NOT NULL,
         token_hash   VARCHAR(255) NOT NULL UNIQUE,
         abilities    JSON NULL,
         last_used_at DATETIME NULL,
         created_at   DATETIME NOT NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
 ];

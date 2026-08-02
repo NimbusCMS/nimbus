@@ -18,7 +18,7 @@ final class CollectionRepository
     {
         return array_map(
             static fn (array $r): Collection => Collection::fromRow($r),
-            $this->db->select('SELECT * FROM nb_collections ORDER BY sort, name')
+            $this->db->select('SELECT * FROM nb_collections ORDER BY sort, name'),
         );
     }
 
@@ -38,7 +38,7 @@ final class CollectionRepository
     {
         return $this->db->selectOne(
             'SELECT id FROM nb_collections WHERE handle = :h AND id <> :e',
-            ['h' => $handle, 'e' => $exceptId]
+            ['h' => $handle, 'e' => $exceptId],
         ) !== null;
     }
 
@@ -47,7 +47,7 @@ final class CollectionRepository
     {
         return array_map(
             static fn (array $r): Field => Field::fromRow($r),
-            $this->db->select('SELECT * FROM nb_fields WHERE collection_id = :c ORDER BY sort, id', ['c' => $collectionId])
+            $this->db->select('SELECT * FROM nb_fields WHERE collection_id = :c ORDER BY sort, id', ['c' => $collectionId]),
         );
     }
 
@@ -68,7 +68,7 @@ final class CollectionRepository
         return $this->db->insert(
             'INSERT INTO nb_collections (handle, name, icon, description, options, sort, created_at, updated_at)
              VALUES (:h, :n, :i, :d, :o, 0, :c, :u)',
-            ['h' => $handle, 'n' => $name, 'i' => $icon, 'd' => $description, 'o' => json_encode($options), 'c' => $now, 'u' => $now]
+            ['h' => $handle, 'n' => $name, 'i' => $icon, 'd' => $description, 'o' => json_encode($options), 'c' => $now, 'u' => $now],
         );
     }
 
@@ -77,7 +77,7 @@ final class CollectionRepository
     {
         $this->db->execute(
             'UPDATE nb_collections SET name = :n, icon = :i, description = :d, options = :o, updated_at = :u WHERE id = :id',
-            ['n' => $name, 'i' => $icon, 'd' => $description, 'o' => json_encode($options), 'u' => date('Y-m-d H:i:s'), 'id' => $id]
+            ['n' => $name, 'i' => $icon, 'd' => $description, 'o' => json_encode($options), 'u' => date('Y-m-d H:i:s'), 'id' => $id],
         );
     }
 
@@ -114,13 +114,13 @@ final class CollectionRepository
             if (isset($existing[$def['handle']])) {
                 $this->db->execute(
                     'UPDATE nb_fields SET label = :l, type = :t, required = :r, options = :o, sort = :s WHERE id = :id',
-                    ['l' => $def['label'], 't' => $def['type'], 'r' => $def['required'] ? 1 : 0, 'o' => $optionsJson, 's' => $sort++, 'id' => $existing[$def['handle']]]
+                    ['l' => $def['label'], 't' => $def['type'], 'r' => $def['required'] ? 1 : 0, 'o' => $optionsJson, 's' => $sort++, 'id' => $existing[$def['handle']]],
                 );
             } else {
                 $this->db->execute(
                     'INSERT INTO nb_fields (collection_id, handle, label, type, required, options, sort, created_at)
                      VALUES (:c, :h, :l, :t, :r, :o, :s, :cr)',
-                    ['c' => $collectionId, 'h' => $def['handle'], 'l' => $def['label'], 't' => $def['type'], 'r' => $def['required'] ? 1 : 0, 'o' => $optionsJson, 's' => $sort++, 'cr' => $now]
+                    ['c' => $collectionId, 'h' => $def['handle'], 'l' => $def['label'], 't' => $def['type'], 'r' => $def['required'] ? 1 : 0, 'o' => $optionsJson, 's' => $sort++, 'cr' => $now],
                 );
             }
         }
