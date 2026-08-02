@@ -55,6 +55,19 @@ final class Config
         return (string) Env::get('UPLOAD_URL', '/uploads');
     }
 
+    /** Largest accepted upload, in bytes. Defaults to 10 MB. */
+    public static function uploadMaxBytes(): int
+    {
+        return max(1, (int) Env::get('UPLOAD_MAX_BYTES', (string) (10 * 1024 * 1024)));
+    }
+
+    /** Absolute path to the upload directory. */
+    public static function uploadPath(): string
+    {
+        $dir = self::uploadDir();
+        return str_starts_with($dir, '/') ? $dir : self::basePath() . '/' . $dir;
+    }
+
     /**
      * Enabled plugins, by plugin id. A plugin absent from this file is enabled
      * by default — installing it was already a deliberate act. Listing it as

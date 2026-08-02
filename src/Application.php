@@ -7,6 +7,7 @@ namespace Nimbus;
 use Nimbus\Admin\AdminController;
 use Nimbus\Admin\CollectionsController;
 use Nimbus\Admin\EntriesController;
+use Nimbus\Admin\MediaController;
 use Nimbus\Api\ApiController;
 use Nimbus\Auth\Auth;
 use Nimbus\Content\FieldTypeRegistry;
@@ -152,6 +153,7 @@ final class Application
         (new AdminController($this->db, $this->auth, $this->pluginStatuses))->routes($router);
         (new CollectionsController($this->db, $this->auth, $this->fieldTypes))->routes($router);
         (new EntriesController($this->db, $this->auth, $this->fieldTypes, $this->events))->routes($router);
+        (new MediaController($this->db, $this->auth))->routes($router);
         (new ApiController($this->db, $this->fieldTypes))->routes($router);
         $router->get('/', fn (Request $req, array $p): Response => $this->home());
         return $router;
