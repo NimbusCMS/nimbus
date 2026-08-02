@@ -13,6 +13,7 @@ use Nimbus\Http\Middleware\ApiAuthMiddleware;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Media\MediaRepository;
 
 /**
  * The read-only headless API, v1.
@@ -41,7 +42,7 @@ final class ApiController
     {
         $this->collections = new CollectionRepository($db);
         $this->entries     = new EntryRepository($db);
-        $this->serializer  = new EntrySerializer($types, new RelationRepository($db));
+        $this->serializer  = new EntrySerializer($types, new RelationRepository($db), new MediaRepository($db));
         $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db));
     }
 

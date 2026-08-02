@@ -68,6 +68,20 @@ $heading = $single ? $e($collection->name) : ($editing ? 'Edit' : 'New') . ' · 
                         <?php endforeach; ?>
                     </select>
                 <?php endif; ?>
+            <?php elseif ($f->type === 'media'):
+                $chosen = (int) ($model['values'][$f->handle] ?? 0);
+            ?>
+                <?php if ($mediaOptions === []): ?>
+                    <p class="nb-help">No files yet — upload some in <a href="/admin/media">Media</a>.</p>
+                    <input type="hidden" name="f[<?= $e($f->handle) ?>]" value="<?= $chosen ?: '' ?>">
+                <?php else: ?>
+                    <select id="f_<?= $e($f->handle) ?>" name="f[<?= $e($f->handle) ?>]">
+                        <option value="">— none —</option>
+                        <?php foreach ($mediaOptions as $mid => $mname): ?>
+                            <option value="<?= (int) $mid ?>" <?= $chosen === (int) $mid ? 'selected' : '' ?>><?= $e($mname) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php endif; ?>
             <?php else: ?>
                 <?= $types->forDisplay($f->type)->renderInput($f, $model['values'][$f->handle] ?? '') ?>
             <?php endif; ?>

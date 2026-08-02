@@ -19,6 +19,7 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Media\MediaRepository;
 use Nimbus\Support\EventDispatcher;
 
 /**
@@ -204,12 +205,23 @@ final class EntriesController extends Controller
     {
         // Relation pickers need their target collection's entries (id => title).
         $relationOptions = [];
+        $hasMedia        = false;
         foreach ($collection->fields as $field) {
             if ($field->type === 'relation') {
                 $target = (string) $field->option('target', '') !== '' ? $this->collections->findByHandle((string) $field->option('target')) : null;
                 $relationOptions[$field->handle] = $target !== null ? $this->entries->titleMap($target->id) : [];
             }
+            $hasMedia = $hasMedia || $field->type === 'media';
         }
+
+        // Media pickers offer the library (id => filename); only queried when needed.
+        $mediaOptions = [];
+        if ($hasMedia) {
+            foreach ((new MediaRepository($this->db))->all() as $item) {
+                $mediaOptions[$item->id] = $item->filename;
+            }
+        }
+
         return $this->page('entries/form', 'collections', [
             'collection'      => $collection,
             'model'           => $model,
@@ -217,6 +229,7 @@ final class EntriesController extends Controller
             'flash'           => $flash,
             'types'           => $this->types,
             'relationOptions' => $relationOptions,
+            'mediaOptions'    => $mediaOptions,
             'csrf'            => Csrf::token(),
         ]);
     }

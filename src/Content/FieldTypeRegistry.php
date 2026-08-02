@@ -7,6 +7,7 @@ namespace Nimbus\Content;
 use Nimbus\Content\FieldTypes\BooleanType;
 use Nimbus\Content\FieldTypes\DateType;
 use Nimbus\Content\FieldTypes\EmailType;
+use Nimbus\Content\FieldTypes\MediaType;
 use Nimbus\Content\FieldTypes\MissingType;
 use Nimbus\Content\FieldTypes\NumberType;
 use Nimbus\Content\FieldTypes\RelationType;
@@ -40,6 +41,7 @@ final class FieldTypeRegistry
             new EmailType(),
             new UrlType(),
             new RelationType(),
+            new MediaType(),
         ] as $type) {
             $this->register($type, 'core');
         }
