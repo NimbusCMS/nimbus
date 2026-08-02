@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Nimbus\Admin;
 
+use Nimbus\Auth\Auth;
 use Nimbus\Auth\LoginThrottle;
+use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Plugin\PluginStatus;
 
 /**
  * Authentication + dashboard + the not-yet-built section stubs. The admin shell
@@ -17,6 +20,15 @@ use Nimbus\Http\Router;
  */
 final class AdminController extends Controller
 {
+    /**
+     * @param list<PluginStatus> $pluginStatuses computed once by the kernel at
+     *        boot; the controller never reads installed.json itself.
+     */
+    public function __construct(Connection $db, Auth $auth, private array $pluginStatuses = [])
+    {
+        parent::__construct($db, $auth);
+    }
+
     public function routes(Router $r): void
     {
         // Public (no auth middleware).
@@ -28,11 +40,30 @@ final class AdminController extends Controller
         $r->group('/admin', [$this->authMw], function (Router $g): void {
             $g->get('', fn (Request $req, array $p): Response => $this->dashboardPage())->name('admin.dashboard');
             $g->get('/dashboard', fn (Request $req, array $p): Response => $this->dashboardPage());
+            $g->get('/plugins', fn (Request $req, array $p): Response => $this->pluginsPage())->name('admin.plugins');
 
             foreach (['media', 'users', 'settings'] as $section) {
                 $g->get("/{$section}", fn (Request $req, array $p): Response => $this->page('stub', $section, ['title' => ucfirst($section)]))->name("admin.{$section}");
             }
         });
+    }
+
+    /**
+     * Read-only view of installed plugins. Diagnostic, not an installer: it
+     * shows what Composer installed and what the loader made of it, and offers
+     * no action. Administrators only — plugin state can name failing packages.
+     */
+    private function pluginsPage(): Response
+    {
+        $this->requireAdmin();
+
+        return $this->page('plugins', 'plugins', [
+            'plugins'  => $this->pluginStatuses,
+            'problems' => array_values(array_filter(
+                $this->pluginStatuses,
+                static fn (PluginStatus $s): bool => $s->isProblem(),
+            )),
+        ]);
     }
 
     private function loginForm(?string $error = null): Response

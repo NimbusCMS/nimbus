@@ -11,6 +11,7 @@ use Nimbus\Plugin\Plugin;
 use Nimbus\Plugin\PluginContext;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
+use Nimbus\Plugin\PluginStatus;
 use PHPUnit\Framework\TestCase;
 
 // ---------------------------------------------------------------- fixtures
@@ -124,9 +125,9 @@ final class PluginLoaderTest extends TestCase
      * @param array<string,mixed> $nimbus
      * @return array<string,mixed>
      */
-    private function package(string $name, array $nimbus, string $type = 'nimbuscms-plugin'): array
+    private function package(string $name, array $nimbus, string $type = 'nimbuscms-plugin', string $version = 'dev'): array
     {
-        return ['name' => $name, 'type' => $type, 'extra' => ['nimbus' => $nimbus]];
+        return ['name' => $name, 'type' => $type, 'version' => $version, 'extra' => ['nimbus' => $nimbus]];
     }
 
     /**
@@ -389,6 +390,79 @@ final class PluginLoaderTest extends TestCase
         self::assertSame([], $loader->registered());
         self::assertFalse($this->registry->has('fixture'), 'a broken owner must not hand its id to another package');
         self::assertCount(2, $diagnostics);
+    }
+
+    // -------------------------------------------------------------- statuses
+
+    public function test_statuses_report_a_healthy_plugin(): void
+    {
+        $path = $this->installed($this->package('nimbuscms/fixture', [
+            'id' => 'nimbuscms.fixture', 'plugin' => FixturePlugin::class, 'name' => 'Fixture',
+        ], version: '1.2.3'));
+
+        [, $loader] = $this->load($path);
+        $statuses   = $loader->statuses();
+
+        self::assertCount(1, $statuses);
+        $s = $statuses[0];
+        self::assertSame('nimbuscms.fixture', $s->id);
+        self::assertSame('nimbuscms/fixture', $s->packageName);
+        self::assertSame('Fixture', $s->displayName);
+        self::assertSame('1.2.3', $s->version);
+        self::assertTrue($s->enabled);
+        self::assertSame(PluginStatus::HEALTHY, $s->state);
+        self::assertTrue($s->official, 'the nimbuscms/ vendor is official');
+        self::assertFalse($s->isProblem());
+    }
+
+    public function test_statuses_cover_every_discovered_package(): void
+    {
+        $path = $this->installed(
+            $this->package('nimbuscms/ok',       ['id' => 'a', 'plugin' => FixturePlugin::class]),
+            $this->package('vendor/off',         ['id' => 'b', 'plugin' => FixturePlugin::class]),
+            $this->package('vendor/broken',      ['id' => 'c', 'plugin' => ExplodingPlugin::class]),
+            $this->package('vendor/no-class',    ['id' => 'd', 'plugin' => 'Nowhere\\X']),
+        );
+
+        [, $loader] = $this->load($path, ['b' => false]);
+        $byId       = [];
+        foreach ($loader->statuses() as $s) {
+            $byId[$s->id] = $s;
+        }
+
+        self::assertSame(PluginStatus::HEALTHY,  $byId['a']->state);
+        self::assertSame(PluginStatus::DISABLED, $byId['b']->state);
+        self::assertFalse($byId['b']->enabled);
+        self::assertSame(PluginStatus::FAILED,   $byId['c']->state);
+        self::assertStringContainsString('boom', $byId['c']->message);
+        self::assertSame(PluginStatus::INVALID,  $byId['d']->state);
+        self::assertTrue($byId['c']->isProblem());
+        self::assertTrue($byId['d']->isProblem());
+        self::assertFalse($byId['b']->official, 'the vendor/ prefix is community');
+    }
+
+    public function test_status_display_name_falls_back_to_a_humanised_package(): void
+    {
+        $path = $this->installed($this->package('acme/plugin-photo-gallery', [
+            'id' => 'acme.gallery', 'plugin' => FixturePlugin::class,
+        ]));
+
+        [, $loader] = $this->load($path);
+
+        self::assertSame('Plugin Photo Gallery', $loader->statuses()[0]->displayName);
+    }
+
+    public function test_status_messages_never_carry_a_class_name(): void
+    {
+        // The UI message stays human; the class name lives only in the log line.
+        $path = $this->installed($this->package('vendor/broken', [
+            'id' => 'nimbuscms.broken', 'plugin' => ExplodingPlugin::class,
+        ]));
+
+        [$diagnostics, $loader] = $this->load($path);
+
+        self::assertStringContainsString('RuntimeException', $diagnostics[0]->message);
+        self::assertStringNotContainsString('RuntimeException', $loader->statuses()[0]->message);
     }
 
     public function test_loading_twice_does_not_double_register(): void

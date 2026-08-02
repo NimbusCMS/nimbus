@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Admin;
 
 use Nimbus\Auth\Auth;
+use Nimbus\Content\Permissions;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\HttpException;
@@ -39,6 +40,7 @@ abstract class Controller
             ['key' => 'collections', 'label' => 'Collections', 'url' => '/admin/collections', 'icon' => '❑'],
             ['key' => 'media',       'label' => 'Media',       'url' => '/admin/media',       'icon' => '❖'],
             ['key' => 'users',       'label' => 'Users',       'url' => '/admin/users',       'icon' => '☾'],
+            ['key' => 'plugins',     'label' => 'Plugins',     'url' => '/admin/plugins',     'icon' => '⚡'],
             ['key' => 'settings',    'label' => 'Settings',    'url' => '/admin/settings',    'icon' => '⚙'],
         ];
         foreach ($items as &$item) {
@@ -85,6 +87,14 @@ abstract class Controller
     protected function requireCsrf(Request $request, string $abortTo = '/admin/collections'): void
     {
         if (!Csrf::check($request->input('_token'))) {
+            $this->abortTo($abortTo);
+        }
+    }
+
+    /** Restrict an action to administrators, redirecting everyone else. */
+    protected function requireAdmin(string $abortTo = '/admin'): void
+    {
+        if (!Permissions::isAdmin($this->auth->user())) {
             $this->abortTo($abortTo);
         }
     }

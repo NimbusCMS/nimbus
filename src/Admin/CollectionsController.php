@@ -71,7 +71,7 @@ final class CollectionsController extends Controller
 
     private function form(?int $id): Response
     {
-        $this->requireAdmin();
+        $this->requireAdmin('/admin/collections');
         $collection = $id !== null ? $this->collections->find($id) : null;
         if ($id !== null && $collection === null) {
             return $this->redirect('/admin/collections');
@@ -81,7 +81,7 @@ final class CollectionsController extends Controller
 
     private function store(Request $req): Response
     {
-        $this->requireAdmin();
+        $this->requireAdmin('/admin/collections');
         $this->requireCsrf($req);
 
         $draft  = $this->draftFromRequest($req);
@@ -108,7 +108,7 @@ final class CollectionsController extends Controller
 
     private function update(Request $req, int $id): Response
     {
-        $this->requireAdmin();
+        $this->requireAdmin('/admin/collections');
         $this->requireCsrf($req);
 
         $collection = $this->collections->find($id);
@@ -206,7 +206,7 @@ final class CollectionsController extends Controller
 
     private function destroy(Request $req, int $id): Response
     {
-        $this->requireAdmin();
+        $this->requireAdmin('/admin/collections');
         $this->requireCsrf($req);
         $this->collectionService->delete($id);
         return $this->redirect('/admin/collections?msg=deleted');
@@ -283,11 +283,5 @@ final class CollectionsController extends Controller
         return $out;
     }
 
-    private function requireAdmin(): void
-    {
-        if (!Permissions::isAdmin($this->auth->user())) {
-            $this->abortTo('/admin/collections');
-        }
-    }
 
 }
