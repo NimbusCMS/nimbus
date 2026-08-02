@@ -17,6 +17,7 @@ use Nimbus\Http\Router;
 use Nimbus\Http\SecurityHeaders;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
+use Nimbus\Plugin\PluginStatus;
 use Nimbus\Support\Config;
 use Nimbus\Support\Env;
 use Nimbus\Support\EventDispatcher;
@@ -42,6 +43,9 @@ final class Application
 
     /** @var list<PluginDiagnostic> */
     private array $pluginDiagnostics = [];
+
+    /** @var list<PluginStatus> one entry per discovered plugin package */
+    private array $pluginStatuses = [];
 
     /**
      * Defaults to the configured database — pass one in to run the kernel
@@ -75,6 +79,7 @@ final class Application
             Config::enabledPlugins(),
         );
         $this->pluginDiagnostics = $loader->load($this->fieldTypes);
+        $this->pluginStatuses    = $loader->statuses();
 
         foreach ($this->pluginDiagnostics as $diagnostic) {
             if ($diagnostic->isFailure()) {
@@ -143,7 +148,7 @@ final class Application
     public function routes(): Router
     {
         $router = new Router();
-        (new AdminController($this->db, $this->auth))->routes($router);
+        (new AdminController($this->db, $this->auth, $this->pluginStatuses))->routes($router);
         (new CollectionsController($this->db, $this->auth, $this->fieldTypes))->routes($router);
         (new EntriesController($this->db, $this->auth, $this->fieldTypes, $this->events))->routes($router);
         $router->get('/', fn (Request $req, array $p): Response => $this->home());

@@ -226,3 +226,9 @@ body.nb-night::before {
 .nb-missing-type p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: #8a3034; }
 .nb-missing-type__value { margin: 0; padding: 8px 10px; border-radius: 8px; background: #fff; border: 1px solid var(--nb-border); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
 .nb-missing-type__cell { color: var(--nb-danger); font-weight: 600; }
+
+/* ---- plugins diagnostic page ---- */
+.nb-badge-danger { background: #fdecec; color: #b4262b; }
+.nb-badge-official { background: var(--nb-brand-tint); color: var(--nb-brand-dark); }
+.nb-row-danger td { background: #fffafa; }
+.nb-plugin-msg { font-size: 12px; margin-top: 4px; max-width: 52ch; }
