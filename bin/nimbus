@@ -88,6 +88,18 @@ try {
             echo "Created user  →  {$email}\n";
             break;
 
+        case 'token:create':
+            $name = $opt($argv, 'name');
+            if ($name === null) {
+                fwrite(STDERR, "Usage: nimbus token:create --name=\"My app\"\n");
+                exit(1);
+            }
+            $plain = (new Nimbus\Api\ApiTokenRepository($db))->create($name);
+            echo "API token created: {$name}\n";
+            echo "  {$plain}\n";
+            echo "This is shown once. Store it now — only its hash is kept.\n";
+            break;
+
         default:
             echo <<<TXT
             NimbusCMS
@@ -95,6 +107,7 @@ try {
               migrate                                          run pending migrations
               install  [--email= --name= --password=]          migrate + create the admin user
               create-user --email=  [--password= --name= --role=]
+              token:create --name="My app"                     mint a read-only API token
 
             TXT;
     }
