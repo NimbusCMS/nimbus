@@ -30,6 +30,29 @@ depending on any of them will break, and that is not a bug in Nimbus.
 `PluginContext` grows one capability at a time, each alongside a plugin that
 needs it. New capabilities are additive and never break existing plugins.
 
+## The public HTTP API
+
+Separate from the plugin PHP surface, the read-only API under `/api/v1` is a
+public **wire** contract — an application consuming it depends on the request
+and response shapes, not on any PHP class. What is promised:
+
+- **Routes** — `GET /api/v1/collections/{handle}/entries` (paginated) and
+  `GET /api/v1/collections/{handle}/entries/{slug}`.
+- **Envelope** — success is `{ "data": …, "meta": { page, per_page, total,
+  total_pages } }`; error is `{ "error": { "status", "message" } }`.
+- **Auth** — a bearer token (`Authorization: Bearer …`).
+- **Visibility** — only the *live* set is served (published, `published_at` in
+  the past); drafts and scheduled entries are indistinguishable from absent.
+- **Field values** pass through each field type's `toApi()`.
+
+`v1` is the stability boundary. Additive changes (new optional query params, new
+fields in a response object) are minor. A breaking change to `v1`'s shapes ships
+a `v2` route rather than mutating `v1`. Internal serializer refactors that do not
+change the wire shape are not breaking.
+
+Not yet part of the contract, and may appear without a version bump until they
+do: filtering/sorting params, sparse fieldsets, relation expansion, ETags.
+
 ## Versioning
 
 [Semantic Versioning](https://semver.org). Against the **public plugin API**

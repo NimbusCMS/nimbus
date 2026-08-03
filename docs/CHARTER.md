@@ -6,6 +6,10 @@ earlier implementation guidance. When a decision is unclear, this is the tie-bre
 > **North star:** Nimbus should be *opinionated about architecture, but
 > unopinionated about what people build with it.*
 
+For the human-facing introduction to *why* these rules read the way they do,
+see [architecture/CORE_PRINCIPLES.md](architecture/CORE_PRINCIPLES.md). This
+document is the enforceable version.
+
 Nimbus is not trying to be the largest CMS. It is trying to be the **best
 engineered lightweight PHP CMS** — the one developers enjoy reading, extending,
 and maintaining. We compete on elegance, flexibility, and maintainability, not
