@@ -3,11 +3,27 @@
 The single source of truth for what's done, what's deferred, and what's next.
 Nothing gets dropped here.
 
-**Guiding principles** (from the architecture stabilization brief): stay
-lightweight and explicit. The database is the authority on invariants. Clean
-contracts around fields, entry lifecycle, relations, permissions and API
-serialization. Plugins are first-class; themes are FE-first. **No** framework,
-ORM, DI container, command bus, or needless generic abstraction.
+**Governed by [docs/CHARTER.md](docs/CHARTER.md).** Every item here must pass its
+gate before it is built:
+
+1. **Classify** — Core / official plugin / theme / application. Core stays small;
+   most things are a plugin, a theme, or the consuming app.
+2. **Capability test** — a Core capability is added only when *multiple unrelated
+   use cases* need it, or it unlocks a category of reusable extensions. Not
+   because one validation project (Restaurant, Food Store, Packkit) needs it —
+   those are **acceptance tests, not requirements**.
+3. **Three hats** — Product Owner, Lead Architect, Principal Engineer must each
+   sign off (see the charter).
+
+Current priority is **production readiness**, not feature count: installation,
+upgrades, media, editor experience, public rendering, API maturity, docs,
+testing, performance, security, release. North star: *opinionated about
+architecture, unopinionated about what people build.*
+
+Earlier lightweight/explicit principles still hold: the database is the
+authority on invariants; clean contracts around fields, lifecycle, relations,
+permissions, API serialization; **no** framework, ORM, DI container, command
+bus, or needless abstraction.
 
 ## Legend
 
@@ -20,9 +36,9 @@ ORM, DI container, command bus, or needless generic abstraction.
 A class existing in the repository is not enough for `[x]`. If nothing in CI
 would fail when the behaviour breaks, it is `[~]`.
 
-*Last audited against `main` after the plugin-foundation milestone (PRs #4–#16):
-203 core tests / 686 assertions plus 21 plugin tests, PHPStan level 6 in both
-repositories, install+CRUD smoke test — all green.*
+*Last audited against `main` after the headless + media slices (PRs #4–#27):
+295 core tests / 982 assertions plus 29 plugin tests, PHPStan level 6 in both
+repositories, install+CRUD and package-boundary tests — all green.*
 
 ---
 
@@ -223,21 +239,38 @@ Ordered, because each step depends on the one before:
 > costs nothing — which is exactly why core moved to `NimbusCMS/nimbus` before
 > the first plugin shipped.
 
-## 🧭 Next: a second reference plugin
+## 🧭 Next: production readiness, kept honest by acceptance tests
 
-Field types are proven. Each remaining capability — routes, events,
-permissions, migrations, admin navigation — gets added **one at a time**,
-alongside a plugin that actually needs it. Never a batch of extension points
-designed in advance. See
-[Extensibility](#-extensibility--plugin-architecture-design-build-after-the-milestone-above).
+Plugin infrastructure is **frozen** (see the charter) — done, not to be polished
+further. The focus is production readiness (the Release themes below).
+
+**Validation projects are acceptance tests, not the roadmap.** Restaurant
+Management (rebuild on branch `nimbus-rebuild`), Food Store, and Packkit exist to
+prove Nimbus is flexible. When one hits a wall, the gap is recorded, then built
+**only if broadly reusable** — never to satisfy one app. App-specific logic
+(kitchen queues, cart rules, reservations) stays in the app.
+
+Findings so far, from the Restaurant **Menu** vertical (which needed **zero core
+changes** — collections + relation + number, served over the API):
+
+- **F1 — API returns relations as bare ids** (`"category": [15]`). Reference
+  *expansion* in the read API, like media already has. **Classify: Core
+  capability** (API maturity) — many headless frontends need it, unrelated to
+  Restaurant. Fits Release 0.2's "relation expansion". *Candidate next.*
+- **F2 — no supported way to consume Nimbus from a separate app repo** (root-only,
+  not on Packagist, no library mode/image). **Classify: Core / release process** —
+  foundational to anyone deploying. Belongs with installation/upgrades below.
+- **F3 — number decimals** (`8.00` → `8`). **Classify: application concern**, not
+  Core — a frontend formats money. Only a shared "money" field type if several
+  apps want it.
 
 ## 🎯 Release 0.1 — "usable CMS"
 
-1. **Publishing workflow** — draft / published / scheduled / archived; `published_at` +
-   `unpublished_at`; preview unpublished; publish/unpublish actions; autosave /
-   recoverable drafts; unsaved-changes warning; bulk publish/archive/delete; optional
-   approval flow (author → editor → publisher). *Lifecycle fields stay on indexed
-   columns, never JSON.*
+1. **Publishing workflow** — `[x]` draft / published / scheduled / archived,
+   `published_at`, publish/unpublish actions, cron-free scheduling
+   ([ADR 0002](docs/adr/0002-publication-lifecycle.md)); still open: `unpublished_at`,
+   autosave / recoverable drafts, unsaved-changes warning, bulk actions, approval
+   flow. *Lifecycle fields stay on indexed columns, never JSON.*
 2. **Stable URLs & identity** — slugs `[x]`, auto-slug `[x]`, uniqueness `[x]`;
    **redirect history** on slug change; canonical URLs; **parent/child** pages;
    configurable route patterns (`/blog/{slug}`); permanent **UUID** separate from DB id.
@@ -245,7 +278,9 @@ designed in advance. See
 4. **Entry-list usability** — search `[~]`, filters, sortable columns, configurable
    visible columns, pagination, bulk actions, status badges `[~]`, author + modified
    date, saved filters, duplicate entry, quick edit, keyboard nav.
-5. **Media library** — see [Media](#media-library-detail) below.
+5. **Media library** — `[x]` upload (finfo-validated, allowlisted, safe names),
+   library admin, and a `media` field expanded by the API; still open: image
+   resizing/thumbnails, multiple-media fields, remote/S3 storage.
 6. **Auth hardening** — login rate limiting `[x]`, account lockout / progressive delay
    `[x]`, installer refuses weak/default credentials outside dev `[x]`; still open:
    password reset flow, email verification for invited users, session revocation ("log
@@ -257,11 +292,13 @@ designed in advance. See
 
 ## 🎯 Release 0.2 — "headless-ready"
 
-1. **Versioned read API** (`/api/v1`) — pagination with hard max limits, filtering +
-   sorting, sparse field selection, relation expansion, consistent errors, ETags +
-   Last-Modified. Entries pass through field **serializers** (`toApi`) — never expose
-   internal JSON storage as the contract.
-2. **Scoped API tokens** — per-token scopes, expiry, revocation.
+1. **Versioned read API** (`/api/v1`) — `[x]` live-only entries, pagination with a
+   hard cap, consistent JSON errors, field `toApi` serialization, bearer-token auth;
+   still open: **relation expansion (F1)**, filtering + sorting, sparse fields,
+   ETags + Last-Modified.
+2. **API tokens** — `[~]` bearer tokens with SHA-256 hashing and last-used
+   tracking; still open: per-token **scopes** (abilities column reserved), expiry,
+   revocation UI.
 3. **Preview API** — draft-preview tokens.
 4. **Webhooks** — after publish / update / delete.
 5. **Caching** — ETags, response caching.
