@@ -11,11 +11,11 @@
 ---
 
 > ⚠️ **Status: in active development — not production-ready.**
-> Content management works end to end today: define collections and fields, then create, edit and publish entries. Media, the headless API and the public site are not built yet. There is no upgrade path between versions, no password reset, and no release has been tagged. See [What works today](#what-works-today).
+> Content management, a media library, and a read-only headless JSON API work end to end today: define collections and fields; create, schedule and publish entries; upload media; and read published content over the API. **Server-rendered public sites (themes) are not built yet** — Nimbus is admin + headless for now. There is no upgrade path between versions, no password reset, and no release has been tagged. See [What works today](#what-works-today).
 
 ## Why NimbusCMS?
 
-Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a small, modern, readable codebase you can actually understand end-to-end: PHP 8.2+, PDO, a clean layered architecture, its own schema via migrations, and a headless-first mindset. It's not trying to be WordPress — it's trying to be the CMS you'd be happy to fork.
+Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a small, modern, readable codebase you can actually understand end-to-end: PHP 8.2+, PDO, a clean layered architecture, its own schema via migrations, and a clean separation between content, admin and delivery. It's not trying to be WordPress — it's trying to be the CMS you'd be happy to fork.
 
 ## What works today
 
@@ -29,6 +29,9 @@ Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a smal
 - 👤 **Roles** — per-collection manage permissions with an admin override
 - 🔒 **Auth & hardening** — argon2id hashing, CSRF-guarded writes, session rotation on login, progressive login throttling, CSP + security headers on every response, configurable trusted proxies
 - 🎨 **"Nimbus" admin theme** — night-sky admin skin, recolourable via CSS variables
+- 🗓️ **Publishing lifecycle** — draft / published / scheduled / archived with cron-free scheduling; the API serves exactly the live set
+- 🖼️ **Media library** — upload (content-validated, safe names), a library, and a `media` field the API expands to `{ url, alt, … }`
+- 🔌 **Headless JSON API** — read-only `/api/v1`, bearer tokens, pagination, field values serialized through `toApi()`
 - 🧩 **Plugins** — official [Markdown](https://github.com/NimbusCMS/plugin-markdown) plugin, a Composer-driven loader, and a read-only Plugins admin page
 
 ### 🔌 Plugins
@@ -66,8 +69,8 @@ plugin that actually needs it.
 
 ### 🗺️ Roadmap — not built yet
 
-- 🖼️ Media library · 🔌 headless JSON API + tokens · ✍️ rich text / Markdown editor
-- 📚 Entry revisions · 📋 activity log · 🌐 themeable public site
+- ✍️ Rich-text / Markdown editor · 📚 entry revisions · 📋 activity log
+- 🌐 **Server-rendered public site + themes** (the next milestone) · 🔎 API filtering / relation expansion
 
 ### 🚧 Not production-ready
 
@@ -103,15 +106,16 @@ php bin/nimbus create-user --email=ed@site.com --role=editor
 
 ## Architecture
 
-A thin, layered kernel — easy to read, easy to extend:
+A thin, layered kernel — easy to read, easy to extend. For the design
+philosophy behind it, read [Core Principles](docs/architecture/CORE_PRINCIPLES.md).
 
 ```
 public/index.php ─▶ Application (router)
                       ├─ Admin\*        the admin area (auth, dashboard, sections)
-                      ├─ Api\*          headless JSON API            (roadmap)
-                      ├─ Site\*         public front-end             (roadmap)
+                      ├─ Api\*          read-only headless JSON API
+                      ├─ Site\*         public front-end             (next milestone)
                       ├─ Content\*      collections, fields, entries
-                      ├─ Media\*        uploads + library            (roadmap)
+                      ├─ Media\*        uploads + library
                       ├─ Auth\*         argon2id sessions
                       ├─ Database\*     PDO facade + migrations
                       └─ View\*         theme templates + themes/nimbus
@@ -127,11 +131,11 @@ field never means an `ALTER TABLE`.
 - [x] Hardened HTTP core — `Response` object, middleware-gated routes, CSP + security headers, login throttling, trusted proxies
 - [x] Test & analysis baseline — unit, integration and HTTP-functional suites, PHPStan level 6, install + CRUD smoke test, all on CI
 - [x] Plugin system — `Plugin` + `PluginContext` + Composer-driven loader, proven by [plugin-markdown](https://github.com/NimbusCMS/plugin-markdown)
-- [ ] Media library
-- [ ] Headless JSON API + tokens
+- [x] Media library — upload, library, and a `media` field served by the API
+- [x] Headless JSON API + tokens — read-only `/api/v1`, publishing-lifecycle aware
 - [ ] Rich-text / Markdown editor
 - [ ] RBAC + revisions + activity log
-- [ ] Themeable public site
+- [ ] **Server-rendered public site + themes** — the next milestone
 
 The full, continuously audited plan lives in [ROADMAP.md](ROADMAP.md), where
 `[x]` means *verified by CI* — not merely *present in the repository*.
