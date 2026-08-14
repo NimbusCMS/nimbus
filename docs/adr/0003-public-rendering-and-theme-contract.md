@@ -1,6 +1,6 @@
 # ADR 0003 — Public rendering & the theme contract
 
-- **Status:** Proposed (awaiting maintainer approval before implementation)
+- **Status:** Accepted (maintainer approved 2026-08-14; the three open questions are resolved below)
 - **Date:** 2026-08-03
 - **Context:** the production-readiness milestone. Nimbus serves `/admin` and
   `/api` only; `src/Site/` is empty. It cannot render a public page, which
@@ -113,17 +113,25 @@ Each is its own PR, three-hat reviewed, CI green.
 - Themes shipped/overridden by **plugins** (start with a themes directory; a
   plugin theme-provider capability waits for a plugin that needs it).
 
-## Open questions for the maintainer
+## Resolved decisions (were open questions)
 
-1. **Home page.** Smallest option: `/` stays the current placeholder until a
-   collection is explicitly designated home. Alternative: a `home` template in
-   the theme that the app fills. Recommend deferring — ship collection/entry
-   routes first, decide home with evidence.
-2. **Theme selection.** `config/theme.php` returning a theme name, or an env
-   `THEME=`? Recommend a config file (consistent with `config/plugins.php`).
-3. **Serializer move.** Renaming `Nimbus\Api\EntrySerializer` →
-   `Nimbus\Content\EntryView` is an internal refactor (both consumers are core).
-   Confirm the name, or keep it in `Api` and let themes depend on it (less clean).
+1. **Home page — deferred.** `/` keeps its current placeholder in this slice. A
+   real home page waits until a collection can be *designated* as home, and that
+   designation is itself deferred until collections and the entry/collection
+   routes exist and there is evidence for what a home page should show. We ship
+   `GET /{collection}` and `GET /{collection}/{slug}` first; `/` is decided
+   later, with the routing in place, rather than guessed at now.
+2. **Theme selection — `config/theme.php`.** A config file returning the active
+   theme name, matching the existing `config/plugins.php` convention, not an
+   `THEME=` environment variable. Selection stays in the same place, and in the
+   same form, as the rest of Nimbus configuration; no new configuration channel
+   is introduced for one setting.
+3. **Serializer move — renamed to `Nimbus\Content\EntryView`.** `Nimbus\Api\
+   EntrySerializer` moves to `Nimbus\Content\EntryView`. It is an internal
+   refactor (both consumers — the read API and the public renderer — are core),
+   so it does not change the wire contract. The one content shape now lives in
+   `Content`, where both the API and themes draw from it, rather than themes
+   depending on a class that reads as API-only.
 
 ## Three-hat summary
 
