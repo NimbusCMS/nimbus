@@ -13,6 +13,61 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-14 · Public rendering + theme contract accepted (ADR 0003)
+- **Status:** accepted
+- **Evidence:** [ADR 0003](../../../../docs/adr/0003-public-rendering-and-theme-contract.md), PR #31
+- **Product:** a Nimbus site can render its own live content server-side with a
+  plain-PHP theme and no build step — the last unbuilt production-readiness pillar.
+- **Architecture:** theme = directory of plain-PHP templates + `theme.json`,
+  rendered by the existing `View`; templates receive a data-only view-model +
+  escaping helper (no services/DB/logic). One content shape for API and themes:
+  `Nimbus\Api\EntrySerializer` → `Nimbus\Content\EntryView` (internal refactor,
+  wire contract unchanged), folding in F1 relation expansion. Public router
+  registered after and never shadowing `/admin` or `/api`. Theme chosen via
+  `config/theme.php`, matching `config/plugins.php`. Home page (`/`) deferred
+  until a collection can be designated home — collection/entry routes ship first.
+- **Engineering:** only the live set renders; escape-by-default in templates;
+  each slice (EntryView extract, `themes/starter/`, router, tests) its own PR.
+- **Revisit:** a designated-home mechanism; theme capabilities beyond templates
+  (assets pipeline, partial overrides) — each on concrete evidence.
+
+### 2026-08-03 · MCP as an official companion, gated behind a scoped write API
+- **Status:** proposed (three-hat review done; milestone awaits maintainer approval; nothing implemented)
+- **Evidence:** review this date; grounding — authz lives in controllers not
+  services (`EntryService`/`CollectionService` enforce none); API is read-only;
+  `nb_api_tokens.abilities` exists but is **never enforced**
+  (`ApiAuthMiddleware`).
+- **Why general-purpose, not a pivot:** MCP is one client of a **scoped,
+  authenticated write API**. That API benefits REST consumers, CLI, and automation
+  equally — agents are not privileged. Nimbus must run identically with **zero**
+  MCP installed. Rejected any framing where Nimbus depends on agents.
+- **Core capability gaps MCP reveals** (all broadly useful, none MCP-specific):
+  (1) **enforced token scopes** — activate the dead `abilities` column;
+  (2) a **scoped write API** (`POST/PATCH/DELETE /api/v1/...`) calling the
+  existing services, enforcing scope ∩ collection-permission;
+  (3) **token→principal binding** so `Permissions` applies to token callers;
+  (4) an **authenticated read** that can see drafts the principal may access
+  (distinct from the public live-only read);
+  (5) an **audit log** for authenticated writes (`nb_activity` is unused).
+- **Ownership:** **separate official companion `NimbusCMS/mcp`**, talking to
+  Nimbus over **HTTP** only. Not core (optional integration). Not an in-process
+  plugin (MCP is a separate process; importing services would bypass the authz
+  that lives at the HTTP boundary). "First-class" = maintained, CI'd,
+  compatibility-tested — never mandatory.
+- **Tools rejected:** any generic `execute` / `query` / `run` / `call`; arbitrary
+  SQL / PHP / filesystem; session-cookie auth; MCP-specific fields in content
+  models; schema-mutation (collection create/edit), `users:write`, and media
+  upload in v1 (defer for stronger auth + audit).
+- **Contracts that would become public:** the scoped write API and token-scope
+  vocabulary; the MCP tool schemas (versioned with the package).
+- **Assumptions to revisit after the first real agent integration:** create
+  idempotency (slug auto-resolve duplicates on retry); update concurrency (no
+  optimistic lock → lost updates); API rate limiting; whether scopes should be
+  coarse (admin-only) or fine from day one.
+- **Revisit trigger:** maintainer approval of the enabling write-API milestone.
+  Capability evidence is **not** updated until an end-to-end test proves an agent
+  operates Nimbus through public contracts only.
+
 ### 2026-08-03 · Charter governs; validation projects are acceptance tests
 - **Status:** accepted
 - **Evidence:** [`docs/CHARTER.md`](../../../../docs/CHARTER.md), PR #28
