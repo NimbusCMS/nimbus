@@ -88,15 +88,56 @@ final class TokenAdminTest extends HttpTestCase
         $this->actingAs('admin');
         $nonce = FormNonce::issue();
 
-        $first = $this->post('/admin/tokens', ['name' => 'Once', 'expires' => 'never', '_nonce' => $nonce]);
+        $first = $this->post('/admin/tokens', ['name' => 'Once', 'expires' => 'never', 'scope_all' => '1', '_nonce' => $nonce]);
         self::assertCount(1, $this->tokens->all());
         self::assertSame(1, preg_match('/nbt_[0-9a-f]{40}/', $first->body));
 
         // A reload re-POSTs the same (now spent) nonce.
-        $resubmit = $this->post('/admin/tokens', ['name' => 'Once', 'expires' => 'never', '_nonce' => $nonce]);
+        $resubmit = $this->post('/admin/tokens', ['name' => 'Once', 'expires' => 'never', 'scope_all' => '1', '_nonce' => $nonce]);
 
         self::assertCount(1, $this->tokens->all(), 'a resubmit mints no duplicate');
         self::assertSame(0, preg_match('/nbt_[0-9a-f]{40}/', $resubmit->body), 'and shows no new secret');
+    }
+
+    public function test_all_collections_grants_read_all(): void
+    {
+        $this->actingAs('admin');
+
+        $this->post('/admin/tokens', ['name' => 'Broad', 'scope_all' => '1', '_nonce' => FormNonce::issue()]);
+
+        self::assertSame(['*:read'], $this->tokens->all()[0]->abilities);
+    }
+
+    public function test_specific_collections_grant_only_those(): void
+    {
+        $this->actingAs('admin');
+        $this->makeCollection('posts');
+        $this->makeCollection('pages');
+
+        $this->post('/admin/tokens', ['name' => 'Narrow', 'scopes' => ['posts'], '_nonce' => FormNonce::issue()]);
+
+        self::assertSame(['posts:read'], $this->tokens->all()[0]->abilities);
+    }
+
+    public function test_a_crafted_scope_for_an_unknown_collection_is_dropped(): void
+    {
+        $this->actingAs('admin');
+        $this->makeCollection('posts');
+
+        // "posts" is real, "ghost" is not: only the real handle becomes a scope.
+        $this->post('/admin/tokens', ['name' => 'Craft', 'scopes' => ['posts', 'ghost'], '_nonce' => FormNonce::issue()]);
+
+        self::assertSame(['posts:read'], $this->tokens->all()[0]->abilities);
+    }
+
+    public function test_choosing_no_access_is_rejected(): void
+    {
+        $this->actingAs('admin');
+
+        // Neither "all" nor any specific collection — deny by default.
+        $this->post('/admin/tokens', ['name' => 'Empty', '_nonce' => FormNonce::issue()]);
+
+        self::assertSame([], $this->tokens->all(), 'a token with no access is not minted');
     }
 
     public function test_minting_requires_csrf(): void
@@ -156,10 +197,12 @@ final class TokenAdminTest extends HttpTestCase
         self::assertNotNull($this->tokens->findByPlaintext($plain), 'the token survives a non-admin revoke attempt');
     }
 
-    /** Mint through the UI with a fresh single-use nonce (what a rendered form carries). */
+    /** Mint through the UI with a fresh nonce and "all collections" access. */
     private function mint(string $name, string $expires = 'never'): \Nimbus\Http\Response
     {
-        return $this->post('/admin/tokens', ['name' => $name, 'expires' => $expires, '_nonce' => FormNonce::issue()]);
+        return $this->post('/admin/tokens', [
+            'name' => $name, 'expires' => $expires, 'scope_all' => '1', '_nonce' => FormNonce::issue(),
+        ]);
     }
 
     private function extractSecret(string $body): string

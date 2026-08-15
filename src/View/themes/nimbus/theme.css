@@ -266,3 +266,8 @@ body.nb-night::before {
     border: 1px solid var(--nb-border, #d8d8e0);
     border-radius: 6px;
 }
+
+/* Token scope picker + access column. */
+.nb-check { display: block; margin: 4px 0; font-weight: 400; }
+.nb-check input { margin-right: 6px; }
+.nb-scope-list { margin: 6px 0 4px 20px; padding-left: 10px; border-left: 2px solid var(--nb-border, #d8d8e0); }

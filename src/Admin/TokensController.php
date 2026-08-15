@@ -6,6 +6,8 @@ namespace Nimbus\Admin;
 
 use Nimbus\Api\ApiTokenRepository;
 use Nimbus\Auth\Auth;
+use Nimbus\Content\Collection;
+use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\FormNonce;
@@ -36,11 +38,13 @@ final class TokensController extends Controller
     ];
 
     private ApiTokenRepository $tokens;
+    private CollectionRepository $collections;
 
     public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null)
     {
         parent::__construct($db, $auth, $adminPages);
-        $this->tokens = new ApiTokenRepository($this->db);
+        $this->tokens      = new ApiTokenRepository($this->db);
+        $this->collections = new CollectionRepository($this->db);
     }
 
     public function routes(Router $r): void
@@ -62,6 +66,7 @@ final class TokensController extends Controller
         return $this->page('tokens/index', 'tokens', [
             'tokens'      => $this->tokens->all(),
             'expiries'    => array_keys(self::EXPIRY),
+            'collections' => $this->collections->all(),
             'justCreated' => $justCreated,
             'flash'       => $req->query('msg'),
             'error'       => $req->query('err'),
@@ -80,19 +85,49 @@ final class TokensController extends Controller
             return $this->redirect('/admin/tokens?err=' . rawurlencode('A token needs a name.'));
         }
 
+        // Deny-by-default: a token must be granted read on all collections or on
+        // a chosen few — never nothing.
+        $scopes = $this->scopesFrom($req);
+        if ($scopes === []) {
+            return $this->redirect('/admin/tokens?err=' . rawurlencode('Choose "All collections", or at least one collection.'));
+        }
+
         // Single-use nonce, checked only once the input is otherwise valid: a
         // reload re-POSTs a spent nonce, so it mints nothing (the mint renders
         // its secret rather than redirecting, so it cannot use Post/Redirect/Get
-        // to dodge the resubmit). An empty-name retry keeps its nonce.
+        // to dodge the resubmit). An invalid-input retry keeps its nonce.
         if (!FormNonce::consume($req->input('_nonce'))) {
             return $this->redirect('/admin/tokens?msg=resubmit');
         }
 
-        $plain = $this->tokens->create($name, [], $this->expiryFrom($req->input('expires')));
+        $plain = $this->tokens->create($name, $scopes, $this->expiryFrom($req->input('expires')));
 
         // Rendered, never redirected: the plaintext is shown once and must not
         // land in a URL, a flash, or a log.
         return $this->index($req, $plain);
+    }
+
+    /**
+     * Build the token's read scopes from the form: "All collections" grants
+     * `*:read`; otherwise each checked collection grants `<handle>:read`.
+     *
+     * @return string[] empty when nothing was chosen (rejected by the caller)
+     */
+    private function scopesFrom(Request $req): array
+    {
+        $post = $req->all();
+        if (($post['scope_all'] ?? null) !== null) {
+            return ['*:read'];
+        }
+        $chosen = $post['scopes'] ?? [];
+        if (!is_array($chosen)) {
+            return [];
+        }
+        // Only real collection handles become scopes; a crafted value is dropped.
+        $handles = array_map(static fn (Collection $c): string => $c->handle, $this->collections->all());
+        $valid   = array_values(array_intersect(array_map('strval', $chosen), $handles));
+
+        return array_map(static fn (string $handle): string => "{$handle}:read", $valid);
     }
 
     private function lifecycle(Request $req, int $id, string $action): Response
