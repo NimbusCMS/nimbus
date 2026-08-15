@@ -241,4 +241,49 @@ final class SiteRoutesTest extends HttpTestCase
         self::assertSame(200, $response->status);
         self::assertStringContainsString('/admin', $response->body);
     }
+
+    // ------------------------------------------------------ theme capabilities
+
+    public function test_the_layout_composes_header_and_footer_partials(): void
+    {
+        $c = $this->makeCollection('posts');
+        $this->publish($c, 'Hello', 'hello');
+
+        $response = $this->get('/posts/hello');
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('<header>', $response->body, 'the header partial rendered');
+        self::assertStringContainsString('Powered by', $response->body, 'the footer partial rendered');
+    }
+
+    public function test_a_missing_page_uses_the_themed_404(): void
+    {
+        $response = $this->get('/nope');
+
+        self::assertSame(404, $response->status);
+        self::assertStringContainsString('Nothing lives at this address', $response->body, 'the themed 404 body');
+        self::assertStringContainsString('Powered by', $response->body, 'rendered inside the theme layout');
+    }
+
+    public function test_a_theme_can_specialize_a_template_per_collection(): void
+    {
+        $themePath = dirname(__DIR__) . '/fixtures/themes/spec';
+        $posts = $this->makeCollection('posts');
+        $this->publish($posts, 'Hello', 'hello');
+        $news = $this->makeCollection('news');
+        $this->publish($news, 'Yo', 'yo');
+
+        $router = new Router();
+        (new SiteController($this->db, new FieldTypeRegistry(), null, $themePath))->routes($router);
+
+        $posted = $router->dispatch($this->request('GET', '/posts/hello'));
+        self::assertNotNull($posted);
+        /** @var Response $posted */
+        self::assertStringContainsString('POSTS ENTRY: Hello', $posted->body, 'entry-posts overrides entry');
+
+        $generic = $router->dispatch($this->request('GET', '/news/yo'));
+        self::assertNotNull($generic);
+        /** @var Response $generic */
+        self::assertStringContainsString('GENERIC ENTRY: Yo', $generic->body, 'falls back to entry with no override');
+    }
 }

@@ -8,10 +8,8 @@
  *
  * @var array{handle:string,name:string} $collection
  * @var array{title:string,published_at:?string,fields:array<string,mixed>} $entry
+ * @var callable $e escape helper
  */
-use Nimbus\View\View;
-
-$e = static fn (?string $v): string => View::e($v);
 
 /** Render one prepared field value. Presentation only — no logic beyond shape. */
 $renderField = static function (mixed $value) use ($e): string {

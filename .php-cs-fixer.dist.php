@@ -12,7 +12,9 @@ $finder = PhpCsFixer\Finder::create()
     ->in([__DIR__ . '/src', __DIR__ . '/tests', __DIR__ . '/bin'])
     ->append([__DIR__ . '/bootstrap.php', __FILE__])
     // Theme templates are HTML-first PHP; PSR-12 rules fight their markup.
-    ->notPath('View/themes');
+    ->notPath('View/themes')
+    // Test-fixture theme templates are the same HTML-first PHP.
+    ->notPath('fixtures');
 
 return (new PhpCsFixer\Config())
     ->setRiskyAllowed(false)

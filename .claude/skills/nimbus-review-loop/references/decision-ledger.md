@@ -13,6 +13,28 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-15 · Theme capabilities: partials, per-collection specialization, themed 404
+- **Status:** accepted
+- **Evidence:** PR (feat/theme-capabilities); `src/View/View.php`
+  (`partial` injection, `exists()`, traversal-guarded `file()`);
+  `src/Site/SiteController.php` (`specialize()`, themed `notFound()`);
+  `themes/starter/*`; `tests/Unit/ViewTest.php`, `tests/Http/SiteRoutesTest.php`
+- **Product:** themes stop being one monolithic file — a shared `header`/`footer`
+  compose via `$partial`, a collection (or a home page) can have its own template,
+  and a theme can brand its 404. Useful to every theme, tied to no app.
+- **Architecture:** one specialization rule — `entry-{handle}` → `entry`,
+  `collection-{handle}` → `collection` — subsumes the "home needs its own
+  template" need without a special `home.php` concept. Helpers (`$partial`, `$e`)
+  are injected into template scope; templates still receive no services. Theme
+  path is injectable into `SiteController` for testing.
+- **Engineering:** template names are restricted to `[A-Za-z0-9_-]`, so a name
+  derived from a collection handle can never traverse out of the theme
+  (`exists('../../etc/passwd')` is false — tested). Themed 404 falls back to a
+  built-in page when the theme omits `404`.
+- **Revisit:** static asset serving (`themes/{active}/assets/*`) is the **next**
+  slice; nested template directories; reading `theme.json` for real (still
+  decorative) — each on evidence.
+
 ### 2026-08-15 · Home page: designated via config/site.php, reusing the single kind
 - **Status:** accepted
 - **Evidence:** PR (feat/home-page); `config/site.php`, `Config::home()`;
