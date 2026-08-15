@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Nimbus\Plugin;
 
+use Nimbus\Database\Connection;
+
 /**
  * Everything a plugin is allowed to touch.
  *
- * Four capabilities today: field types, head contributions (ADR 0004), event
- * subscription, and migrations for the plugin's own tables (ADR 0005). Each was
- * added alongside a plugin that concretely needed it — field types by the
- * built-in types and Markdown, head contributions by plugin-seo, events and
- * migrations by plugin-analytics. Routes, permissions and admin navigation get
- * added the same way, one at a time, because a capability published without a
- * consumer is a guess that becomes a commitment.
+ * Five capabilities today: field types, head contributions (ADR 0004), event
+ * subscription, migrations for the plugin's own tables, and storage of its own
+ * data (ADR 0005). Each was added alongside a plugin that concretely needed it —
+ * field types by the built-in types and Markdown, head contributions by
+ * plugin-seo, events / migrations / storage by plugin-analytics. Routes,
+ * permissions and admin navigation get added the same way, one at a time,
+ * because a capability published without a consumer is a guess that becomes a
+ * commitment.
  *
  * A context is built per plugin, so the plugin's id is bound to whatever it
  * registers and cannot be spoofed.
@@ -23,8 +26,10 @@ namespace Nimbus\Plugin;
  * - Application — hands over the kernel, and every internal becomes API
  * - controllers — internal structure; #11 moved half of one, and no plugin
  *   should have been able to notice
- * - the database connection and repositories — direct table access bypasses
- *   the services owning transactions, validation, slugs and events
+ * - the **core** database connection, core tables, and repositories — direct
+ *   access to core's data bypasses the services owning transactions, validation,
+ *   slugs and events. (A plugin may own and query its *own* tables via storage(),
+ *   ADR 0005 — that bypasses nothing.)
  * - session and authentication internals — auth state is core's to own
  * - a generic get() or service locator — that is not an API, it is the
  *   absence of one, and it makes every refactor a breaking change
@@ -37,6 +42,8 @@ final class PluginContext
     private HeadRegistrar $head;
     private EventRegistrar $events;
     private MigrationRegistrar $migrations;
+    private ?Connection $db;
+    private ?PluginStorage $storage = null;
 
     public function __construct(PluginCapabilities $capabilities, private string $pluginId)
     {
@@ -44,6 +51,7 @@ final class PluginContext
         $this->head       = new HeadRegistrar($capabilities->head, $pluginId);
         $this->events     = new EventRegistrar($capabilities->events, $pluginId);
         $this->migrations = new MigrationRegistrar($capabilities->migrations, $pluginId);
+        $this->db         = $capabilities->db;
     }
 
     /** Register field types. Registrations are stamped with this plugin's id. */
@@ -68,6 +76,17 @@ final class PluginContext
     public function migrations(): MigrationRegistrar
     {
         return $this->migrations;
+    }
+
+    /**
+     * Read and write the plugin's own tables (ADR 0005). Requires a database —
+     * available in the running kernel; absent only where there is no connection.
+     */
+    public function storage(): PluginStorage
+    {
+        return $this->storage ??= new PluginStorage(
+            $this->db ?? throw new \RuntimeException('The storage capability requires a database connection.'),
+        );
     }
 
     /** The id this plugin was loaded under, from its Composer manifest. */

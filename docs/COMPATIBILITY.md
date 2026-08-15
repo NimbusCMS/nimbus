@@ -20,6 +20,7 @@ in any release, including patch releases.
 | `Nimbus\Plugin\HeadRegistrar` | registering document-head contributors |
 | `Nimbus\Plugin\EventRegistrar` | subscribing to events (`PluginContext::events()`) |
 | `Nimbus\Plugin\MigrationRegistrar` | declaring migrations for the plugin's own tables (ADR 0005) |
+| `Nimbus\Plugin\PluginStorage` | reading/writing the plugin's own tables (`PluginContext::storage()`, ADR 0005) |
 | `Nimbus\Site\HeadContributor` | the head-contribution contract (ADR 0004) |
 | `Nimbus\Site\PageContext` | the page data a head contributor receives |
 | `Nimbus\Support\CoreEvents` | event-name constants a plugin may listen for |
