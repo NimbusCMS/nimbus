@@ -29,15 +29,22 @@ $opt = static function (array $argv, string $name, ?string $default = null): ?st
 
 $now = date('Y-m-d H:i:s');
 
+/**
+ * Boot the application so enabled plugins declare their migrations, then hand
+ * that registry to the Migrator. Booting touches no database, so it is safe on
+ * a fresh, unmigrated install.
+ */
+$pluginMigrations = static fn (): Nimbus\Database\MigrationRegistry => (new Nimbus\Application($db))->migrationRegistry();
+
 try {
     switch ($command) {
         case 'migrate':
-            $ran = (new Migrator($db, $migrations))->migrate();
+            $ran = (new Migrator($db, $migrations, $pluginMigrations()))->migrate();
             echo $ran === [] ? "Nothing to migrate.\n" : 'Migrated: ' . implode(', ', $ran) . "\n";
             break;
 
         case 'install':
-            $ran = (new Migrator($db, $migrations))->migrate();
+            $ran = (new Migrator($db, $migrations, $pluginMigrations()))->migrate();
             echo $ran === [] ? "Schema already present.\n" : 'Schema conjured (' . count($ran) . " migration(s)).\n";
 
             $isDev = in_array(getenv('APP_ENV') ?: 'production', ['local', 'dev', 'development'], true);
