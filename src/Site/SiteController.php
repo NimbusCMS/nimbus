@@ -77,20 +77,28 @@ final class SiteController
     /** Handle of the collection rendered at `/`, or null for the placeholder. */
     private ?string $home;
 
+    private HeadContributorRegistry $headContributors;
+
     /** @var array<string,array<string,mixed>>|null memoized live blocks by slug */
     private ?array $blocks = null;
 
-    public function __construct(Connection $db, FieldTypeRegistry $types, ?string $home = null, ?string $themePath = null)
-    {
-        $this->collections = new CollectionRepository($db);
-        $this->entries     = new EntryRepository($db);
-        $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
-        $this->themeDir    = $themePath ?? Config::themePath();
-        $this->render      = new View($this->themeDir, [
+    public function __construct(
+        Connection $db,
+        FieldTypeRegistry $types,
+        ?string $home = null,
+        ?string $themePath = null,
+        ?HeadContributorRegistry $headContributors = null,
+    ) {
+        $this->collections      = new CollectionRepository($db);
+        $this->entries          = new EntryRepository($db);
+        $this->view             = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
+        $this->themeDir         = $themePath ?? Config::themePath();
+        $this->render           = new View($this->themeDir, [
             'appName' => Config::appName(),
             'menus'   => Config::menus(),
         ]);
-        $this->home        = $home;
+        $this->home             = $home;
+        $this->headContributors = $headContributors ?? new HeadContributorRegistry();
     }
 
     public function routes(Router $r): void
@@ -258,10 +266,14 @@ final class SiteController
         $total = $this->entries->countLive($collection->id);
         $rows  = $this->entries->liveForCollection($collection->id, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
 
+        $info = ['handle' => $collection->handle, 'name' => $collection->name];
+        $kind = $request->path === '/' ? 'home' : 'collection';
+
         return $this->renderPage($this->specialize('collection', $collection->handle), [
             'title'       => $collection->name,
             'meta'        => $this->meta($request->path, $collection->name, $this->describe(null, $collection), 'website'),
-            'collection'  => ['handle' => $collection->handle, 'name' => $collection->name],
+            'head'        => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, $collection->name, Config::appName(), null, $info)),
+            'collection'  => $info,
             'entries'     => $this->view->many($collection, $rows),
             'page'        => $page,
             'total_pages' => $total === 0 ? 0 : (int) ceil($total / self::PER_PAGE),
@@ -276,11 +288,14 @@ final class SiteController
     private function renderEntry(Request $request, Collection $collection, array $row): Response
     {
         $entry = $this->view->one($collection, $row);
+        $info  = ['handle' => $collection->handle, 'name' => $collection->name];
+        $kind  = $request->path === '/' ? 'home' : 'entry';
 
         return $this->renderPage($this->specialize('entry', $collection->handle), [
             'title'      => (string) $row['title'],
             'meta'       => $this->meta($request->path, (string) $row['title'], $this->describe($entry, $collection), 'article'),
-            'collection' => ['handle' => $collection->handle, 'name' => $collection->name],
+            'head'       => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, (string) $row['title'], Config::appName(), $entry, $info)),
+            'collection' => $info,
             'entry'      => $entry,
         ]);
     }

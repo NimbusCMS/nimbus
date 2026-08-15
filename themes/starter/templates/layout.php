@@ -13,6 +13,7 @@
  * @var callable $e           escape a value for output
  * @var array<string,array<string,mixed>> $blocks reusable content blocks by slug
  * @var array{title:string,description:string,canonical:string,og_type:string} $meta head metadata
+ * @var string $head extra <head> HTML contributed by plugins (already-rendered, trusted)
  */
 $pageTitle = isset($title) && $title !== '' ? $title . ' · ' . $appName : $appName;
 $meta = $meta ?? [];
@@ -46,6 +47,7 @@ if ($announcement !== null) {
     <?php endif; ?>
     <meta property="og:type" content="<?= $e($meta['og_type'] ?? 'website') ?>">
     <meta name="twitter:card" content="summary">
+    <?= $head ?? '' ?>
     <link rel="stylesheet" href="/theme/assets/app.css">
 </head>
 <body>

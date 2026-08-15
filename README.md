@@ -58,9 +58,10 @@ the loader made of each package — enabled, disabled or failed, with the reason
 It is a diagnostic view, not an installer: plugins are managed with
 `composer require`/`remove` and enabled or disabled in `config/plugins.php`.
 
-Today a plugin can register **field types**. Routes, events, permissions,
-migrations and admin navigation are added one at a time, each alongside a
-plugin that actually needs it.
+Today a plugin can register **field types** and **document-head contributions**
+(structured data / meta for public pages, see [ADR 0004](docs/adr/0004-plugin-head-contributions.md)).
+Routes, events, permissions, migrations and admin navigation are added one at a
+time, each alongside a plugin that actually needs it.
 
 ### 🧪 Experimental — works, but the shape may still change
 

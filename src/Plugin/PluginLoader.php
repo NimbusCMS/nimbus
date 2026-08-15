@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Plugin;
 
 use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Site\HeadContributorRegistry;
 use Throwable;
 
 /**
@@ -71,14 +72,14 @@ final class PluginLoader
      *
      * @return list<PluginDiagnostic> everything that did not register, and why
      */
-    public function load(FieldTypeRegistry $fieldTypes): array
+    public function load(FieldTypeRegistry $fieldTypes, HeadContributorRegistry $head): array
     {
         $this->diagnostics = [];
         $this->statuses    = [];
         $this->loaded      = [];
 
         foreach ($this->validate($this->packages()) as $id => $candidate) {
-            $this->register($id, $candidate, $fieldTypes);
+            $this->register($id, $candidate, $fieldTypes, $head);
         }
         return $this->diagnostics;
     }
@@ -143,7 +144,7 @@ final class PluginLoader
      *
      * @param array{package:string,class:class-string<Plugin>,version:string,name:string,official:bool} $candidate
      */
-    private function register(string $id, array $candidate, FieldTypeRegistry $fieldTypes): void
+    private function register(string $id, array $candidate, FieldTypeRegistry $fieldTypes, HeadContributorRegistry $head): void
     {
         $package  = $candidate['package'];
         $enabled  = $this->enabled[$id] ?? $this->enabledByDefault;
@@ -155,10 +156,11 @@ final class PluginLoader
         }
 
         try {
-            (new $candidate['class']())->register(new PluginContext($fieldTypes, $id));
+            (new $candidate['class']())->register(new PluginContext($fieldTypes, $head, $id));
         } catch (Throwable $e) {
             // Undo whatever landed before the throw, so "failed" in the
             // diagnostics and "inactive" in the application agree.
+            $head->forgetProvider($id);
             $rolledBack = $fieldTypes->forgetProvider($id);
             $detail     = $rolledBack === [] ? '' : ' Rolled back: ' . implode(', ', $rolledBack) . '.';
             $message    = $e->getMessage() . $detail;

@@ -17,6 +17,9 @@ in any release, including patch releases.
 | `Nimbus\Plugin\Plugin` | the interface a plugin implements |
 | `Nimbus\Plugin\PluginContext` | what a plugin is handed |
 | `Nimbus\Plugin\FieldTypeRegistrar` | registering field types |
+| `Nimbus\Plugin\HeadRegistrar` | registering document-head contributors |
+| `Nimbus\Site\HeadContributor` | the head-contribution contract (ADR 0004) |
+| `Nimbus\Site\PageContext` | the page data a head contributor receives |
 | `Nimbus\Content\FieldType` | the field-type contract |
 | `Nimbus\Content\FieldTypes\BaseType` | the base class field types extend |
 | `Nimbus\Content\Field` | the field value object passed to a field type |
