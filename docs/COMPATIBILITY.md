@@ -77,6 +77,11 @@ The active theme is named in `config/theme.php`. Templates rendered today:
 `collection-{handle}` (e.g. `entry-homepage`) — and Nimbus falls back to the
 generic `entry`/`collection` when the specific one is absent.
 
+**Reusable blocks.** A collection with the handle `blocks` holds shared content
+fragments — the live entries are passed to the view-model as `$blocks`, keyed by
+slug. A theme renders one by slug (the starter renders an `announcement` block as
+a site-wide bar). Defined once, rendered anywhere; only live blocks appear.
+
 **Navigation menus.** `config/menus.php` defines named menus, each a list of
 `{label, url}` items; the view-model carries them as `$menus`, and the starter
 header renders `$menus['main']`. Malformed entries are dropped before a template

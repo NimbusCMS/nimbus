@@ -134,7 +134,8 @@ field never means an `ALTER TABLE`.
 - [x] Media library — upload, library, and a `media` field served by the API
 - [x] Headless JSON API + tokens — read-only `/api/v1`, publishing-lifecycle aware, relations expanded
 - [x] **Server-rendered public site** — home page (`config/site.php`) + collection + entry pages via plain-PHP themes (`themes/starter`), live-set only
-- [x] **Theme capabilities** — partials, per-collection template specialization, themed 404, static assets (`/theme/assets`), and config-driven navigation menus
+- [x] **Theme capabilities** — partials, per-collection template specialization, themed 404, static assets (`/theme/assets`), navigation menus, reusable blocks
+- [x] **Public-site polish** — config-driven URL redirects, applied before routing
 - [ ] Rich-text / Markdown editor
 - [ ] RBAC + revisions + activity log
 - [ ] SEO surface (meta, Open Graph, sitemap, RSS)

@@ -36,6 +36,9 @@ final class SiteController
     /** Entries per collection-index page. */
     private const PER_PAGE = 20;
 
+    /** Most reusable blocks loaded for a page — blocks are a handful, not a feed. */
+    private const MAX_BLOCKS = 100;
+
     /**
      * Extensions a theme may serve as static assets, mapped to their content
      * type. An allowlist, so a stray `.php` (or anything executable) in a theme
@@ -70,6 +73,9 @@ final class SiteController
 
     /** Handle of the collection rendered at `/`, or null for the placeholder. */
     private ?string $home;
+
+    /** @var array<string,array<string,mixed>>|null memoized live blocks by slug */
+    private ?array $blocks = null;
 
     public function __construct(Connection $db, FieldTypeRegistry $types, ?string $home = null, ?string $themePath = null)
     {
@@ -185,13 +191,13 @@ final class SiteController
         $total = $this->entries->countLive($collection->id);
         $rows  = $this->entries->liveForCollection($collection->id, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
 
-        return Response::html($this->render->render($this->specialize('collection', $collection->handle), [
+        return $this->renderPage($this->specialize('collection', $collection->handle), [
             'title'       => $collection->name,
             'collection'  => ['handle' => $collection->handle, 'name' => $collection->name],
             'entries'     => $this->view->many($collection, $rows),
             'page'        => $page,
             'total_pages' => $total === 0 ? 0 : (int) ceil($total / self::PER_PAGE),
-        ]));
+        ]);
     }
 
     /**
@@ -201,11 +207,49 @@ final class SiteController
      */
     private function renderEntry(Collection $collection, array $row): Response
     {
-        return Response::html($this->render->render($this->specialize('entry', $collection->handle), [
+        return $this->renderPage($this->specialize('entry', $collection->handle), [
             'title'      => (string) $row['title'],
             'collection' => ['handle' => $collection->handle, 'name' => $collection->name],
             'entry'      => $this->view->one($collection, $row),
-        ]));
+        ]);
+    }
+
+    /**
+     * Render a theme template into a full page, with the shared reusable blocks
+     * always available to it (and its layout). One place adds `blocks`, so every
+     * page — entry, index, themed 404 — can render them without repeating.
+     *
+     * @param array<string,mixed> $data
+     */
+    private function renderPage(string $template, array $data, int $status = 200): Response
+    {
+        $data['blocks'] = $this->blocks();
+        return Response::html($this->render->render($template, $data), $status);
+    }
+
+    /**
+     * Live entries of the conventional `blocks` collection, keyed by slug —
+     * editor-defined content fragments a theme renders anywhere (an
+     * announcement, a CTA, a colophon). Loaded lazily and once per request, so
+     * nothing here runs for admin/API requests or when no `blocks` collection
+     * exists; only the live set is exposed, like everything on the public site.
+     *
+     * @return array<string,array<string,mixed>>
+     */
+    private function blocks(): array
+    {
+        if ($this->blocks !== null) {
+            return $this->blocks;
+        }
+
+        $this->blocks = [];
+        $collection = $this->collections->findByHandle('blocks');
+        if ($collection !== null) {
+            foreach ($this->entries->liveForCollection($collection->id, self::MAX_BLOCKS, 0) as $row) {
+                $this->blocks[(string) $row['slug']] = $this->view->one($collection, $row);
+            }
+        }
+        return $this->blocks;
     }
 
     /**
@@ -227,7 +271,7 @@ final class SiteController
     private function notFound(): Response
     {
         if ($this->render->exists('404')) {
-            return Response::html($this->render->render('404', ['title' => 'Not found']), 404);
+            return $this->renderPage('404', ['title' => 'Not found'], 404);
         }
 
         return Response::html(

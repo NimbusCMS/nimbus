@@ -27,6 +27,27 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** audit other field types for wire-shape correctness if a client
   reports a surprising value (none known now).
 
+### 2026-08-15 · Reusable blocks are live entries of a conventional `blocks` collection
+- **Status:** accepted
+- **Evidence:** PR (feat/blocks); `src/Site/SiteController.php` (`blocks()`,
+  `renderPage()`); `themes/starter/templates/layout.php`; `tests/Http/SiteRoutesTest.php`
+- **Product:** an editor defines a shared fragment once (an announcement, CTA,
+  colophon) as an entry in the `blocks` collection; the theme renders it site-wide
+  by slug (`$blocks['announcement']`). The starter shows it as an announcement bar.
+- **Architecture:** **no new content concept** — blocks reuse collections/entries;
+  the only new code loads the `blocks` collection's live entries into the theme
+  view-model. Convention over config (handle `blocks`), consistent with the
+  single-kind "Homepage" convention. Loaded **lazily** (a memoized `blocks()`
+  threaded through `renderPage()`), so admin/API requests and pages with no
+  `blocks` collection pay nothing — SiteController is constructed on every request
+  for route registration, so eager loading would have taxed all of them.
+- **Engineering:** only the live set is exposed (a draft block never renders);
+  capped at MAX_BLOCKS; templates still receive data only (no service fetches a
+  block). Labels/values escaped in the theme.
+- **Revisit:** in-content block insertion (needs the rich-text/block editor);
+  hiding `blocks` from public `/blocks` routes and sitemaps; configurable blocks
+  collection handle — each on evidence.
+
 ### 2026-08-15 · Navigation menus via config/menus.php, rendered by the theme
 - **Status:** accepted
 - **Evidence:** PR (feat/menus); `config/menus.php`, `Config::menus()`;
