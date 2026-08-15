@@ -23,18 +23,22 @@ namespace Nimbus\Support;
  */
 final class EventDispatcher
 {
-    /** @var array<string,list<callable>> */
+    /** @var array<string,list<array{listener:callable,provider:?string}>> */
     private array $listeners = [];
 
-    public function listen(string $event, callable $listener): void
+    /**
+     * Register a listener. A `$provider` (a plugin id) tags the registration so
+     * it can be rolled back if that plugin's load fails; core listeners pass none.
+     */
+    public function listen(string $event, callable $listener, ?string $provider = null): void
     {
-        $this->listeners[$event][] = $listener;
+        $this->listeners[$event][] = ['listener' => $listener, 'provider' => $provider];
     }
 
     public function dispatch(string $event, mixed $payload = null): void
     {
-        foreach ($this->listeners[$event] ?? [] as $listener) {
-            $listener($payload, $event);
+        foreach ($this->listeners[$event] ?? [] as $entry) {
+            ($entry['listener'])($payload, $event);
         }
     }
 
@@ -42,5 +46,16 @@ final class EventDispatcher
     public function hasListeners(string $event): bool
     {
         return ($this->listeners[$event] ?? []) !== [];
+    }
+
+    /** Remove every listener a provider registered — used on plugin-load rollback. */
+    public function forgetProvider(string $provider): void
+    {
+        foreach ($this->listeners as $event => $entries) {
+            $this->listeners[$event] = array_values(array_filter(
+                $entries,
+                static fn (array $entry): bool => $entry['provider'] !== $provider,
+            ));
+        }
     }
 }

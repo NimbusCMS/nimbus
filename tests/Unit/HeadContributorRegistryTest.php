@@ -9,6 +9,7 @@ use Nimbus\Plugin\PluginContext;
 use Nimbus\Site\HeadContributor;
 use Nimbus\Site\HeadContributorRegistry;
 use Nimbus\Site\PageContext;
+use Nimbus\Support\EventDispatcher;
 use PHPUnit\Framework\TestCase;
 
 final class HeadContributorRegistryTest extends TestCase
@@ -69,7 +70,7 @@ final class HeadContributorRegistryTest extends TestCase
     public function test_plugin_context_binds_contributions_to_the_plugin_id(): void
     {
         $registry = new HeadContributorRegistry();
-        $context  = new PluginContext(new FieldTypeRegistry(), $registry, 'nimbuscms.seo');
+        $context  = new PluginContext(new FieldTypeRegistry(), $registry, new EventDispatcher(), 'nimbuscms.seo');
 
         $context->head()->register($this->contributor('<x>'));
         self::assertSame('<x>', $registry->render($this->page()));

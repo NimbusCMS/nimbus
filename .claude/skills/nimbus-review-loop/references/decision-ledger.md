@@ -27,6 +27,25 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** audit other field types for wire-shape correctness if a client
   reports a surprising value (none known now).
 
+### 2026-08-15 · Capability A built: plugin event subscription + request.handled
+- **Status:** accepted (analytics milestone, slice A of A–D)
+- **Evidence:** PR (feat/plugin-events); `src/Plugin/EventRegistrar.php`,
+  `PluginContext::events()`; `EventDispatcher` (provider tag + `forgetProvider`);
+  `CoreEvents::REQUEST_HANDLED`; `Application::notifyHandled`;
+  `tests/Unit/EventDispatcherTest.php`, `tests/Http/RequestHandledEventTest.php`
+- **Product:** a plugin can subscribe to events, and there is a per-request
+  `request.handled` event to subscribe to — what analytics needs to count hits.
+- **Architecture:** mirrors the field-type/head pattern — a provider-scoped
+  `EventRegistrar` (not the dispatcher), rollback via `EventDispatcher::forgetProvider`.
+  Loader threads the dispatcher as an **optional** arg (keeps plugin-markdown /
+  plugin-seo package tests green). `request.handled` has **distinct** semantics
+  from the entry events (documented in CoreEvents): best-effort, post-response,
+  **isolated** — a throwing listener is caught, never 500s a served page.
+- **Engineering:** guarded by `hasListeners` so a plugin-free install pays
+  nothing; fires for every request, listener filters on path.
+- **Revisit:** async/buffered delivery if a listener gets heavy; a `request.handled`
+  payload value object if the array shape proves awkward.
+
 ### 2026-08-15 · Analytics-portal milestone planned; plugins may own their storage (ADR 0005)
 - **Status:** accepted (direction); capabilities designed/built in their own slices
 - **Evidence:** [ADR 0005](../../../../docs/adr/0005-plugin-owned-storage.md);

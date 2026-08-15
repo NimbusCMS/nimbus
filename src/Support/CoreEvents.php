@@ -44,6 +44,20 @@ final class CoreEvents
     /** An entry row was actually deleted. Payload: id, collection_id. */
     public const ENTRY_DELETED = 'entry.deleted';
 
+    /**
+     * A request has been handled and its response built. Payload:
+     * `['request' => Request, 'response' => Response]`.
+     *
+     * Unlike the entry events above, this one is **best-effort and isolated**,
+     * not post-commit-and-propagating: it fires after the response is already
+     * finished, so a throwing listener is caught and logged — it can never turn
+     * a served page into a 500. It fires for *every* request (admin, API, asset,
+     * public); a listener filters on `$request->path` for what it cares about.
+     * Suited to observation — analytics, access logging — not to changing the
+     * response.
+     */
+    public const REQUEST_HANDLED = 'request.handled';
+
     private function __construct()
     {
     }

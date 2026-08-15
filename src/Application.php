@@ -65,9 +65,10 @@ final class Application
      */
     /**
      * @param array<string,array{to:string,status:int}>|null $redirects test seam; defaults to config/redirects.php
-     * @param PageCache|null $pageCache test seam; defaults to the configured cache
+     * @param PageCache|null       $pageCache test seam; defaults to the configured cache
+     * @param EventDispatcher|null $events    test seam; lets a test observe request.handled
      */
-    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null, ?PageCache $pageCache = null)
+    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null, ?PageCache $pageCache = null, ?EventDispatcher $events = null)
     {
         if ($db === null) {
             Env::load(Config::basePath() . '/.env');
@@ -77,7 +78,7 @@ final class Application
         $this->auth       = $auth ?? new Auth($this->db);
         $this->fieldTypes       = new FieldTypeRegistry();
         $this->headContributors = new HeadContributorRegistry();
-        $this->events           = new EventDispatcher();
+        $this->events           = $events ?? new EventDispatcher();
         $this->redirects  = $redirects ?? Config::redirects();
         $this->pageCache  = $pageCache ?? new PageCache(Config::pageCachePath(), Config::pageCacheTtl());
 
@@ -106,7 +107,7 @@ final class Application
             Config::basePath() . '/vendor/composer/installed.json',
             Config::enabledPlugins(),
         );
-        $this->pluginDiagnostics = $loader->load($this->fieldTypes, $this->headContributors);
+        $this->pluginDiagnostics = $loader->load($this->fieldTypes, $this->headContributors, $this->events);
         $this->pluginStatuses    = $loader->statuses();
 
         foreach ($this->pluginDiagnostics as $diagnostic) {
@@ -140,7 +141,26 @@ final class Application
      */
     public function handle(Request $request): Response
     {
-        return SecurityHeaders::apply($this->respond($request));
+        $response = SecurityHeaders::apply($this->respond($request));
+        $this->notifyHandled($request, $response);
+        return $response;
+    }
+
+    /**
+     * Fire the best-effort request.handled event. Guarded by hasListeners so a
+     * plugin-free install pays nothing, and isolated so a listener that throws
+     * is logged, never allowed to break a response that is already finished.
+     */
+    private function notifyHandled(Request $request, Response $response): void
+    {
+        if (!$this->events->hasListeners(CoreEvents::REQUEST_HANDLED)) {
+            return;
+        }
+        try {
+            $this->events->dispatch(CoreEvents::REQUEST_HANDLED, ['request' => $request, 'response' => $response]);
+        } catch (\Throwable $e) {
+            error_log('[nimbus request.handled] ' . $e);
+        }
     }
 
     private function respond(Request $request): Response
