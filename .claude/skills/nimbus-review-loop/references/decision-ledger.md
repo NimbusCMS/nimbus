@@ -27,6 +27,27 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** audit other field types for wire-shape correctness if a client
   reports a surprising value (none known now).
 
+### 2026-08-15 · Opt-in page caching at the kernel, flushed on content writes
+- **Status:** accepted
+- **Evidence:** PR (feat/page-cache); `src/Support/PageCache.php`,
+  `Config::pageCacheTtl/pageCachePath`; `src/Application.php` (cache read/write +
+  event flush); `tests/Unit/PageCacheTest.php`, `tests/Http/CacheRoutesTest.php`
+- **Product:** rendered public pages can be cached for speed; off by default
+  (`PAGE_CACHE_TTL=0`), opt-in with a positive TTL.
+- **Architecture:** cached at the **kernel**, not in SiteController — GET requests
+  whose path is not `/admin`, `/api`, or `/theme/assets`, storing only 200 HTML.
+  Filesystem store under `storage/`, dependency-free. Invalidation is
+  **event-driven** (flush on `entry.saved`/`entry.deleted`) plus the **TTL** as
+  the safety net for time-based changes (a scheduled entry going live fires no
+  write event) — neither alone suffices. Full-flush on write, not dependency
+  tracking (simpler and safe). Injectable into Application for tests.
+- **Engineering:** atomic write (temp file + rename); hashed keys can't escape the
+  cache dir; only the `page` query varies a key; clock injectable so expiry is
+  tested without sleeping. Default-off means existing behaviour is unchanged.
+- **Revisit:** ETag/Last-Modified + conditional GET; per-collection or tag-based
+  invalidation if full-flush churns under heavy write load; caching for logged-in
+  previews (currently only anonymous public pages) — each on evidence.
+
 ### 2026-08-15 · Reusable blocks are live entries of a conventional `blocks` collection
 - **Status:** accepted
 - **Evidence:** PR (feat/blocks); `src/Site/SiteController.php` (`blocks()`,
