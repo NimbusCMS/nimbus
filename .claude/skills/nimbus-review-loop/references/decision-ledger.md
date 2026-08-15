@@ -27,6 +27,30 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** audit other field types for wire-shape correctness if a client
   reports a surprising value (none known now).
 
+### 2026-08-15 · SEO split: foundational meta/sitemap/robots in core, rich SEO a future plugin
+- **Status:** accepted (slice 1 of 3 — per-page meta — implemented here)
+- **Evidence:** PR (feat/seo-meta); `src/Site/SiteController.php` (`meta()`,
+  `describe()`); `Config::siteDescription()`; `themes/starter/templates/layout.php`;
+  `tests/Http/SiteRoutesTest.php`
+- **Product:** every public page gets a title, meta description, canonical URL,
+  and Open Graph tags — table-stakes for search and social. Description comes from
+  an entry's `excerpt`/`summary`/`description` field, then the collection's
+  description, then `config/site.php`'s `description`.
+- **Architecture:** the charter lists SEO as an *official plugin*, but (a) the
+  plugin system hosts only field types — no route or head hooks — and (b) meta,
+  `sitemap.xml`, and `robots.txt` are rendering/crawlability **correctness** every
+  site needs, not an optional add-on. So the **foundational** layer is core;
+  the **opinionated** layer (JSON-LD, social-card images, RSS/Atom, meta-editing
+  UI, per-template OG) is deferred to a future `plugin-seo`, which will concretely
+  require — and thus justify — a plugin **routes** + **head-injection** capability
+  (ADR 0001 discipline). Request path threaded to the render for the canonical.
+- **Engineering:** description is stripped of tags, whitespace-flattened, and
+  clipped to ~160 chars; `$meta` guarded in the layout so a template rendered
+  without it still works.
+- **Revisit:** `og:image` (needs a media-field convention + absolute URLs);
+  the `plugin-seo` extension capabilities when that plugin is built.
+- **Next slices:** `sitemap.xml`, then `robots.txt` (both core routes).
+
 ### 2026-08-15 · Opt-in page caching at the kernel, flushed on content writes
 - **Status:** accepted
 - **Evidence:** PR (feat/page-cache); `src/Support/PageCache.php`,

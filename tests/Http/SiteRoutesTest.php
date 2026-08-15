@@ -13,6 +13,7 @@ use Nimbus\Content\RelationRepository;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Site\SiteController;
+use Nimbus\Support\Config;
 use Nimbus\Support\EventDispatcher;
 
 /**
@@ -366,5 +367,43 @@ final class SiteRoutesTest extends HttpTestCase
         $this->publish($posts, 'Hello', 'hello');
 
         self::assertStringNotContainsString('class="announcement"', $this->get('/posts')->body);
+    }
+
+    // ------------------------------------------------------------------- seo
+
+    public function test_an_entry_page_carries_meta_and_a_canonical(): void
+    {
+        $c = $this->makeCollection('posts', [$this->field('excerpt', 'text')]);
+        $this->publish($c, 'Hello', 'hello', 'published', null, ['excerpt' => 'A short summary of the post.']);
+
+        $body = $this->get('/posts/hello')->body;
+
+        self::assertStringContainsString('<meta name="description" content="A short summary of the post.">', $body);
+        self::assertStringContainsString('<link rel="canonical" href="' . Config::appUrl() . '/posts/hello">', $body);
+        self::assertStringContainsString('<meta property="og:type" content="article">', $body);
+        self::assertStringContainsString('<meta property="og:title" content="Hello · ', $body);
+    }
+
+    public function test_a_collection_page_is_a_website_with_a_canonical(): void
+    {
+        $c = $this->makeCollection('posts');
+        $this->publish($c, 'Hello', 'hello');
+
+        $body = $this->get('/posts')->body;
+
+        self::assertStringContainsString('<link rel="canonical" href="' . Config::appUrl() . '/posts">', $body);
+        self::assertStringContainsString('<meta property="og:type" content="website">', $body);
+    }
+
+    public function test_a_long_description_is_clipped_and_flattened(): void
+    {
+        $long = str_repeat('word ', 60); // 300 chars, with newlines-as-spaces
+        $c = $this->makeCollection('posts', [$this->field('excerpt', 'textarea')]);
+        $this->publish($c, 'Hello', 'hello', 'published', null, ['excerpt' => $long]);
+
+        $body = $this->get('/posts/hello')->body;
+
+        // The description meta stays within a sensible length (…-terminated).
+        self::assertMatchesRegularExpression('/<meta name="description" content="[^"]{1,161}…">/', $body);
     }
 }

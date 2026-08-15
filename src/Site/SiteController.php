@@ -95,9 +95,9 @@ final class SiteController
         // Registered first among the site routes: a literal, specific prefix that
         // must resolve before the {collection} catch-alls ever see it.
         $r->get('/theme/assets/{path*}', fn (Request $req, array $p): Response => $this->asset($p['path']))->name('site.asset');
-        $r->get('/', fn (Request $req, array $p): Response => $this->homePage())->name('site.home');
+        $r->get('/', fn (Request $req, array $p): Response => $this->homePage($req))->name('site.home');
         $r->get('/{collection}', fn (Request $req, array $p): Response => $this->index($req, $p['collection']))->name('site.collection');
-        $r->get('/{collection}/{slug}', fn (Request $req, array $p): Response => $this->show($p['collection'], $p['slug']))->name('site.entry');
+        $r->get('/{collection}/{slug}', fn (Request $req, array $p): Response => $this->show($req, $p['collection'], $p['slug']))->name('site.entry');
     }
 
     /**
@@ -141,7 +141,7 @@ final class SiteController
      * live all fall through to the placeholder — a misconfiguration never 500s
      * and a draft home never leaks.
      */
-    private function homePage(): Response
+    private function homePage(Request $request): Response
     {
         $collection = $this->home === null ? null : $this->collections->findByHandle($this->home);
         if ($collection === null) {
@@ -150,10 +150,10 @@ final class SiteController
 
         if ($collection->isSingle()) {
             $row = $this->entries->findLiveBySlug($collection->id, EntryService::SINGLETON_SLUG);
-            return $row === null ? $this->placeholder() : $this->renderEntry($collection, $row);
+            return $row === null ? $this->placeholder() : $this->renderEntry($request, $collection, $row);
         }
 
-        return $this->renderCollection($collection, 1);
+        return $this->renderCollection($request, $collection, 1);
     }
 
     /** A collection's live entries, newest first. */
@@ -164,11 +164,11 @@ final class SiteController
             return $this->notFound();
         }
 
-        return $this->renderCollection($collection, max(1, (int) ($request->query('page') ?? 1)));
+        return $this->renderCollection($request, $collection, max(1, (int) ($request->query('page') ?? 1)));
     }
 
     /** A single live entry by slug. */
-    private function show(string $handle, string $slug): Response
+    private function show(Request $request, string $handle, string $slug): Response
     {
         $collection = $this->collections->findByHandle($handle);
         if ($collection === null) {
@@ -182,17 +182,18 @@ final class SiteController
             return $this->notFound();
         }
 
-        return $this->renderEntry($collection, $row);
+        return $this->renderEntry($request, $collection, $row);
     }
 
     /** Render a collection's live entry index (paginated). */
-    private function renderCollection(Collection $collection, int $page): Response
+    private function renderCollection(Request $request, Collection $collection, int $page): Response
     {
         $total = $this->entries->countLive($collection->id);
         $rows  = $this->entries->liveForCollection($collection->id, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
 
         return $this->renderPage($this->specialize('collection', $collection->handle), [
             'title'       => $collection->name,
+            'meta'        => $this->meta($request->path, $collection->name, $this->describe(null, $collection), 'website'),
             'collection'  => ['handle' => $collection->handle, 'name' => $collection->name],
             'entries'     => $this->view->many($collection, $rows),
             'page'        => $page,
@@ -205,13 +206,61 @@ final class SiteController
      *
      * @param array<string,mixed> $row a live nb_entries row
      */
-    private function renderEntry(Collection $collection, array $row): Response
+    private function renderEntry(Request $request, Collection $collection, array $row): Response
     {
+        $entry = $this->view->one($collection, $row);
+
         return $this->renderPage($this->specialize('entry', $collection->handle), [
             'title'      => (string) $row['title'],
+            'meta'       => $this->meta($request->path, (string) $row['title'], $this->describe($entry, $collection), 'article'),
             'collection' => ['handle' => $collection->handle, 'name' => $collection->name],
-            'entry'      => $this->view->one($collection, $row),
+            'entry'      => $entry,
         ]);
+    }
+
+    /**
+     * The page's meta: what the theme puts in <head> — a canonical URL built from
+     * APP_URL and this path, plus the description and Open Graph type.
+     *
+     * @return array{title:string,description:string,canonical:string,og_type:string}
+     */
+    private function meta(string $path, string $title, string $description, string $ogType): array
+    {
+        return [
+            'title'       => $title,
+            'description' => $description,
+            'canonical'   => Config::appUrl() . $path,
+            'og_type'     => $ogType,
+        ];
+    }
+
+    /**
+     * A meta description for a page: an entry's own `excerpt`/`summary`/
+     * `description` field if it has one, else the collection's description, else
+     * the site default. Clipped to a sensible length, tags and runs of space gone.
+     *
+     * @param array<string,mixed>|null $entry an EntryView for an entry page, or null for an index
+     */
+    private function describe(?array $entry, Collection $collection): string
+    {
+        $fields = is_array($entry['fields'] ?? null) ? $entry['fields'] : [];
+        foreach (['excerpt', 'summary', 'description'] as $handle) {
+            $value = $fields[$handle] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                return $this->clip($value);
+            }
+        }
+        if ($collection->description !== '') {
+            return $this->clip($collection->description);
+        }
+        return Config::siteDescription();
+    }
+
+    /** Flatten to a single line and cap at a meta-description-friendly length. */
+    private function clip(string $text): string
+    {
+        $text = trim((string) preg_replace('/\s+/', ' ', strip_tags($text)));
+        return mb_strlen($text) > 160 ? mb_substr($text, 0, 157) . '…' : $text;
     }
 
     /**

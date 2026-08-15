@@ -109,6 +109,22 @@ final class Config
     }
 
     /**
+     * The site-wide default meta/Open-Graph description, from config/site.php's
+     * `description` key — used for pages that supply none of their own. Empty
+     * when unset.
+     */
+    public static function siteDescription(): string
+    {
+        $file = self::basePath() . '/config/site.php';
+        if (!is_file($file)) {
+            return '';
+        }
+        $site = require $file;
+        $description = is_array($site) ? ($site['description'] ?? '') : '';
+        return is_string($description) ? $description : '';
+    }
+
+    /**
      * Named navigation menus, read from config/menus.php — each menu a list of
      * `{label, url}` items the active theme renders (a theme reads `main` for its
      * header). Malformed entries are dropped rather than trusted, so a typo in

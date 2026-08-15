@@ -12,8 +12,10 @@
  * @var callable $partial     include another theme template
  * @var callable $e           escape a value for output
  * @var array<string,array<string,mixed>> $blocks reusable content blocks by slug
+ * @var array{title:string,description:string,canonical:string,og_type:string} $meta head metadata
  */
 $pageTitle = isset($title) && $title !== '' ? $title . ' · ' . $appName : $appName;
+$meta = $meta ?? [];
 
 // A reusable "announcement" block, if the site defines one — its body text,
 // falling back to its title. Editors manage it in the Blocks collection.
@@ -30,6 +32,20 @@ if ($announcement !== null) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $e($pageTitle) ?></title>
+    <?php if (!empty($meta['description'])): ?>
+        <meta name="description" content="<?= $e($meta['description']) ?>">
+    <?php endif; ?>
+    <?php if (!empty($meta['canonical'])): ?>
+        <link rel="canonical" href="<?= $e($meta['canonical']) ?>">
+        <meta property="og:url" content="<?= $e($meta['canonical']) ?>">
+    <?php endif; ?>
+    <meta property="og:site_name" content="<?= $e($appName) ?>">
+    <meta property="og:title" content="<?= $e($pageTitle) ?>">
+    <?php if (!empty($meta['description'])): ?>
+        <meta property="og:description" content="<?= $e($meta['description']) ?>">
+    <?php endif; ?>
+    <meta property="og:type" content="<?= $e($meta['og_type'] ?? 'website') ?>">
+    <meta name="twitter:card" content="summary">
     <link rel="stylesheet" href="/theme/assets/app.css">
 </head>
 <body>
