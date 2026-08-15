@@ -11,7 +11,7 @@
 ---
 
 > ⚠️ **Status: in active development — not production-ready.**
-> Content management, a media library, and a read-only headless JSON API work end to end today: define collections and fields; create, schedule and publish entries; upload media; and read published content over the API. **Server-rendered public sites (themes) are not built yet** — Nimbus is admin + headless for now. There is no upgrade path between versions, no password reset, and no release has been tagged. See [What works today](#what-works-today).
+> Content management, a media library, a read-only headless JSON API, and now basic server-rendered public pages work end to end today: define collections and fields; create, schedule and publish entries; upload media; read published content over the API; and render a collection's live entries and a single entry through a plain-PHP theme. **Public theming is a first slice** — a designated home page and richer theme capabilities are still to come. There is no upgrade path between versions, no password reset, and no release has been tagged. See [What works today](#what-works-today).
 
 ## Why NimbusCMS?
 
@@ -70,7 +70,7 @@ plugin that actually needs it.
 ### 🗺️ Roadmap — not built yet
 
 - ✍️ Rich-text / Markdown editor · 📚 entry revisions · 📋 activity log
-- 🌐 **Server-rendered public site + themes** (the next milestone) · 🔎 API filtering / relation expansion
+- 🏠 **Designated home page** · 🎨 richer theme capabilities (asset pipeline, template overrides) · 🔎 API filtering / sparse fieldsets
 
 ### 🚧 Not production-ready
 
@@ -113,12 +113,12 @@ philosophy behind it, read [Core Principles](docs/architecture/CORE_PRINCIPLES.m
 public/index.php ─▶ Application (router)
                       ├─ Admin\*        the admin area (auth, dashboard, sections)
                       ├─ Api\*          read-only headless JSON API
-                      ├─ Site\*         public front-end             (next milestone)
+                      ├─ Site\*         server-rendered public site  (collection + entry pages)
                       ├─ Content\*      collections, fields, entries
                       ├─ Media\*        uploads + library
                       ├─ Auth\*         argon2id sessions
                       ├─ Database\*     PDO facade + migrations
-                      └─ View\*         theme templates + themes/nimbus
+                      └─ View\*         template renderer + themes/starter (public), admin skin
 ```
 
 Content lives in JSON columns (`nb_entries.data`) keyed by collection, so adding a
@@ -132,10 +132,11 @@ field never means an `ALTER TABLE`.
 - [x] Test & analysis baseline — unit, integration and HTTP-functional suites, PHPStan level 6, install + CRUD smoke test, all on CI
 - [x] Plugin system — `Plugin` + `PluginContext` + Composer-driven loader, proven by [plugin-markdown](https://github.com/NimbusCMS/plugin-markdown)
 - [x] Media library — upload, library, and a `media` field served by the API
-- [x] Headless JSON API + tokens — read-only `/api/v1`, publishing-lifecycle aware
+- [x] Headless JSON API + tokens — read-only `/api/v1`, publishing-lifecycle aware, relations expanded
+- [x] **Server-rendered public site (first slice)** — collection + entry pages via plain-PHP themes (`themes/starter`), live-set only
 - [ ] Rich-text / Markdown editor
 - [ ] RBAC + revisions + activity log
-- [ ] **Server-rendered public site + themes** — the next milestone
+- [ ] Designated home page + richer theme capabilities
 
 The full, continuously audited plan lives in [ROADMAP.md](ROADMAP.md), where
 `[x]` means *verified by CI* — not merely *present in the repository*.

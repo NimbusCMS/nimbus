@@ -85,20 +85,21 @@ them (first-match wins; public patterns are specific).
 
 ## First slice (what actually ships first, smallest useful)
 
-1. A theme-contract ADR — this document — approved.
-2. Extract the shared content view-model (`EntryView`) from the API serializer;
-   the API keeps working through it (pure refactor, no wire change) + add
-   relation expansion (F1) to it.
-3. A minimal built-in default public theme (`themes/starter/`, plain PHP).
-4. A public router with the smallest useful routes:
+1. [x] A theme-contract ADR — this document — approved.
+2. [x] Extract the shared content view-model (`EntryView`) from the API
+   serializer; the API keeps working through it (pure refactor, no wire change)
+   — PR #33 — and add relation expansion (F1) to it — PR #34.
+3. [x] A minimal built-in default public theme (`themes/starter/`, plain PHP).
+4. [x] A public router with the smallest useful routes:
    - `GET /{collection}/{slug}` → render one live entry;
    - `GET /{collection}` → render a collection's live entries (paginated list).
-   - (`GET /` home is a **deferred** choice — see open questions.)
-5. HTTP-functional tests: a live entry renders; a draft/scheduled 404s; the
+   - (`GET /` home is a **deferred** choice — see resolved decisions.)
+5. [x] HTTP-functional tests: a live entry renders; a draft/scheduled 404s; the
    route never shadows `/admin` or `/api`; templates receive no services;
    output is escaped.
 
-Each is its own PR, three-hat reviewed, CI green.
+Each was its own PR, three-hat reviewed, CI green. The slice is complete;
+next comes the designated home page and richer theme capabilities.
 
 ## Deferred (explicitly not in the first slice)
 

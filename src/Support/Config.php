@@ -86,6 +86,28 @@ final class Config
         return is_array($enabled) ? $enabled : [];
     }
 
+    /**
+     * The active public theme name, read from config/theme.php — consistent
+     * with how config/plugins.php configures plugins. A missing or malformed
+     * file falls back to the bundled 'starter' theme, so a fresh install
+     * renders without any configuration.
+     */
+    public static function theme(): string
+    {
+        $file = self::basePath() . '/config/theme.php';
+        if (!is_file($file)) {
+            return 'starter';
+        }
+        $name = require $file;
+        return is_string($name) && $name !== '' ? $name : 'starter';
+    }
+
+    /** Absolute path to the active theme's directory (themes/{name}). */
+    public static function themePath(): string
+    {
+        return self::basePath() . '/themes/' . self::theme();
+    }
+
     public static function basePath(): string
     {
         return dirname(__DIR__, 2);

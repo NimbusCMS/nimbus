@@ -20,6 +20,7 @@ use Nimbus\Http\SecurityHeaders;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
 use Nimbus\Plugin\PluginStatus;
+use Nimbus\Site\SiteController;
 use Nimbus\Support\Config;
 use Nimbus\Support\Env;
 use Nimbus\Support\EventDispatcher;
@@ -156,6 +157,10 @@ final class Application
         (new MediaController($this->db, $this->auth))->routes($router);
         (new ApiController($this->db, $this->fieldTypes))->routes($router);
         $router->get('/', fn (Request $req, array $p): Response => $this->home());
+        // Registered last: the public site's {collection} routes match only
+        // after every literal /admin and /api route has had its turn, so they
+        // can never shadow the application's own surfaces.
+        (new SiteController($this->db, $this->fieldTypes))->routes($router);
         return $router;
     }
 
