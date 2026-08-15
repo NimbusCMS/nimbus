@@ -39,12 +39,12 @@ final class ApiController
     private EntryView $view;
     private ApiAuthMiddleware $auth;
 
-    public function __construct(Connection $db, FieldTypeRegistry $types)
+    public function __construct(Connection $db, FieldTypeRegistry $types, ApiAuthContext $authContext)
     {
         $this->collections = new CollectionRepository($db);
         $this->entries     = new EntryRepository($db);
         $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
-        $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db));
+        $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext);
     }
 
     public function routes(Router $r): void

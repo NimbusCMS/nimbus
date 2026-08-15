@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Nimbus\Tests\Http;
 
+use Nimbus\Api\ApiAuthContext;
 use Nimbus\Api\ApiTokenRepository;
+use Nimbus\Application;
 use Nimbus\Content\Collection;
 use Nimbus\Content\EntryInput;
 use Nimbus\Content\EntryRepository;
@@ -124,6 +126,63 @@ final class ApiRoutesTest extends HttpTestCase
         self::assertSame(200, $response->status);
         // Using the token records last_used_at.
         self::assertNotNull($this->tokens->findByPlaintext($this->token)->lastUsedAt);
+    }
+
+    public function test_an_expired_token_is_rejected(): void
+    {
+        $this->makeCollection('posts');
+        $expired = $this->tokens->create('Old', [], date('Y-m-d H:i:s', strtotime('-1 hour')));
+
+        self::assertSame(401, $this->api('/api/v1/collections/posts/entries', $expired)->status);
+    }
+
+    public function test_a_revoked_token_is_rejected(): void
+    {
+        $this->makeCollection('posts');
+        $plain = $this->tokens->create('Leaked');
+        $this->tokens->revoke($this->tokens->findByPlaintext($plain)->id);
+
+        self::assertSame(401, $this->api('/api/v1/collections/posts/entries', $plain)->status);
+    }
+
+    public function test_a_paused_token_is_rejected_then_accepted_after_resume(): void
+    {
+        $this->makeCollection('posts');
+        $plain = $this->tokens->create('Paused');
+        $id    = $this->tokens->findByPlaintext($plain)->id;
+
+        $this->tokens->pause($id);
+        self::assertSame(401, $this->api('/api/v1/collections/posts/entries', $plain)->status, 'a paused token is turned away');
+
+        $this->tokens->resume($id);
+        self::assertSame(200, $this->api('/api/v1/collections/posts/entries', $plain)->status, 'resuming restores access');
+    }
+
+    public function test_a_valid_token_establishes_the_principal(): void
+    {
+        $this->makeCollection('posts');
+        $context = new ApiAuthContext();
+        $app     = new Application($this->db, $this->auth, null, null, null, $context);
+
+        $app->handle($this->apiRequest('/api/v1/collections/posts/entries', [
+            'REMOTE_ADDR'        => '127.0.0.1',
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $this->token,
+        ]));
+
+        self::assertNotNull($context->principal(), 'the middleware establishes the principal for the controller');
+        self::assertSame('Test app', $context->principal()->name);
+        self::assertSame($this->tokens->findByPlaintext($this->token)->id, $context->principal()->tokenId);
+    }
+
+    public function test_an_unauthenticated_request_establishes_no_principal(): void
+    {
+        $this->makeCollection('posts');
+        $context = new ApiAuthContext();
+        $app     = new Application($this->db, $this->auth, null, null, null, $context);
+
+        $app->handle($this->apiRequest('/api/v1/collections/posts/entries', ['REMOTE_ADDR' => '127.0.0.1']));
+
+        self::assertNull($context->principal());
     }
 
     // --------------------------------------------------------- published-only

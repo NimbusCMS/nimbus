@@ -101,6 +101,26 @@ router — is chosen in the Slice 1 PR). No global "current user/token" singleto
 no service locator: a plugin or controller receives the principal it is given,
 never an ambient one.
 
+## Amendment (2026-08-15, with Slice 1): reversible pause + audit direction
+
+Two refinements decided while implementing the lifecycle, both maintainer-approved:
+
+- **A reversible `paused` state** joins the terminal `revoked` and time-based
+  `expired`. A token's state is *derived* from timestamps (`revoked_at`,
+  `paused_at`, `expires_at`) so there is one source of truth; the resolver gates
+  on `isActive()` at a single chokepoint. Pause disables a token without
+  destroying its secret (resume restores the same token) — revoke stays
+  permanent; revocation always wins over a pause.
+- **Audit is observability, split thin/rich.** Core keeps only a **bounded
+  native record** on the token row (`used_count`, `last_used_ip`, `last_used_at`)
+  — reads are rolled up here, never one row per request — and **emits token
+  lifecycle events** (`token.created/paused/resumed/revoked`; emission lands with
+  the plugin track). The **full per-token history** lives in the official
+  **`nimbuscms/api-advanced`** plugin, which consumes those events (and, once the
+  write API exists, the write events that name the acting principal) into its own
+  append-only tables. This keeps core lean and gives the events + storage
+  capabilities their second unrelated consumer.
+
 ### Lifecycle: expiry and revocation are first-class
 
 - Add `expires_at` (nullable — a non-expiring token is allowed but discouraged and
