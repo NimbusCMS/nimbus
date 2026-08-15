@@ -6,6 +6,7 @@ namespace Nimbus\Api;
 
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\EntryRepository;
+use Nimbus\Content\EntryView;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Database\Connection;
@@ -35,14 +36,14 @@ final class ApiController
 
     private CollectionRepository $collections;
     private EntryRepository $entries;
-    private EntrySerializer $serializer;
+    private EntryView $view;
     private ApiAuthMiddleware $auth;
 
     public function __construct(Connection $db, FieldTypeRegistry $types)
     {
         $this->collections = new CollectionRepository($db);
         $this->entries     = new EntryRepository($db);
-        $this->serializer  = new EntrySerializer($types, new RelationRepository($db), new MediaRepository($db));
+        $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
         $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db));
     }
 
@@ -68,7 +69,7 @@ final class ApiController
         $rows    = $this->entries->liveForCollection($collection->id, $perPage, ($page - 1) * $perPage);
 
         return ApiResponse::ok(
-            $this->serializer->many($collection, $rows),
+            $this->view->many($collection, $rows),
             [
                 'page'       => $page,
                 'per_page'   => $perPage,
@@ -93,7 +94,7 @@ final class ApiController
             return ApiResponse::notFound("No published entry \"{$slug}\" in \"{$handle}\".");
         }
 
-        return ApiResponse::ok($this->serializer->one($collection, $row));
+        return ApiResponse::ok($this->view->one($collection, $row));
     }
 
     private function perPage(Request $request): int
