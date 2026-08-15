@@ -30,6 +30,12 @@ charter is the authority; this is the working detail.
 - **Plugins extend without modifying core.** Official plugins use the *same*
   public APIs as community plugins. If an official plugin needs an internal API,
   the API is evaluated for promotion — never privately reached.
+- **No plugin bypasses the services that own core's data.** A plugin may own and
+  query its *own* tables (scoped interface, [ADR 0005](../../../../docs/adr/0005-plugin-owned-storage.md)),
+  but never touches core's connection, tables, or repositories directly. Core
+  *data* access, when it comes, is a governed **operation** capability (read via
+  the read model, write through services) — never raw SQL with a permission
+  layer, which would grant access without integrity.
 - **Events are post-commit notifications.** They fire only after a successful
   commit, and truthfully (only when the state change happened). They cannot veto
   a write. Listener exceptions surface at the error boundary.

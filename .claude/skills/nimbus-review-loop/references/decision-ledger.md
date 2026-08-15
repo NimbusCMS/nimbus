@@ -27,6 +27,32 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** audit other field types for wire-shape correctness if a client
   reports a surprising value (none known now).
 
+### 2026-08-15 · Analytics-portal milestone planned; plugins may own their storage (ADR 0005)
+- **Status:** accepted (direction); capabilities designed/built in their own slices
+- **Evidence:** [ADR 0005](../../../../docs/adr/0005-plugin-owned-storage.md);
+  three-hat analysis this date; maintainer approval
+- **Product:** a first-party analytics portal (admin dashboard + charts, first-party
+  hit collection) plus third-party agent injection (GA/Fathom/Plausible). Broad,
+  general-CMS need.
+- **Architecture:** the portal forces **four** new core capabilities, sequenced,
+  each minimal and separately reusable: (A) event subscription + a `request.handled`
+  event; (B) plugin-owned migrations; (C) scoped storage/data-access to a plugin's
+  **own** tables (ADR 0005 — amends the "no DB for plugins" boundary to "no
+  **core** DB"); (D) plugin admin pages (route + nav + authed shell render). Agent
+  injection reuses the existing head capability (2nd consumer). Charts are
+  server-rendered SVG (no JS/asset capability). Core-*data* access is explicitly a
+  **later, tiered, operation-level** contract (read model / services + scopes +
+  audit — same substrate as MCP), never raw core-table SQL.
+- **Engineering:** per-request hit recording must be cheap and skip admin/api/assets;
+  privacy-safe (no PII/cookies first-party); plugin SQL via bound-param helpers;
+  admin XSS/CSRF; migration ordering.
+- **Sequence:** ADR 0005 (this) → plugin-analytics v0.1 (agents, now) → A → B → C
+  → D → plugin-analytics v1.0 (portal).
+- **Unlocks:** redirects-admin, search, forms, comments, webhooks, activity log,
+  revisions — the "observe → store → show an admin view" class of plugins.
+- **Revisit:** each capability's concrete contract in its slice; the Tier 1–3
+  core-data-access model when a concrete plugin needs it.
+
 ### 2026-08-15 · Plugin capability #2: head contributions (ADR 0004)
 - **Status:** accepted
 - **Evidence:** [ADR 0004](../../../../docs/adr/0004-plugin-head-contributions.md);
