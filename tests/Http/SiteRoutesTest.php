@@ -436,4 +436,16 @@ final class SiteRoutesTest extends HttpTestCase
         self::assertStringNotContainsString('/blocks', $body, 'blocks are fragments, not pages');
         self::assertStringNotContainsString('/page', $body, 'a single collection is not a crawlable index');
     }
+
+    public function test_robots_txt_welcomes_crawlers_and_points_at_the_sitemap(): void
+    {
+        $response = $this->get('/robots.txt');
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('text/plain', (string) $response->header('Content-Type'));
+        self::assertStringContainsString('User-agent: *', $response->body);
+        self::assertStringContainsString('Disallow: /admin', $response->body);
+        self::assertStringContainsString('Disallow: /api', $response->body);
+        self::assertStringContainsString('Sitemap: ' . Config::appUrl() . '/sitemap.xml', $response->body);
+    }
 }

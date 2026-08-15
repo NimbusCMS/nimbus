@@ -99,6 +99,7 @@ final class SiteController
         // must resolve before the {collection} catch-alls ever see them.
         $r->get('/theme/assets/{path*}', fn (Request $req, array $p): Response => $this->asset($p['path']))->name('site.asset');
         $r->get('/sitemap.xml', fn (Request $req, array $p): Response => $this->sitemap())->name('site.sitemap');
+        $r->get('/robots.txt', fn (Request $req, array $p): Response => $this->robots())->name('site.robots');
         $r->get('/', fn (Request $req, array $p): Response => $this->homePage($req))->name('site.home');
         $r->get('/{collection}', fn (Request $req, array $p): Response => $this->index($req, $p['collection']))->name('site.collection');
         $r->get('/{collection}/{slug}', fn (Request $req, array $p): Response => $this->show($req, $p['collection'], $p['slug']))->name('site.entry');
@@ -180,6 +181,24 @@ final class SiteController
     private function xml(string $value): string
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
+    }
+
+    /**
+     * robots.txt: crawlers are welcome on the public site, but not the admin or
+     * the token-gated API, and the sitemap is advertised so they can find every
+     * page. Assets stay crawlable — they help rendering.
+     */
+    private function robots(): Response
+    {
+        $lines = [
+            'User-agent: *',
+            'Disallow: /admin',
+            'Disallow: /api',
+            '',
+            'Sitemap: ' . Config::appUrl() . '/sitemap.xml',
+        ];
+
+        return Response::file(implode("\n", $lines) . "\n", 'text/plain; charset=UTF-8');
     }
 
     /**
