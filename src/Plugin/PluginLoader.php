@@ -6,6 +6,7 @@ namespace Nimbus\Plugin;
 
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Site\HeadContributorRegistry;
+use Nimbus\Support\EventDispatcher;
 use Throwable;
 
 /**
@@ -70,26 +71,24 @@ final class PluginLoader
     /**
      * Register every enabled plugin into the shared registries.
      *
-     * The head-contributor registry is optional; omit it and head contributions
-     * go to a throwaway. The real kernel always passes one — this keeps the
-     * internal loader callable by a plugin's package test that predates it.
+     * The head-contributor registry and event dispatcher are optional; omit one
+     * and those registrations go to a throwaway. The real kernel always passes
+     * both — the optionality keeps the internal loader callable by a plugin's
+     * package-integration test that predates a capability.
      *
      * @return list<PluginDiagnostic> everything that did not register, and why
      */
-    public function load(FieldTypeRegistry $fieldTypes, ?HeadContributorRegistry $head = null): array
+    public function load(FieldTypeRegistry $fieldTypes, ?HeadContributorRegistry $head = null, ?EventDispatcher $events = null): array
     {
-        // Optional so that adding a capability never breaks an existing plugin's
-        // package-integration test, which calls this internal loader directly and
-        // may not know about the newest registry. A plugin that ignores a
-        // capability simply has its registrations land nowhere.
-        $head ??= new HeadContributorRegistry();
+        $head   ??= new HeadContributorRegistry();
+        $events ??= new EventDispatcher();
 
         $this->diagnostics = [];
         $this->statuses    = [];
         $this->loaded      = [];
 
         foreach ($this->validate($this->packages()) as $id => $candidate) {
-            $this->register($id, $candidate, $fieldTypes, $head);
+            $this->register($id, $candidate, $fieldTypes, $head, $events);
         }
         return $this->diagnostics;
     }
@@ -154,7 +153,7 @@ final class PluginLoader
      *
      * @param array{package:string,class:class-string<Plugin>,version:string,name:string,official:bool} $candidate
      */
-    private function register(string $id, array $candidate, FieldTypeRegistry $fieldTypes, HeadContributorRegistry $head): void
+    private function register(string $id, array $candidate, FieldTypeRegistry $fieldTypes, HeadContributorRegistry $head, EventDispatcher $events): void
     {
         $package  = $candidate['package'];
         $enabled  = $this->enabled[$id] ?? $this->enabledByDefault;
@@ -166,11 +165,12 @@ final class PluginLoader
         }
 
         try {
-            (new $candidate['class']())->register(new PluginContext($fieldTypes, $head, $id));
+            (new $candidate['class']())->register(new PluginContext($fieldTypes, $head, $events, $id));
         } catch (Throwable $e) {
             // Undo whatever landed before the throw, so "failed" in the
             // diagnostics and "inactive" in the application agree.
             $head->forgetProvider($id);
+            $events->forgetProvider($id);
             $rolledBack = $fieldTypes->forgetProvider($id);
             $detail     = $rolledBack === [] ? '' : ' Rolled back: ' . implode(', ', $rolledBack) . '.';
             $message    = $e->getMessage() . $detail;
