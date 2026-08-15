@@ -11,7 +11,7 @@
 ---
 
 > ⚠️ **Status: in active development — not production-ready.**
-> Content management, a media library, a read-only headless JSON API, and now basic server-rendered public pages work end to end today: define collections and fields; create, schedule and publish entries; upload media; read published content over the API; and render a collection's live entries and a single entry through a plain-PHP theme. **Public theming is a first slice** — a designated home page and richer theme capabilities are still to come. There is no upgrade path between versions, no password reset, and no release has been tagged. See [What works today](#what-works-today).
+> Content management, a media library, a read-only headless JSON API, and now basic server-rendered public pages work end to end today: define collections and fields; create, schedule and publish entries; upload media; read published content over the API; and render a collection's live entries and a single entry through a plain-PHP theme, with a configurable home page at the site root. **Public theming is an early slice** — richer theme capabilities are still to come. There is no upgrade path between versions, no password reset, and no release has been tagged. See [What works today](#what-works-today).
 
 ## Why NimbusCMS?
 
@@ -133,10 +133,10 @@ field never means an `ALTER TABLE`.
 - [x] Plugin system — `Plugin` + `PluginContext` + Composer-driven loader, proven by [plugin-markdown](https://github.com/NimbusCMS/plugin-markdown)
 - [x] Media library — upload, library, and a `media` field served by the API
 - [x] Headless JSON API + tokens — read-only `/api/v1`, publishing-lifecycle aware, relations expanded
-- [x] **Server-rendered public site (first slice)** — collection + entry pages via plain-PHP themes (`themes/starter`), live-set only
+- [x] **Server-rendered public site** — home page (`config/site.php`) + collection + entry pages via plain-PHP themes (`themes/starter`), live-set only
 - [ ] Rich-text / Markdown editor
 - [ ] RBAC + revisions + activity log
-- [ ] Designated home page + richer theme capabilities
+- [ ] Richer theme capabilities (asset pipeline, template overrides, custom 404)
 
 The full, continuously audited plan lives in [ROADMAP.md](ROADMAP.md), where
 `[x]` means *verified by CI* — not merely *present in the repository*.

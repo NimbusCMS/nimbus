@@ -10,6 +10,9 @@ use Nimbus\Content\EntryRepository;
 use Nimbus\Content\EntryService;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\RelationRepository;
+use Nimbus\Http\Response;
+use Nimbus\Http\Router;
+use Nimbus\Site\SiteController;
 use Nimbus\Support\EventDispatcher;
 
 /**
@@ -45,6 +48,26 @@ final class SiteRoutesTest extends HttpTestCase
     private function publish(Collection $c, string $title, string $slug, string $status = 'published', ?string $at = null, array $values = []): int
     {
         return (int) $this->entryService->save($c, new EntryInput($title, $slug, $status, $values, $at), null, null)->entryId;
+    }
+
+    /**
+     * Dispatch `GET /` against a SiteController whose home is $home, without
+     * touching the on-disk config/site.php. Mirrors how the kernel wires it.
+     */
+    private function homeWith(?string $home): Response
+    {
+        $router = new Router();
+        (new SiteController($this->db, new FieldTypeRegistry(), $home))->routes($router);
+        $response = $router->dispatch($this->request('GET', '/'));
+        self::assertNotNull($response, 'GET / must resolve');
+        /** @var Response $response */
+        return $response;
+    }
+
+    /** @param array<int,array<string,mixed>> $fields */
+    private function singleCollection(string $handle, array $fields = []): Collection
+    {
+        return $this->makeCollection($handle, $fields, ['kind' => 'single', 'permissions' => ['manage' => ['editor']]]);
     }
 
     // ---------------------------------------------------------- collection page
@@ -151,5 +174,71 @@ final class SiteRoutesTest extends HttpTestCase
 
         self::assertSame(401, $response->status);
         self::assertStringContainsString('application/json', (string) $response->header('Content-Type'));
+    }
+
+    // ------------------------------------------------------------- home page
+
+    public function test_a_single_collection_can_be_the_home_page(): void
+    {
+        $home = $this->singleCollection('homepage', [$this->field('body', 'textarea')]);
+        // A single collection stores its one entry at the __singleton slug.
+        $this->publish($home, 'Welcome', 'ignored', 'published', null, ['body' => 'Front page body.']);
+
+        $response = $this->homeWith('homepage');
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('Front page body.', $response->body);
+    }
+
+    public function test_a_collection_can_be_the_home_page_as_its_index(): void
+    {
+        $posts = $this->makeCollection('posts');
+        $this->publish($posts, 'First Post', 'first');
+        $this->publish($posts, 'Second Post', 'second');
+
+        $response = $this->homeWith('posts');
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('First Post', $response->body);
+        self::assertStringContainsString('href="/posts/first"', $response->body);
+    }
+
+    public function test_an_unconfigured_home_is_a_placeholder(): void
+    {
+        $response = $this->homeWith(null);
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('config/site.php', $response->body);
+    }
+
+    public function test_a_home_naming_a_missing_collection_is_a_placeholder(): void
+    {
+        $response = $this->homeWith('does-not-exist');
+
+        self::assertSame(200, $response->status, 'a misconfigured home must not 500');
+        self::assertStringContainsString('config/site.php', $response->body);
+    }
+
+    public function test_a_draft_single_home_does_not_leak(): void
+    {
+        $home = $this->singleCollection('homepage', [$this->field('body', 'textarea')]);
+        $this->publish($home, 'Secret Front Page', 'ignored', 'draft', null, ['body' => 'Unpublished.']);
+
+        $response = $this->homeWith('homepage');
+
+        self::assertSame(200, $response->status);
+        self::assertStringNotContainsString('Secret Front Page', $response->body, 'a draft home never renders');
+        self::assertStringNotContainsString('Unpublished.', $response->body);
+        self::assertStringContainsString('config/site.php', $response->body, 'it falls through to the placeholder');
+    }
+
+    public function test_the_kernel_serves_the_placeholder_at_root_by_default(): void
+    {
+        // The committed config/site.php configures no home, so the real kernel
+        // serves the placeholder — and it points people at the admin.
+        $response = $this->get('/');
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('/admin', $response->body);
     }
 }

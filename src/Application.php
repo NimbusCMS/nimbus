@@ -156,11 +156,10 @@ final class Application
         (new EntriesController($this->db, $this->auth, $this->fieldTypes, $this->events))->routes($router);
         (new MediaController($this->db, $this->auth))->routes($router);
         (new ApiController($this->db, $this->fieldTypes))->routes($router);
-        $router->get('/', fn (Request $req, array $p): Response => $this->home());
-        // Registered last: the public site's {collection} routes match only
-        // after every literal /admin and /api route has had its turn, so they
-        // can never shadow the application's own surfaces.
-        (new SiteController($this->db, $this->fieldTypes))->routes($router);
+        // Registered last: the public site owns `/` and its {collection} routes
+        // match only after every literal /admin and /api route has had its turn,
+        // so they can never shadow the application's own surfaces.
+        (new SiteController($this->db, $this->fieldTypes, Config::home()))->routes($router);
         return $router;
     }
 
@@ -182,14 +181,6 @@ final class Application
             'samesite' => 'Lax',
         ]);
         session_start();
-    }
-
-    private function home(): Response
-    {
-        return $this->notice(
-            Config::appName(),
-            'Your public site will render here soon. Head to <a href="/admin">/admin</a> to manage content.',
-        );
     }
 
     private function notice(string $title, string $html, int $status = 200): Response
