@@ -4,11 +4,6 @@ declare(strict_types=1);
 
 namespace Nimbus\Plugin;
 
-use Nimbus\Content\FieldTypeRegistry;
-use Nimbus\Database\MigrationRegistry;
-use Nimbus\Site\HeadContributorRegistry;
-use Nimbus\Support\EventDispatcher;
-
 /**
  * Everything a plugin is allowed to touch.
  *
@@ -43,17 +38,12 @@ final class PluginContext
     private EventRegistrar $events;
     private MigrationRegistrar $migrations;
 
-    public function __construct(
-        FieldTypeRegistry $fieldTypes,
-        HeadContributorRegistry $head,
-        EventDispatcher $events,
-        MigrationRegistry $migrations,
-        private string $pluginId,
-    ) {
-        $this->fieldTypes = new FieldTypeRegistrar($fieldTypes, $pluginId);
-        $this->head       = new HeadRegistrar($head, $pluginId);
-        $this->events     = new EventRegistrar($events, $pluginId);
-        $this->migrations = new MigrationRegistrar($migrations, $pluginId);
+    public function __construct(PluginCapabilities $capabilities, private string $pluginId)
+    {
+        $this->fieldTypes = new FieldTypeRegistrar($capabilities->fieldTypes, $pluginId);
+        $this->head       = new HeadRegistrar($capabilities->head, $pluginId);
+        $this->events     = new EventRegistrar($capabilities->events, $pluginId);
+        $this->migrations = new MigrationRegistrar($capabilities->migrations, $pluginId);
     }
 
     /** Register field types. Registrations are stamped with this plugin's id. */

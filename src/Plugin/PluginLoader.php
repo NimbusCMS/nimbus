@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace Nimbus\Plugin;
 
-use Nimbus\Content\FieldTypeRegistry;
-use Nimbus\Database\MigrationRegistry;
-use Nimbus\Site\HeadContributorRegistry;
-use Nimbus\Support\EventDispatcher;
 use Throwable;
 
 /**
@@ -72,25 +68,16 @@ final class PluginLoader
     /**
      * Register every enabled plugin into the shared registries.
      *
-     * The head-contributor registry and event dispatcher are optional; omit one
-     * and those registrations go to a throwaway. The real kernel always passes
-     * both — the optionality keeps the internal loader callable by a plugin's
-     * package-integration test that predates a capability.
-     *
      * @return list<PluginDiagnostic> everything that did not register, and why
      */
-    public function load(FieldTypeRegistry $fieldTypes, ?HeadContributorRegistry $head = null, ?EventDispatcher $events = null, ?MigrationRegistry $migrations = null): array
+    public function load(PluginCapabilities $capabilities): array
     {
-        $head       ??= new HeadContributorRegistry();
-        $events     ??= new EventDispatcher();
-        $migrations ??= new MigrationRegistry();
-
         $this->diagnostics = [];
         $this->statuses    = [];
         $this->loaded      = [];
 
         foreach ($this->validate($this->packages()) as $id => $candidate) {
-            $this->register($id, $candidate, $fieldTypes, $head, $events, $migrations);
+            $this->register($id, $candidate, $capabilities);
         }
         return $this->diagnostics;
     }
@@ -155,7 +142,7 @@ final class PluginLoader
      *
      * @param array{package:string,class:class-string<Plugin>,version:string,name:string,official:bool} $candidate
      */
-    private function register(string $id, array $candidate, FieldTypeRegistry $fieldTypes, HeadContributorRegistry $head, EventDispatcher $events, MigrationRegistry $migrations): void
+    private function register(string $id, array $candidate, PluginCapabilities $capabilities): void
     {
         $package  = $candidate['package'];
         $enabled  = $this->enabled[$id] ?? $this->enabledByDefault;
@@ -167,14 +154,14 @@ final class PluginLoader
         }
 
         try {
-            (new $candidate['class']())->register(new PluginContext($fieldTypes, $head, $events, $migrations, $id));
+            (new $candidate['class']())->register(new PluginContext($capabilities, $id));
         } catch (Throwable $e) {
             // Undo whatever landed before the throw, so "failed" in the
             // diagnostics and "inactive" in the application agree.
-            $head->forgetProvider($id);
-            $events->forgetProvider($id);
-            $migrations->forgetProvider($id);
-            $rolledBack = $fieldTypes->forgetProvider($id);
+            $capabilities->head->forgetProvider($id);
+            $capabilities->events->forgetProvider($id);
+            $capabilities->migrations->forgetProvider($id);
+            $rolledBack = $capabilities->fieldTypes->forgetProvider($id);
             $detail     = $rolledBack === [] ? '' : ' Rolled back: ' . implode(', ', $rolledBack) . '.';
             $message    = $e->getMessage() . $detail;
 
