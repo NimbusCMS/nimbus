@@ -44,6 +44,11 @@ abstract class Controller
             ['key' => 'plugins',     'label' => 'Plugins',     'url' => '/admin/plugins',     'icon' => '⚡'],
             ['key' => 'settings',    'label' => 'Settings',    'url' => '/admin/settings',    'icon' => '⚙'],
         ];
+        // API tokens are an administrator concern — only admins can mint or
+        // revoke them, so only admins see the entry point.
+        if (Permissions::isAdmin($this->auth->user())) {
+            $items[] = ['key' => 'tokens', 'label' => 'API tokens', 'url' => '/admin/tokens', 'icon' => '⚿'];
+        }
         // Plugin-registered pages sit below the core sections.
         foreach ($this->adminPages?->all() ?? [] as $page) {
             $items[] = ['key' => $page['slug'], 'label' => $page['label'], 'url' => '/admin/' . $page['slug'], 'icon' => $page['icon']];

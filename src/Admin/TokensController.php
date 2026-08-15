@@ -1,0 +1,109 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Nimbus\Admin;
+
+use Nimbus\Api\ApiTokenRepository;
+use Nimbus\Auth\Auth;
+use Nimbus\Database\Connection;
+use Nimbus\Http\Csrf;
+use Nimbus\Http\Request;
+use Nimbus\Http\Response;
+use Nimbus\Http\Router;
+
+/**
+ * Manage API tokens: mint (shown once), list them with their lifecycle state,
+ * and revoke / pause / resume.
+ *
+ * Administrator-only: a token grants programmatic access to content, so minting
+ * and revoking it is an administrative act, not an everyday editorial one.
+ *
+ * One departure from every other admin write: minting *renders* its result
+ * rather than redirecting, because the plaintext token is shown exactly once and
+ * must never travel in a URL, a session flash, or a log. Everything else — the
+ * lifecycle actions — redirects like the rest of the admin.
+ */
+final class TokensController extends Controller
+{
+    /** Expiry presets offered by the form: key => a strtotime modifier (null = never). */
+    private const EXPIRY = [
+        'never' => null,
+        '30d'   => '+30 days',
+        '90d'   => '+90 days',
+        '1y'    => '+1 year',
+    ];
+
+    private ApiTokenRepository $tokens;
+
+    public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null)
+    {
+        parent::__construct($db, $auth, $adminPages);
+        $this->tokens = new ApiTokenRepository($this->db);
+    }
+
+    public function routes(Router $r): void
+    {
+        $r->group('/admin/tokens', [$this->authMw], function (Router $g): void {
+            $g->get('', fn (Request $req, array $p): Response => $this->index($req))->name('admin.tokens.index');
+            $g->post('', fn (Request $req, array $p): Response => $this->store($req));
+            $g->post('/{id}/revoke', fn (Request $req, array $p): Response => $this->lifecycle($req, (int) $p['id'], 'revoke'));
+            $g->post('/{id}/pause', fn (Request $req, array $p): Response => $this->lifecycle($req, (int) $p['id'], 'pause'));
+            $g->post('/{id}/resume', fn (Request $req, array $p): Response => $this->lifecycle($req, (int) $p['id'], 'resume'));
+        });
+    }
+
+    /** The list + create form. `$justCreated` is a freshly-minted plaintext to show once. */
+    private function index(Request $req, ?string $justCreated = null): Response
+    {
+        $this->requireAdmin();
+
+        return $this->page('tokens/index', 'tokens', [
+            'tokens'      => $this->tokens->all(),
+            'expiries'    => array_keys(self::EXPIRY),
+            'justCreated' => $justCreated,
+            'flash'       => $req->query('msg'),
+            'error'       => $req->query('err'),
+            'csrf'        => Csrf::token(),
+        ]);
+    }
+
+    private function store(Request $req): Response
+    {
+        $this->requireAdmin();
+        $this->requireCsrf($req, '/admin/tokens');
+
+        $name = trim((string) $req->input('name'));
+        if ($name === '') {
+            return $this->redirect('/admin/tokens?err=' . rawurlencode('A token needs a name.'));
+        }
+
+        $plain = $this->tokens->create($name, [], $this->expiryFrom($req->input('expires')));
+
+        // Rendered, never redirected: the plaintext is shown once and must not
+        // land in a URL, a flash, or a log.
+        return $this->index($req, $plain);
+    }
+
+    private function lifecycle(Request $req, int $id, string $action): Response
+    {
+        $this->requireAdmin();
+        $this->requireCsrf($req, '/admin/tokens');
+
+        match ($action) {
+            'revoke' => $this->tokens->revoke($id),
+            'pause'  => $this->tokens->pause($id),
+            default  => $this->tokens->resume($id),
+        };
+
+        return $this->redirect("/admin/tokens?msg={$action}d");
+    }
+
+    /** Turn an expiry preset into an absolute timestamp, or null for "never". */
+    private function expiryFrom(?string $preset): ?string
+    {
+        $modifier = self::EXPIRY[$preset] ?? null;
+
+        return $modifier === null ? null : date('Y-m-d H:i:s', (int) strtotime($modifier));
+    }
+}
