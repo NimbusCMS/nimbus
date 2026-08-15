@@ -27,7 +27,33 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** audit other field types for wire-shape correctness if a client
   reports a surprising value (none known now).
 
+### 2026-08-15 · Capability C built: scoped plugin storage (ADR 0005)
+- **Status:** accepted (analytics milestone, slice C of A–D)
+- **Evidence:** PR (feat/plugin-storage); `src/Plugin/PluginStorage.php`,
+  `PluginContext::storage()`; `PluginCapabilities` carries the `Connection`;
+  `tests/Integration/PluginStorageTest.php`
+- **Product:** a plugin reads/writes the tables it created with its migrations —
+  the runtime half of ADR 0005, what analytics' charts need.
+- **Architecture:** a narrow parameterised interface (`select/selectOne/execute/
+  insert/transaction`) — **not** the core `Connection`, not a repository. Built
+  lazily from the kernel's connection; requires a DB (throws otherwise). Amended
+  `PluginContext`'s "deliberately absent" note: **core** connection/tables/repos
+  stay absent; a plugin may own and query its **own** tables.
+- **Engineering (honest boundary):** "own tables only" is a **contract, not a
+  sandbox** — an in-process PHP plugin has the whole runtime and could open its
+  own connection anyway, so there is no enforcement here a determined plugin
+  couldn't bypass. `PluginStorage` provides the *intended* path (parameterised,
+  no core connection handed over) and the boundary docs/reviews hold plugins to.
+- **Revisit:** core-*data* access (Tiers 1–3 in ADR 0005) remains a separate,
+  later, operation-level contract — never raw core-table SQL.
+
 ### 2026-08-15 · Refactor: plugin capabilities bundled into PluginCapabilities
+- **Cross-repo lesson (self-learning):** the bundle refactor revealed
+  plugin-markdown's *tests* had been broken against nimbus dev-main since the
+  head capability (#47) — a plugin's CI runs only on its own pushes, and the
+  boundary test exercises plugin *production* code, not the plugin's suite. Guard
+  later (scheduled plugin CI, or run plugin suites in the boundary job). Fixed
+  both plugin repos as part of the refactor.
 - **Status:** accepted
 - **Evidence:** PR (refactor/plugin-capabilities-bundle); `src/Plugin/PluginCapabilities.php`;
   `PluginContext` + `PluginLoader::load` now take one value; `Application` composes it

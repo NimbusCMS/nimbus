@@ -116,6 +116,7 @@ final class Application
             head: $this->headContributors,
             events: $this->events,
             migrations: $this->migrations,
+            db: $this->db,
         ));
         $this->pluginStatuses    = $loader->statuses();
 
