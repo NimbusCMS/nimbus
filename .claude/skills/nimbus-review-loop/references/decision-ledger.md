@@ -13,6 +13,22 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-15 · Relation fields expand at the EntryView edge, live-only (F1 resolved)
+- **Status:** accepted
+- **Evidence:** PR (feat/relation-expansion); `src/Content/EntryView.php`,
+  `RelationRepository::liveTargets()`; `tests/Http/ApiRoutesTest.php`; COMPATIBILITY.md
+- **Product:** a headless client (or a theme) gets `{id,slug,title}` per linked
+  entry in one request instead of bare ids — reusable across any frontend.
+- **Architecture:** a second reference-expanding edge case alongside media, not a
+  resolver abstraction — still two, so the "third → extract a capability" trigger
+  is not yet met. Relation expansion bypasses `RelationType::toApi()` at the edge,
+  exactly as media does. One live predicate reused (published, publish time due).
+- **Engineering:** the JOIN filters to the live set, so a link to a draft /
+  scheduled / archived entry leaks nothing — not even its existence. One query per
+  relation field per entry (same N+1 shape as media; acceptable, revisit below).
+- **Revisit:** a **third** reference-resolving field type, or list-view N+1 showing
+  up under load → extract a batched reference-expansion capability then, not before.
+
 ### 2026-08-14 · Public rendering + theme contract accepted (ADR 0003)
 - **Status:** accepted
 - **Evidence:** [ADR 0003](../../../../docs/adr/0003-public-rendering-and-theme-contract.md), PR #31
@@ -134,10 +150,9 @@ declined (keep it — it stops the idea returning without new evidence).
 
 From the Restaurant **Menu** acceptance test (Menu itself needed zero core changes):
 
-- **F1 — API returns relations/references as bare ids.** *Proposed capability:*
-  reference expansion in the read API. Classify **Core** (API maturity) — reusable
-  across headless frontends, independent of Restaurant. Revisit trigger already
-  half-met (media expands; relations don't). Evidence: Restaurant
+- **F1 — API returns relations/references as bare ids.** **Resolved** —
+  relations now expand at the EntryView edge to `{id,slug,title}`, live-only.
+  See the 2026-08-15 accepted entry above. Evidence: Restaurant
   `docs/PLATFORM-VALIDATION.md` F1.
 - **F2 — no supported way to consume Nimbus from a separate app repo** (root-only,
   not on Packagist, no library mode/image). Classify **Core / release process**.

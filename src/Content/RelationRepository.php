@@ -34,6 +34,40 @@ final class RelationRepository
     }
 
     /**
+     * Live target entries for one entry's relation field, in link order —
+     * enough to render or link to each without a second request.
+     *
+     * Only the live set is returned: a relation pointing at a draft, a
+     * not-yet-due scheduled entry, or an archived one contributes nothing,
+     * exactly as that entry is absent from the public API. A relation must
+     * never leak an unpublished entry's slug or title. "Live" is the same
+     * predicate the entry queries use (published, publish time arrived).
+     *
+     * @return list<array{id:int,slug:string,title:string}>
+     */
+    public function liveTargets(int $fromEntryId, int $fieldId): array
+    {
+        $rows = $this->db->select(
+            "SELECT e.id, e.slug, e.title
+             FROM nb_relations r
+             JOIN nb_entries e ON e.id = r.to_entry_id
+             WHERE r.from_entry_id = :f AND r.field_id = :fl
+               AND e.status = 'published' AND e.published_at IS NOT NULL AND e.published_at <= NOW()
+             ORDER BY r.sort, r.id",
+            ['f' => $fromEntryId, 'fl' => $fieldId],
+        );
+
+        return array_map(
+            static fn (array $r): array => [
+                'id'    => (int) $r['id'],
+                'slug'  => (string) $r['slug'],
+                'title' => (string) $r['title'],
+            ],
+            $rows,
+        );
+    }
+
+    /**
      * Replace the links for one entry's relation field.
      *
      * @param int[] $toIds
