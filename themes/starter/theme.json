@@ -10,5 +10,6 @@
         "entry": "A single entry.",
         "404": "Not-found page body; without it Nimbus serves a built-in one."
     },
-    "specialization": "Add collection-{handle} or entry-{handle} (e.g. entry-homepage) to override the generic template for one collection; Nimbus falls back to the generic one."
+    "specialization": "Add collection-{handle} or entry-{handle} (e.g. entry-homepage) to override the generic template for one collection; Nimbus falls back to the generic one.",
+    "assets": "Files under assets/ are served at /theme/assets/<path> (e.g. assets/app.css -> /theme/assets/app.css). Allowlisted types only (css, js, images, fonts); no PHP."
 }

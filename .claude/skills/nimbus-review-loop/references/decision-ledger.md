@@ -13,6 +13,27 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-15 · Theme static assets served at /theme/assets, plus a Router catch-all
+- **Status:** accepted
+- **Evidence:** PR (feat/theme-assets); `src/Http/Route.php` (`{name*}` wildcard),
+  `src/Http/Response.php` (`file()`), `src/Site/SiteController.php` (`asset()`);
+  `themes/starter/assets/app.css`; `tests/Unit/RouterTest.php`, `SiteRoutesTest.php`
+- **Product:** themes ship real `.css`/`.js`/images/fonts under `assets/`, served
+  at `/theme/assets/<path>`, instead of inlining everything. Starter dogfoods it
+  (its CSS moved to `assets/app.css`), which also drops the public site's reliance
+  on inline `<style>`.
+- **Architecture:** needed a route that captures a nested path, so `Route` gained
+  a `{name*}` wildcard (`.+`) — a small, general, reusable core addition with a
+  concrete consumer, not speculative. `Response::file()` serves a typed body.
+  Asset route registered first among the site routes (specific literal prefix).
+- **Engineering:** the URL path is resolved with `realpath()` and confirmed to
+  sit inside `assets/`, so `..`/absolute paths 404 (tested against the theme's own
+  templates one level up). Extension allowlist → a theme's PHP is never served.
+  Bodies pass through PHP (fine for modest theme files; a webserver can bypass in
+  prod). `Cache-Control: public, max-age=3600`.
+- **Revisit:** ETag/Last-Modified + conditional requests; asset fingerprinting;
+  reading `theme.json` for real — each on evidence.
+
 ### 2026-08-15 · Theme capabilities: partials, per-collection specialization, themed 404
 - **Status:** accepted
 - **Evidence:** PR (feat/theme-capabilities); `src/View/View.php`
