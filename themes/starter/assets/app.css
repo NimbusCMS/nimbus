@@ -8,7 +8,11 @@ body {
     padding: 2rem 1.25rem 4rem;
 }
 
-header a { text-decoration: none; font-weight: 600; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .5rem 1rem; }
+header a { text-decoration: none; }
+header .brand { font-weight: 600; }
+.site-nav { display: flex; gap: 1rem; }
+.site-nav a { color: #6b7280; }
 h1 { letter-spacing: -.02em; }
 time { color: #6b7280; font-size: .9rem; }
 

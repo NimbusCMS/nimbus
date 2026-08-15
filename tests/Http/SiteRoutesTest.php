@@ -313,4 +313,20 @@ final class SiteRoutesTest extends HttpTestCase
         self::assertSame(404, $response->status, 'traversal never resolves to a real file');
         self::assertStringNotContainsString('<!doctype', $response->body, 'a template is never disclosed');
     }
+
+    // ---------------------------------------------------------------- menus
+
+    public function test_the_configured_menu_renders_in_the_page(): void
+    {
+        // config/menus.php ships a `main` menu with a Home link; the starter
+        // header renders it, so it reaches the page through the real kernel.
+        $c = $this->makeCollection('posts');
+        $this->publish($c, 'Hello', 'hello');
+
+        $response = $this->get('/posts');
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('site-nav', $response->body, 'the header renders the configured menu');
+        self::assertStringContainsString('Home', $response->body);
+    }
 }

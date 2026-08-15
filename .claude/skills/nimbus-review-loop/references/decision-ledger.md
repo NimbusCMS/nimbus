@@ -13,6 +13,24 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-15 · Navigation menus via config/menus.php, rendered by the theme
+- **Status:** accepted
+- **Evidence:** PR (feat/menus); `config/menus.php`, `Config::menus()`;
+  `SiteController` shared data; `themes/starter/templates/header.php`;
+  `tests/Unit/ViewTest.php`, `tests/Http/SiteRoutesTest.php`
+- **Product:** a site defines named navigation menus in one place; the starter
+  header renders `main`. Every site type wants navigation.
+- **Architecture:** config-driven (`config/menus.php`), consistent with
+  `plugins`/`theme`/`site`. Menus flow through the theme's shared view-model as
+  `$menus`; the theme renders — no menu logic in core beyond parse+validate.
+  **Editor-managed menus (admin builder + storage) deferred** until evidence
+  editors need it, not built speculatively.
+- **Engineering:** `Config::menus()` drops malformed entries, so a config typo
+  never reaches a template; labels/urls escaped in the theme.
+- **Revisit:** active-item highlighting (needs the current path in the
+  view-model); nested/child menus; an editor-facing menu builder — each on
+  evidence.
+
 ### 2026-08-15 · Theme static assets served at /theme/assets, plus a Router catch-all
 - **Status:** accepted
 - **Evidence:** PR (feat/theme-assets); `src/Http/Route.php` (`{name*}` wildcard),
