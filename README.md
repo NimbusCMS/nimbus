@@ -32,7 +32,7 @@ Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a smal
 - 🗓️ **Publishing lifecycle** — draft / published / scheduled / archived with cron-free scheduling; the API serves exactly the live set
 - 🖼️ **Media library** — upload (content-validated, safe names), a library, and a `media` field the API expands to `{ url, alt, … }`
 - 🔌 **Headless JSON API** — read-only `/api/v1`, bearer tokens, pagination, field values serialized through `toApi()`
-- 🧩 **Plugins** — official [Markdown](https://github.com/NimbusCMS/plugin-markdown) plugin, a Composer-driven loader, and a read-only Plugins admin page
+- 🧩 **Plugins** — official [Markdown](https://github.com/NimbusCMS/plugin-markdown), [SEO](https://github.com/NimbusCMS/plugin-seo) and [Analytics](https://github.com/NimbusCMS/plugin-analytics) plugins, a Composer-driven loader, and a read-only Plugins admin page
 
 ### 🔌 Plugins
 
@@ -58,10 +58,16 @@ the loader made of each package — enabled, disabled or failed, with the reason
 It is a diagnostic view, not an installer: plugins are managed with
 `composer require`/`remove` and enabled or disabled in `config/plugins.php`.
 
-Today a plugin can register **field types** and **document-head contributions**
-(structured data / meta for public pages, see [ADR 0004](docs/adr/0004-plugin-head-contributions.md)).
-Routes, events, permissions, migrations and admin navigation are added one at a
-time, each alongside a plugin that actually needs it.
+Today a plugin can register **field types**, **document-head contributions**
+(structured data / meta for public pages, see [ADR 0004](docs/adr/0004-plugin-head-contributions.md)),
+**event listeners** (including `request.handled`), **its own migrations and
+tables** ([ADR 0005](docs/adr/0005-plugin-owned-storage.md) — own tables only),
+and **admin pages** (with a nav entry). Each of these was added alongside an
+official plugin that actually needed it — Markdown (field types), SEO (head), and
+Analytics (events, migrations, storage, admin pages). Arbitrary routes, custom
+permissions, and access to *core* tables are deliberately still not exposed. The
+authoritative, evidence-backed capability matrix lives in
+[`references/capability-evidence.md`](.claude/skills/nimbus-review-loop/references/capability-evidence.md).
 
 ### 🧪 Experimental — works, but the shape may still change
 
@@ -70,8 +76,8 @@ time, each alongside a plugin that actually needs it.
 
 ### 🗺️ Roadmap — not built yet
 
-- ✍️ Rich-text / Markdown editor · 📚 entry revisions · 📋 activity log
-- 🏠 **Designated home page** · 🎨 richer theme capabilities (asset pipeline, template overrides) · 🔎 API filtering / sparse fieldsets
+- ✍️ Rich-text editor · 📚 entry revisions · 📋 activity log
+- 🎨 **Plugin-provided / multiple installable themes** (a single starter theme, home page, template overrides, partials and an asset pipeline already ship) · 🔎 API filtering / sparse fieldsets · 🔑 scoped API tokens (expiry + revocation)
 
 ### 🚧 Not production-ready
 

@@ -199,6 +199,13 @@ consumer rather than designed in isolation.
 - [x] **Cross-repository integration test** — `tests/Integration/package-boundary.sh`
       in CI installs the Markdown package through real Composer resolution and
       drives its whole lifecycle across the package boundary
+- [ ] **Plugin admin *forms* — CSRF-token exposure decision** *(backlog)* — the
+      admin-pages capability shipped GET-only (proven by `nimbuscms/analytics`).
+      Before a plugin page can POST, decide how a plugin obtains and embeds the
+      admin CSRF token without widening the trusted surface (a scoped helper on
+      the page context vs. a rendered hidden field the plugin can't read). No
+      concrete consumer needs a form yet — build it when one does, not before.
+      See the plugin-analytics ledger entry.
 
 ## 📦 Release & packaging (blocks a stable plugin ecosystem)
 
@@ -241,8 +248,12 @@ Ordered, because each step depends on the one before:
 
 ## 🧭 Next: production readiness, kept honest by acceptance tests
 
-Plugin infrastructure is **frozen** (see the charter) — done, not to be polished
-further. The focus is production readiness (the Release themes below).
+The plugin **loader / registry / lifecycle mechanics** are **frozen** (see the
+charter) — done, not to be polished further. That freeze is on the *machinery*,
+not the capability set: individual `PluginContext` capabilities are still added
+one at a time, each alongside an official plugin that needs it (ADR-0001) — see
+the Extensibility section and `capability-evidence.md`. The focus otherwise is
+production readiness (the Release themes below).
 
 **Validation projects are acceptance tests, not the roadmap.** Restaurant
 Management (rebuild on branch `nimbus-rebuild`), Food Store, and Packkit exist to
@@ -322,7 +333,7 @@ changes** — collections + relation + number, served over the API):
 
 ---
 
-## 🔌 Extensibility — plugin architecture (design; build **after** the milestone above)
+## 🔌 Extensibility — plugin architecture (loader frozen; capabilities added one at a time per ADR-0001)
 
 **Vocabulary.** *Core* = the small kernel (routing, HTTP, auth, DB, migrations,
 collections, entries, validation, plugin/theme loading, event dispatcher, stable
@@ -342,11 +353,18 @@ deliberate public surface:
   repositories, session internals, or a service locator.
 - [ ] `Plugin` interface + loader (register into `PluginContext`); versioned;
   enable/disable.
-- [x] Field-type interface + registry (first capability, already live)
-- [~] Event dispatcher — synchronous; documented events
-  (`entry.created/updated/saved/deleted`); add `EntrySaving/Published` as consumers
-  appear
-- [ ] Storage adapter interface (local / S3-compatible)
+- [x] Field-type interface + registry (first capability — consumer: Markdown)
+- [x] Document-head contributions (ADR 0004 — consumer: SEO)
+- [x] Event listeners via `PluginContext::events()` — synchronous, post-commit;
+  documented events (`entry.created/updated/saved/deleted`) plus `request.handled`
+  (best-effort/isolated); consumer: Analytics. `entry.saving/published` deferred
+  until a consumer appears
+- [x] Plugin-owned migrations + storage — own tables only ([ADR 0005](docs/adr/0005-plugin-owned-storage.md));
+  consumer: Analytics. Core connection/tables/repos stay off-limits
+- [x] Admin pages + nav via `PluginContext::adminPages()` — GET-only for now
+  (forms pending the CSRF-token decision above); consumer: Analytics
+- [ ] Storage adapter interface (local / S3-compatible) — *media/asset backends,
+  distinct from plugin-owned storage above*
 - [ ] Cache adapter interface
 
 **Official plugins** (Media, SEO, Markdown, Search, Revisions, Redirects,
