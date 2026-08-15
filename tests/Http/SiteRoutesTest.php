@@ -406,4 +406,34 @@ final class SiteRoutesTest extends HttpTestCase
         // The description meta stays within a sensible length (…-terminated).
         self::assertMatchesRegularExpression('/<meta name="description" content="[^"]{1,161}…">/', $body);
     }
+
+    public function test_the_sitemap_lists_the_home_index_and_live_entries(): void
+    {
+        $c = $this->makeCollection('posts');
+        $this->publish($c, 'Live', 'live');
+        $this->publish($c, 'Draft', 'draft-one', 'draft');
+
+        $response = $this->get('/sitemap.xml');
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('application/xml', (string) $response->header('Content-Type'));
+        self::assertStringStartsWith('<?xml', $response->body);
+        self::assertStringContainsString('<loc>' . Config::appUrl() . '/</loc>', $response->body);
+        self::assertStringContainsString('<loc>' . Config::appUrl() . '/posts</loc>', $response->body);
+        self::assertStringContainsString('<loc>' . Config::appUrl() . '/posts/live</loc>', $response->body);
+        self::assertStringNotContainsString('/posts/draft-one', $response->body, 'drafts are never in the sitemap');
+    }
+
+    public function test_the_sitemap_omits_blocks_and_single_collections(): void
+    {
+        $blocks = $this->makeCollection('blocks', [$this->field('body', 'textarea')]);
+        $this->publish($blocks, 'A', 'announcement', 'published', null, ['body' => 'x']);
+        $page = $this->singleCollection('page');
+        $this->publish($page, 'About', 'about');
+
+        $body = $this->get('/sitemap.xml')->body;
+
+        self::assertStringNotContainsString('/blocks', $body, 'blocks are fragments, not pages');
+        self::assertStringNotContainsString('/page', $body, 'a single collection is not a crawlable index');
+    }
 }
