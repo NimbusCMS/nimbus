@@ -8,6 +8,7 @@ use Nimbus\Api\ApiTokenRepository;
 use Nimbus\Auth\Auth;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
+use Nimbus\Http\FormNonce;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
@@ -65,6 +66,7 @@ final class TokensController extends Controller
             'flash'       => $req->query('msg'),
             'error'       => $req->query('err'),
             'csrf'        => Csrf::token(),
+            'nonce'       => FormNonce::issue(),
         ]);
     }
 
@@ -76,6 +78,14 @@ final class TokensController extends Controller
         $name = trim((string) $req->input('name'));
         if ($name === '') {
             return $this->redirect('/admin/tokens?err=' . rawurlencode('A token needs a name.'));
+        }
+
+        // Single-use nonce, checked only once the input is otherwise valid: a
+        // reload re-POSTs a spent nonce, so it mints nothing (the mint renders
+        // its secret rather than redirecting, so it cannot use Post/Redirect/Get
+        // to dodge the resubmit). An empty-name retry keeps its nonce.
+        if (!FormNonce::consume($req->input('_nonce'))) {
+            return $this->redirect('/admin/tokens?msg=resubmit');
         }
 
         $plain = $this->tokens->create($name, [], $this->expiryFrom($req->input('expires')));

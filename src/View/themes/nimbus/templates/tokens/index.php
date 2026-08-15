@@ -6,13 +6,19 @@
  * @var ?string                $flash
  * @var ?string                $error
  * @var string                 $csrf
+ * @var string                 $nonce single-use, guards against reload-resubmit
  */
 use Nimbus\View\View;
 
 $e = static fn (?string $v): string => View::e($v);
 
 $expiryLabel = ['never' => 'Never', '30d' => 'In 30 days', '90d' => 'In 90 days', '1y' => 'In 1 year'];
-$flashLabel  = ['revoked' => 'Token revoked.', 'paused' => 'Token paused.', 'resumed' => 'Token resumed.'];
+$flashLabel  = [
+    'revoked'  => 'Token revoked.',
+    'paused'   => 'Token paused.',
+    'resumed'  => 'Token resumed.',
+    'resubmit' => 'That form had already been submitted — no token was created.',
+];
 
 // Reuse the existing badge palette: active is good, revoked is danger, the rest muted.
 $badge = static fn (string $status): string => match ($status) {
@@ -40,6 +46,7 @@ $badge = static fn (string $status): string => match ($status) {
 
 <form class="nb-token-new" method="post" action="/admin/tokens">
     <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
+    <input type="hidden" name="_nonce" value="<?= $e($nonce) ?>">
     <div class="nb-field">
         <label>Name <small class="nb-muted">— what this token is for</small></label>
         <input type="text" name="name" placeholder="e.g. Marketing site" required>

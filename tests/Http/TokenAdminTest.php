@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Tests\Http;
 
 use Nimbus\Api\ApiTokenRepository;
+use Nimbus\Http\FormNonce;
 
 /**
  * The token admin surface, through the real kernel.
@@ -54,7 +55,7 @@ final class TokenAdminTest extends HttpTestCase
     {
         $this->actingAs('admin');
 
-        $response = $this->post('/admin/tokens', ['name' => 'CI pipeline', 'expires' => 'never']);
+        $response = $this->mint('CI pipeline');
 
         self::assertSame(200, $response->status, 'the secret is rendered, not redirected');
         self::assertNull($response->header('Location'), 'a secret must never travel in a redirect');
@@ -69,7 +70,7 @@ final class TokenAdminTest extends HttpTestCase
     public function test_the_secret_never_reappears_on_a_later_page_load(): void
     {
         $this->actingAs('admin');
-        $plain = $this->extractSecret($this->post('/admin/tokens', ['name' => 'Once', 'expires' => 'never'])->body);
+        $plain = $this->extractSecret($this->mint('Once')->body);
 
         self::assertStringNotContainsString($plain, $this->get('/admin/tokens')->body, 'a reload must not re-reveal the secret');
     }
@@ -77,9 +78,25 @@ final class TokenAdminTest extends HttpTestCase
     public function test_an_expiry_preset_is_applied(): void
     {
         $this->actingAs('admin');
-        $plain = $this->extractSecret($this->post('/admin/tokens', ['name' => 'Temp', 'expires' => '30d'])->body);
+        $plain = $this->extractSecret($this->mint('Temp', '30d')->body);
 
         self::assertNotNull($this->tokens->findByPlaintext($plain)->expiresAt, 'a preset expiry is stored');
+    }
+
+    public function test_a_resubmitted_mint_creates_no_duplicate(): void
+    {
+        $this->actingAs('admin');
+        $nonce = FormNonce::issue();
+
+        $first = $this->post('/admin/tokens', ['name' => 'Once', 'expires' => 'never', '_nonce' => $nonce]);
+        self::assertCount(1, $this->tokens->all());
+        self::assertSame(1, preg_match('/nbt_[0-9a-f]{40}/', $first->body));
+
+        // A reload re-POSTs the same (now spent) nonce.
+        $resubmit = $this->post('/admin/tokens', ['name' => 'Once', 'expires' => 'never', '_nonce' => $nonce]);
+
+        self::assertCount(1, $this->tokens->all(), 'a resubmit mints no duplicate');
+        self::assertSame(0, preg_match('/nbt_[0-9a-f]{40}/', $resubmit->body), 'and shows no new secret');
     }
 
     public function test_minting_requires_csrf(): void
@@ -137,6 +154,12 @@ final class TokenAdminTest extends HttpTestCase
 
         $this->assertRedirects($this->post("/admin/tokens/{$id}/revoke"), '/admin');
         self::assertNotNull($this->tokens->findByPlaintext($plain), 'the token survives a non-admin revoke attempt');
+    }
+
+    /** Mint through the UI with a fresh single-use nonce (what a rendered form carries). */
+    private function mint(string $name, string $expires = 'never'): \Nimbus\Http\Response
+    {
+        return $this->post('/admin/tokens', ['name' => $name, 'expires' => $expires, '_nonce' => FormNonce::issue()]);
     }
 
     private function extractSecret(string $body): string
