@@ -28,7 +28,7 @@ declined (keep it — it stops the idea returning without new evidence).
   reports a surprising value (none known now).
 
 ### 2026-08-15 · SEO split: foundational meta/sitemap/robots in core, rich SEO a future plugin
-- **Status:** accepted (slice 1 of 3 — per-page meta — implemented here)
+- **Status:** accepted (all 3 core slices done: per-page meta PR #44, sitemap.xml PR #45, robots.txt)
 - **Evidence:** PR (feat/seo-meta); `src/Site/SiteController.php` (`meta()`,
   `describe()`); `Config::siteDescription()`; `themes/starter/templates/layout.php`;
   `tests/Http/SiteRoutesTest.php`
@@ -49,7 +49,10 @@ declined (keep it — it stops the idea returning without new evidence).
   without it still works.
 - **Revisit:** `og:image` (needs a media-field convention + absolute URLs);
   the `plugin-seo` extension capabilities when that plugin is built.
-- **Next slices:** `sitemap.xml`, then `robots.txt` (both core routes).
+- **`sitemap.xml`** lists home + browsable collection indexes + live entries
+  (excludes `blocks`, single collections, drafts); **`robots.txt`** welcomes
+  crawlers, disallows `/admin` + `/api`, and advertises the sitemap. Both
+  registered before the `{collection}` catch-all.
 
 ### 2026-08-15 · Opt-in page caching at the kernel, flushed on content writes
 - **Status:** accepted

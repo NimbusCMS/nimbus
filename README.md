@@ -136,7 +136,7 @@ field never means an `ALTER TABLE`.
 - [x] **Server-rendered public site** — home page (`config/site.php`) + collection + entry pages via plain-PHP themes (`themes/starter`), live-set only
 - [x] **Theme capabilities** — partials, per-collection template specialization, themed 404, static assets (`/theme/assets`), navigation menus, reusable blocks
 - [x] **Public-site polish** — config-driven URL redirects (applied before routing) and opt-in page caching (`PAGE_CACHE_TTL`, flushed on every content write)
-- [x] **SEO foundations** — per-page meta + canonical + Open Graph, and `sitemap.xml`
+- [x] **SEO foundations** — per-page meta + canonical + Open Graph, `sitemap.xml`, `robots.txt`
 - [ ] Rich-text / Markdown editor
 - [ ] RBAC + revisions + activity log
 - [ ] `plugin-seo`: JSON-LD, social-card images, RSS/Atom, meta-editing UI
