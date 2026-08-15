@@ -251,3 +251,18 @@ body.nb-night::before {
 .nb-media-card figcaption { padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
 .nb-media-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nb-media-card figcaption form { margin-top: 4px; }
+
+/* API tokens — the one-time secret is shown big, monospaced and easy to select. */
+.nb-token-new { margin-bottom: 24px; }
+.nb-token-secret {
+    display: block;
+    margin-top: 10px;
+    padding: 10px 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px;
+    word-break: break-all;
+    user-select: all;
+    background: var(--nb-surface, #fff);
+    border: 1px solid var(--nb-border, #d8d8e0);
+    border-radius: 6px;
+}
