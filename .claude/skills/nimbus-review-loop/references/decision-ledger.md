@@ -27,6 +27,27 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** audit other field types for wire-shape correctness if a client
   reports a surprising value (none known now).
 
+### 2026-08-15 · Capability D built: plugin admin pages
+- **Status:** accepted (analytics milestone, slice D of A–D — capabilities complete)
+- **Evidence:** PR (feat/plugin-admin-pages); `src/Admin/AdminPageRegistry.php`,
+  `src/Plugin/AdminPageRegistrar.php`, `PluginContext::adminPages()`;
+  `src/Admin/PluginPagesController.php`; `Admin\Controller` nav + `shell()`;
+  `tests/Unit/AdminPageRegistryTest.php`, `tests/Http/PluginAdminPageTest.php`
+- **Product:** a plugin registers a login-gated admin page rendered in the admin
+  shell with a sidebar entry — the analytics dashboard's home.
+- **Architecture:** registry + provider-scoped registrar + rollback, like the
+  others. A slug (validated `[a-z0-9-]`) → `GET /admin/{slug}` under the auth
+  group; the handler returns HTML (wrapped in the shell) or a Response
+  (passthrough). Registered **last** among admin controllers so a plugin slug
+  can't shadow a core route. Nav integration threaded the registry through the
+  base `Controller` + the four admin controllers (optional arg — the bundle
+  refactor kept this to defaulted params, no test churn beyond the constructors).
+- **Engineering:** GET-only for v1 — POST/forms deferred (needs a CSRF-token
+  exposure decision); plugin content is trusted HTML (escape-your-values, like
+  head contributions); login-gated + shell-render + nav all kernel-tested.
+- **Revisit:** admin POST/forms (CSRF token to plugins); public plugin routes
+  (a beacon endpoint); per-page permission beyond "logged in".
+
 ### 2026-08-15 · Capability C built: scoped plugin storage (ADR 0005)
 - **Status:** accepted (analytics milestone, slice C of A–D)
 - **Evidence:** PR (feat/plugin-storage); `src/Plugin/PluginStorage.php`,

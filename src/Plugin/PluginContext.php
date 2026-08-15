@@ -9,14 +9,13 @@ use Nimbus\Database\Connection;
 /**
  * Everything a plugin is allowed to touch.
  *
- * Five capabilities today: field types, head contributions (ADR 0004), event
- * subscription, migrations for the plugin's own tables, and storage of its own
- * data (ADR 0005). Each was added alongside a plugin that concretely needed it —
- * field types by the built-in types and Markdown, head contributions by
- * plugin-seo, events / migrations / storage by plugin-analytics. Routes,
- * permissions and admin navigation get added the same way, one at a time,
- * because a capability published without a consumer is a guess that becomes a
- * commitment.
+ * Six capabilities today: field types, head contributions (ADR 0004), event
+ * subscription, migrations for the plugin's own tables, storage of its own data
+ * (ADR 0005), and admin pages. Each was added alongside a plugin that concretely
+ * needed it — field types by the built-in types and Markdown, head contributions
+ * by plugin-seo, the rest by plugin-analytics. Public routes and permissions get
+ * added the same way, one at a time, because a capability published without a
+ * consumer is a guess that becomes a commitment.
  *
  * A context is built per plugin, so the plugin's id is bound to whatever it
  * registers and cannot be spoofed.
@@ -42,6 +41,7 @@ final class PluginContext
     private HeadRegistrar $head;
     private EventRegistrar $events;
     private MigrationRegistrar $migrations;
+    private AdminPageRegistrar $adminPages;
     private ?Connection $db;
     private ?PluginStorage $storage = null;
 
@@ -51,6 +51,7 @@ final class PluginContext
         $this->head       = new HeadRegistrar($capabilities->head, $pluginId);
         $this->events     = new EventRegistrar($capabilities->events, $pluginId);
         $this->migrations = new MigrationRegistrar($capabilities->migrations, $pluginId);
+        $this->adminPages = new AdminPageRegistrar($capabilities->adminPages, $pluginId);
         $this->db         = $capabilities->db;
     }
 
@@ -76,6 +77,12 @@ final class PluginContext
     public function migrations(): MigrationRegistrar
     {
         return $this->migrations;
+    }
+
+    /** Register admin pages (login-gated, in the admin shell). Stamped with its id. */
+    public function adminPages(): AdminPageRegistrar
+    {
+        return $this->adminPages;
     }
 
     /**

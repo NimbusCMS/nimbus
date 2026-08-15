@@ -28,9 +28,9 @@ final class MediaController extends Controller
     private MediaRepository $media;
     private MediaUploader $uploader;
 
-    public function __construct(Connection $db, Auth $auth)
+    public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null)
     {
-        parent::__construct($db, $auth);
+        parent::__construct($db, $auth, $adminPages);
         $this->media    = new MediaRepository($this->db);
         $this->uploader = new MediaUploader(
             $this->media,

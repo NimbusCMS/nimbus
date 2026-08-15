@@ -24,9 +24,9 @@ final class AdminController extends Controller
      * @param list<PluginStatus> $pluginStatuses computed once by the kernel at
      *        boot; the controller never reads installed.json itself.
      */
-    public function __construct(Connection $db, Auth $auth, private array $pluginStatuses = [])
+    public function __construct(Connection $db, Auth $auth, private array $pluginStatuses = [], ?AdminPageRegistry $adminPages = null)
     {
-        parent::__construct($db, $auth);
+        parent::__construct($db, $auth, $adminPages);
     }
 
     public function routes(Router $r): void

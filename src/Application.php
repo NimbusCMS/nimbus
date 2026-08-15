@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Nimbus;
 
 use Nimbus\Admin\AdminController;
+use Nimbus\Admin\AdminPageRegistry;
 use Nimbus\Admin\CollectionsController;
 use Nimbus\Admin\EntriesController;
 use Nimbus\Admin\MediaController;
+use Nimbus\Admin\PluginPagesController;
 use Nimbus\Api\ApiController;
 use Nimbus\Auth\Auth;
 use Nimbus\Content\FieldTypeRegistry;
@@ -49,6 +51,7 @@ final class Application
     private FieldTypeRegistry $fieldTypes;
     private HeadContributorRegistry $headContributors;
     private MigrationRegistry $migrations;
+    private AdminPageRegistry $adminPages;
     private EventDispatcher $events;
 
     /** @var array<string,array{to:string,status:int}> exact-path redirects, applied before routing */
@@ -82,6 +85,7 @@ final class Application
         $this->fieldTypes       = new FieldTypeRegistry();
         $this->headContributors = new HeadContributorRegistry();
         $this->migrations       = new MigrationRegistry();
+        $this->adminPages       = new AdminPageRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->redirects  = $redirects ?? Config::redirects();
         $this->pageCache  = $pageCache ?? new PageCache(Config::pageCachePath(), Config::pageCacheTtl());
@@ -116,6 +120,7 @@ final class Application
             head: $this->headContributors,
             events: $this->events,
             migrations: $this->migrations,
+            adminPages: $this->adminPages,
             db: $this->db,
         ));
         $this->pluginStatuses    = $loader->statuses();
@@ -236,10 +241,13 @@ final class Application
     public function routes(): Router
     {
         $router = new Router();
-        (new AdminController($this->db, $this->auth, $this->pluginStatuses))->routes($router);
-        (new CollectionsController($this->db, $this->auth, $this->fieldTypes))->routes($router);
-        (new EntriesController($this->db, $this->auth, $this->fieldTypes, $this->events))->routes($router);
-        (new MediaController($this->db, $this->auth))->routes($router);
+        (new AdminController($this->db, $this->auth, $this->pluginStatuses, $this->adminPages))->routes($router);
+        (new CollectionsController($this->db, $this->auth, $this->fieldTypes, $this->adminPages))->routes($router);
+        (new EntriesController($this->db, $this->auth, $this->fieldTypes, $this->events, $this->adminPages))->routes($router);
+        (new MediaController($this->db, $this->auth, $this->adminPages))->routes($router);
+        // Plugin admin pages, after the core admin controllers so a plugin slug
+        // can never shadow a core /admin route.
+        (new PluginPagesController($this->db, $this->auth, $this->adminPages))->routes($router);
         (new ApiController($this->db, $this->fieldTypes))->routes($router);
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
