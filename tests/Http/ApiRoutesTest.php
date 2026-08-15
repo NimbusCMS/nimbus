@@ -185,6 +185,64 @@ final class ApiRoutesTest extends HttpTestCase
         self::assertNull($context->principal());
     }
 
+    // ---------------------------------------------------------- scope matrix
+
+    /**
+     * The authorization matrix: token scopes × collection × expected result.
+     * Asserts the deny paths, not just the happy ones.
+     */
+    public function test_scope_enforcement_matrix(): void
+    {
+        $this->makeCollection('posts');
+        $this->makeCollection('pages');
+
+        $cases = [
+            // scopes,          handle,  expected
+            [['*:read'],        'posts', 200],
+            [['*:read'],        'pages', 200],
+            [['posts:read'],    'posts', 200],
+            [['posts:read'],    'pages', 403],
+            [['pages:read'],    'posts', 403],
+            [[],                'posts', 200], // legacy compat: read-all
+        ];
+
+        foreach ($cases as [$scopes, $handle, $expected]) {
+            $token  = $this->tokens->create('t-' . implode('-', $scopes ?: ['legacy']), $scopes);
+            $status = $this->api("/api/v1/collections/{$handle}/entries", $token)->status;
+            self::assertSame($expected, $status, sprintf('scopes [%s] reading /%s', implode(',', $scopes), $handle));
+        }
+    }
+
+    public function test_an_out_of_scope_handle_cannot_be_told_from_a_missing_one(): void
+    {
+        $this->makeCollection('pages');
+        $token = $this->tokens->create('narrow', ['posts:read']);
+
+        // An existing out-of-scope collection and a nonexistent one both answer
+        // 403, so a narrow token cannot enumerate what exists outside its scope.
+        self::assertSame(403, $this->api('/api/v1/collections/pages/entries', $token)->status);
+        self::assertSame(403, $this->api('/api/v1/collections/ghost/entries', $token)->status);
+    }
+
+    public function test_a_relation_to_an_out_of_scope_collection_leaks_nothing(): void
+    {
+        $people = $this->makeCollection('people');
+        $alice  = $this->publish($people, 'Alice', 'alice');
+        $posts  = $this->makeCollection('posts', [$this->relation('authors', 'people')]);
+        $this->publish($posts, 'Post', 'post', 'published', null, ['authors' => [$alice]]);
+
+        // A token that can read posts but not people gets the post — with its
+        // relation contributing nothing, not even the author's id.
+        $scoped = $this->tokens->create('posts-only', ['posts:read']);
+        $data   = $this->json($this->api('/api/v1/collections/posts/entries/post', $scoped))['data'];
+        self::assertSame([], $data['fields']['authors'], 'an out-of-scope relation expands to nothing');
+
+        // A broad token still expands it.
+        $broad = $this->tokens->create('broad', ['*:read']);
+        $data  = $this->json($this->api('/api/v1/collections/posts/entries/post', $broad))['data'];
+        self::assertSame([['id' => $alice, 'slug' => 'alice', 'title' => 'Alice']], $data['fields']['authors']);
+    }
+
     // --------------------------------------------------------- published-only
 
     public function test_only_live_entries_are_served(): void

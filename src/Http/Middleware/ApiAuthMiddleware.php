@@ -43,7 +43,7 @@ final class ApiAuthMiddleware
         }
 
         $this->tokens->touch($token->id, $request->ip());
-        $this->context->establish(new TokenPrincipal($token->id, $token->name, $token->abilities));
+        $this->context->establish(TokenPrincipal::fromToken($token));
         return null; // authenticated — proceed
     }
 }

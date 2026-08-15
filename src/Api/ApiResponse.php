@@ -38,6 +38,11 @@ final class ApiResponse
         return self::error(401, $message)->withHeader('WWW-Authenticate', 'Bearer');
     }
 
+    public static function forbidden(string $message = 'This token is not allowed to do that.'): Response
+    {
+        return self::error(403, $message);
+    }
+
     public static function notFound(string $message = 'Not found.'): Response
     {
         return self::error(404, $message);

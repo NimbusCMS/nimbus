@@ -30,9 +30,14 @@ final class EntryView
 
     /**
      * @param array<string,mixed> $row a nb_entries row
+     * @param ?callable(string):bool $canRead when given, a relation whose target
+     *        collection the caller may not read contributes nothing — the same
+     *        "leaks nothing" a non-live target already gets. Omit (null) to
+     *        expand every relation, for callers that are not scope-limited
+     *        (themes, internal use).
      * @return array<string,mixed>
      */
-    public function one(Collection $collection, array $row): array
+    public function one(Collection $collection, array $row, ?callable $canRead = null): array
     {
         $id   = (int) $row['id'];
         $data = is_string($row['data'] ?? null) ? json_decode((string) $row['data'], true) : ($row['data'] ?? []);
@@ -51,7 +56,12 @@ final class EntryView
                 // expand at this edge to {id,slug,title} objects — the consumer
                 // gets a usable link without a second request, and only the live
                 // set is exposed (a link to a draft resolves to nothing).
-                $fields[$field->handle] = $this->relations->liveTargets($id, $field->id);
+                $target = (string) $field->option('target', '');
+                $fields[$field->handle] = ($canRead !== null && !$canRead($target))
+                    // Out of the caller's scope: contribute nothing, not even the
+                    // targets' existence — exactly as a link to a non-live entry.
+                    ? []
+                    : $this->relations->liveTargets($id, $field->id);
                 continue;
             }
 
@@ -70,11 +80,12 @@ final class EntryView
 
     /**
      * @param array<int,array<string,mixed>> $rows
+     * @param ?callable(string):bool $canRead see one()
      * @return list<array<string,mixed>>
      */
-    public function many(Collection $collection, array $rows): array
+    public function many(Collection $collection, array $rows, ?callable $canRead = null): array
     {
-        return array_map(fn (array $row): array => $this->one($collection, $row), array_values($rows));
+        return array_map(fn (array $row): array => $this->one($collection, $row, $canRead), array_values($rows));
     }
 
     /**

@@ -38,12 +38,14 @@ final class ApiController
     private EntryRepository $entries;
     private EntryView $view;
     private ApiAuthMiddleware $auth;
+    private ApiAuthContext $authContext;
 
     public function __construct(Connection $db, FieldTypeRegistry $types, ApiAuthContext $authContext)
     {
         $this->collections = new CollectionRepository($db);
         $this->entries     = new EntryRepository($db);
         $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
+        $this->authContext = $authContext;
         $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext);
     }
 
@@ -58,6 +60,11 @@ final class ApiController
     /** A page of a collection's live entries, newest first. */
     private function index(Request $request, string $handle): Response
     {
+        $principal = $this->authorize($handle);
+        if ($principal instanceof Response) {
+            return $principal;
+        }
+
         $collection = $this->collections->findByHandle($handle);
         if ($collection === null) {
             return ApiResponse::notFound("No collection with handle \"{$handle}\".");
@@ -69,7 +76,7 @@ final class ApiController
         $rows    = $this->entries->liveForCollection($collection->id, $perPage, ($page - 1) * $perPage);
 
         return ApiResponse::ok(
-            $this->view->many($collection, $rows),
+            $this->view->many($collection, $rows, $this->scopeFilter($principal)),
             [
                 'page'       => $page,
                 'per_page'   => $perPage,
@@ -82,6 +89,11 @@ final class ApiController
     /** A single live entry by slug. */
     private function show(string $handle, string $slug): Response
     {
+        $principal = $this->authorize($handle);
+        if ($principal instanceof Response) {
+            return $principal;
+        }
+
         $collection = $this->collections->findByHandle($handle);
         if ($collection === null) {
             return ApiResponse::notFound("No collection with handle \"{$handle}\".");
@@ -94,7 +106,31 @@ final class ApiController
             return ApiResponse::notFound("No published entry \"{$slug}\" in \"{$handle}\".");
         }
 
-        return ApiResponse::ok($this->view->one($collection, $row));
+        return ApiResponse::ok($this->view->one($collection, $row, $this->scopeFilter($principal)));
+    }
+
+    /**
+     * Authorize the token for reading $handle, returning the principal to use —
+     * or a 403 Response to short-circuit.
+     *
+     * The scope check runs *before* collection existence on purpose: a token
+     * that may not read a handle gets 403 whether or not that collection exists,
+     * so a narrowly-scoped token cannot enumerate the collections outside its
+     * scope by telling 403 from 404.
+     */
+    private function authorize(string $handle): TokenPrincipal|Response
+    {
+        $principal = $this->authContext->principal();
+        if ($principal === null || !$principal->can($handle, 'read')) {
+            return ApiResponse::forbidden("This token cannot read \"{$handle}\".");
+        }
+        return $principal;
+    }
+
+    /** A scope predicate for EntryView: which related collections this token may expand. */
+    private function scopeFilter(TokenPrincipal $principal): \Closure
+    {
+        return static fn (string $targetHandle): bool => $principal->can($targetHandle, 'read');
     }
 
     private function perPage(Request $request): int

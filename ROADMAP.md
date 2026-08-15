@@ -289,17 +289,19 @@ Small, CI-green slices; each ends with a security-review pass (no open High
 without a risk-acceptance ADR):
 
 - [x] **Slice 0 — ADR 0006** (auth/authz model)
-- [ ] **Slice 1 — principal plumbing + token lifecycle**: carry the resolved
-      principal from `ApiAuthMiddleware` to controllers; add `expires_at` +
-      `revoked_at`; reject expired/revoked (401); `token:list` / `token:revoke`
-      CLI. Regression + negative tests.
-- [ ] **Slice 2 — token admin UI**: mint (plaintext shown once) / list / revoke,
-      CSRF-guarded.
-- [ ] **Slice 3 — scope enforcement + authorization matrix**: `abilities` →
-      enforced per-collection `resource:action`; deny-by-default; legacy
-      null-ability tokens compat-granted `*:read` during the read-only era
-      (removed when the write API lands). Authorization matrix (actor × scope ×
-      resource × action) as a required test artifact.
+- [x] **Slice 1 — principal plumbing + token lifecycle**: principal carried to
+      the controller; `expires_at` / `revoked_at` / `paused_at` + bounded usage
+      record; reject expired/revoked/paused (401); `token:list` / `revoke` /
+      `pause` / `resume` CLI.
+- [x] **Slice 2 — token admin UI**: mint (plaintext shown once, idempotent via a
+      single-use form nonce) / list / revoke / pause / resume, CSRF-guarded.
+- [x] **Slice 3 — scope enforcement + authorization matrix**: `abilities`
+      enforced as per-collection `resource:action` at the query layer,
+      deny-by-default; scope checked before existence (no enumeration); relation
+      expansion respects scope; legacy null-ability tokens compat-granted `*:read`
+      during the read-only era (removed when the write API lands); scopes settable
+      via CLI `--scopes` and the admin picker. Authorization matrix shipped as a
+      test.
 - [ ] **Slice 4 — structured API error contract**: consistent JSON envelope;
       401 (unauthenticated) vs 403 (out-of-scope), no existence leak.
 - [ ] **Slice 5 — API rate limiting** (+ optional CORS): throttle `/api/v1` by
