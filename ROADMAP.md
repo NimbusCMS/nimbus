@@ -275,6 +275,39 @@ changes** — collections + relation + number, served over the API):
   Core — a frontend formats money. Only a shared "money" field type if several
   apps want it.
 
+## 🔑 Milestone: Programmatic Access Hardening (active)
+
+Make Nimbus safe for **non-human clients** before a write API or MCP is built on
+it — the surface where PHP CMSes classically bleed. Design decided in
+[ADR 0006](docs/adr/0006-non-human-authentication.md): **standalone-principal**
+API tokens with **`resource:action` per-collection scopes**, enforced at the
+query/service layer, deny-by-default. Baseline `nimbus-security-review` of `main`
+found **no Critical/High in shipped code** — these slices install the controls
+that would otherwise become High the moment tokens reach private data or writes.
+
+Small, CI-green slices; each ends with a security-review pass (no open High
+without a risk-acceptance ADR):
+
+- [x] **Slice 0 — ADR 0006** (auth/authz model)
+- [ ] **Slice 1 — principal plumbing + token lifecycle**: carry the resolved
+      principal from `ApiAuthMiddleware` to controllers; add `expires_at` +
+      `revoked_at`; reject expired/revoked (401); `token:list` / `token:revoke`
+      CLI. Regression + negative tests.
+- [ ] **Slice 2 — token admin UI**: mint (plaintext shown once) / list / revoke,
+      CSRF-guarded.
+- [ ] **Slice 3 — scope enforcement + authorization matrix**: `abilities` →
+      enforced per-collection `resource:action`; deny-by-default; legacy
+      null-ability tokens compat-granted `*:read` during the read-only era
+      (removed when the write API lands). Authorization matrix (actor × scope ×
+      resource × action) as a required test artifact.
+- [ ] **Slice 4 — structured API error contract**: consistent JSON envelope;
+      401 (unauthenticated) vs 403 (out-of-scope), no existence leak.
+- [ ] **Slice 5 — API rate limiting** (+ optional CORS): throttle `/api/v1` by
+      token + IP; `429` + `Retry-After`.
+
+Then, on this foundation and only then: write API · OpenAPI of the read surface ·
+MCP.
+
 ## 🎯 Release 0.1 — "usable CMS"
 
 1. **Publishing workflow** — `[x]` draft / published / scheduled / archived,
