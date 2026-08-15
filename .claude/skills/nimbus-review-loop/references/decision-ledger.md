@@ -486,6 +486,45 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** a concrete official plugin blocked by a missing, broadly-reusable
   extension point.
 
+### 2026-08-15 · Analytics portal ships; four new plugin capabilities proven by one plugin
+- **Status:** accepted (milestone complete)
+- **Evidence:** [ADR 0005](../../../../docs/adr/0005-plugin-owned-storage.md);
+  `nimbuscms/analytics` ([repo](https://github.com/NimbusCMS/plugin-analytics),
+  CI green: 21 tests / 51 assertions on PHP 8.2 + 8.3); live Docker verification
+  (migration created `analytics_hits`; page views recorded with external referrer
+  captured and admin/bot/internal navigation filtered; `/admin/analytics`
+  auth-gated); capability-evidence.md rows for events / admin pages / migrations /
+  storage / admin navigation.
+- **Product:** first-party, privacy-first analytics (path + referrer host +
+  timestamp; no cookies/PII) with an admin dashboard, **plus** optional injection
+  of a third-party agent (Plausible / Fathom / GA) via env — one plugin, two
+  independent uses, both on the public contract.
+- **Architecture:** to build it the plugin contract grew four capabilities, each
+  added only because this concrete plugin needed it (ADR-0001 discipline) —
+  **event subscription** (`request.handled`, best-effort/isolated),
+  **plugin-owned migrations + storage** (ADR-0005: own tables only, a contract not
+  a sandbox — in-process PHP can't be sandboxed), and **admin pages + nav**
+  (GET-only for v1). Reused **head contributions** for the agent snippet.
+  `PluginCapabilities` value object bundles the registries so `PluginContext`
+  hands out capabilities, never the objects that implement them. Server-rendered
+  SVG charts avoided introducing a JS/asset capability.
+- **Engineering:** recording runs *after* the response (`request.handled` listener
+  is isolated — a throwing listener is logged and skipped, never a 500); storage
+  resolved lazily so `register()` runs no query and loads without a DB; dashboard
+  rendering is pure and unit-tested without a database; all untrusted values
+  escaped in both the dashboard and the agent snippet.
+- **Lessons (self-learning):** plugin CI only runs on plugin pushes and the
+  boundary test exercises only a plugin's *production* code through HTTP — a core
+  change that breaks a plugin's *own tests* stays green until that plugin is
+  touched (found via plugin-markdown's second test file). Each of the four new
+  capabilities now has exactly **one** consumer: a strong first signal, **not**
+  broad proof — do not widen or freeze any of them until a second, unrelated
+  consumer appears (see capability-evidence.md "Next evidence required").
+- **Revisit:** an admin **form** capability (needs a CSRF-token exposure decision);
+  a second storage-owning plugin; the tiered core-data-access contract (Tier 1
+  read via read-model, Tier 2 write via services + scopes + audit) when a plugin
+  first needs core data — never raw core-table SQL.
+
 ---
 
 ## Open findings (proposed — awaiting classification into work)
