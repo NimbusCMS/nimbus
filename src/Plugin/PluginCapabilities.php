@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nimbus\Plugin;
 
+use Nimbus\Admin\AdminPageRegistry;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Database\MigrationRegistry;
@@ -32,6 +33,7 @@ final class PluginCapabilities
         public readonly HeadContributorRegistry $head = new HeadContributorRegistry(),
         public readonly EventDispatcher $events = new EventDispatcher(),
         public readonly MigrationRegistry $migrations = new MigrationRegistry(),
+        public readonly AdminPageRegistry $adminPages = new AdminPageRegistry(),
         // The live connection, for the storage capability. Null when a caller
         // has no database (a unit test, or a plugin that never touches storage).
         public readonly ?Connection $db = null,

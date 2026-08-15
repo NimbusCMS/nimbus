@@ -33,9 +33,9 @@ final class CollectionsController extends Controller
     private CollectionService $collectionService;
 
     /** $fieldTypes is the application's single registry — never a local one. */
-    public function __construct(Connection $db, Auth $auth, private FieldTypeRegistry $types)
+    public function __construct(Connection $db, Auth $auth, private FieldTypeRegistry $types, ?AdminPageRegistry $adminPages = null)
     {
-        parent::__construct($db, $auth);
+        parent::__construct($db, $auth, $adminPages);
         $this->collections       = new CollectionRepository($this->db);
         $this->collectionService = new CollectionService($this->db, $this->collections);
     }

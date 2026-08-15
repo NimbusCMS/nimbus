@@ -24,6 +24,7 @@ abstract class Controller
     public function __construct(
         protected Connection $db,
         protected Auth $auth,
+        protected ?AdminPageRegistry $adminPages = null,
     ) {
         $this->view   = new View(dirname(__DIR__) . '/View/themes/nimbus', [
             'auth'    => $auth,
@@ -43,10 +44,27 @@ abstract class Controller
             ['key' => 'plugins',     'label' => 'Plugins',     'url' => '/admin/plugins',     'icon' => '⚡'],
             ['key' => 'settings',    'label' => 'Settings',    'url' => '/admin/settings',    'icon' => '⚙'],
         ];
+        // Plugin-registered pages sit below the core sections.
+        foreach ($this->adminPages?->all() ?? [] as $page) {
+            $items[] = ['key' => $page['slug'], 'label' => $page['label'], 'url' => '/admin/' . $page['slug'], 'icon' => $page['icon']];
+        }
         foreach ($items as &$item) {
             $item['active'] = $item['key'] === $active;
         }
         return $items;
+    }
+
+    /**
+     * Render already-built HTML content inside the admin shell (sidebar + top
+     * bar). For pages whose body is produced outside a theme template — e.g. a
+     * plugin's admin page.
+     */
+    protected function shell(string $navActive, string $content): Response
+    {
+        return Response::html($this->view->partial('layout', [
+            'nav'       => $this->nav($navActive),
+            '__content' => $content,
+        ]));
     }
 
     /**

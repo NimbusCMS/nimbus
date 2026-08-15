@@ -54,8 +54,9 @@ final class EntriesController extends Controller
         Auth $auth,
         private FieldTypeRegistry $types,
         EventDispatcher $events,
+        ?AdminPageRegistry $adminPages = null,
     ) {
-        parent::__construct($db, $auth);
+        parent::__construct($db, $auth, $adminPages);
         $this->collections  = new CollectionRepository($this->db);
         $this->entries      = new EntryRepository($this->db);
         $this->relations    = new RelationRepository($this->db);
