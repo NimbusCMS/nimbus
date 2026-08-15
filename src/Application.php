@@ -20,6 +20,7 @@ use Nimbus\Http\SecurityHeaders;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
 use Nimbus\Plugin\PluginStatus;
+use Nimbus\Site\HeadContributorRegistry;
 use Nimbus\Site\SiteController;
 use Nimbus\Support\Config;
 use Nimbus\Support\CoreEvents;
@@ -44,6 +45,7 @@ final class Application
      * lands in an object nobody reads.
      */
     private FieldTypeRegistry $fieldTypes;
+    private HeadContributorRegistry $headContributors;
     private EventDispatcher $events;
 
     /** @var array<string,array{to:string,status:int}> exact-path redirects, applied before routing */
@@ -73,8 +75,9 @@ final class Application
         }
         $this->db         = $db;
         $this->auth       = $auth ?? new Auth($this->db);
-        $this->fieldTypes = new FieldTypeRegistry();
-        $this->events     = new EventDispatcher();
+        $this->fieldTypes       = new FieldTypeRegistry();
+        $this->headContributors = new HeadContributorRegistry();
+        $this->events           = new EventDispatcher();
         $this->redirects  = $redirects ?? Config::redirects();
         $this->pageCache  = $pageCache ?? new PageCache(Config::pageCachePath(), Config::pageCacheTtl());
 
@@ -103,7 +106,7 @@ final class Application
             Config::basePath() . '/vendor/composer/installed.json',
             Config::enabledPlugins(),
         );
-        $this->pluginDiagnostics = $loader->load($this->fieldTypes);
+        $this->pluginDiagnostics = $loader->load($this->fieldTypes, $this->headContributors);
         $this->pluginStatuses    = $loader->statuses();
 
         foreach ($this->pluginDiagnostics as $diagnostic) {
@@ -205,7 +208,7 @@ final class Application
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.
-        (new SiteController($this->db, $this->fieldTypes, Config::home()))->routes($router);
+        (new SiteController($this->db, $this->fieldTypes, Config::home(), null, $this->headContributors))->routes($router);
         return $router;
     }
 

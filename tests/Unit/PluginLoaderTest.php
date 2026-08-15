@@ -12,6 +12,7 @@ use Nimbus\Plugin\PluginContext;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
 use Nimbus\Plugin\PluginStatus;
+use Nimbus\Site\HeadContributorRegistry;
 use PHPUnit\Framework\TestCase;
 
 // ---------------------------------------------------------------- fixtures
@@ -137,7 +138,7 @@ final class PluginLoaderTest extends TestCase
     private function load(string $path, array $enabled = []): array
     {
         $loader      = new PluginLoader($path, $enabled);
-        $diagnostics = $loader->load($this->registry);
+        $diagnostics = $loader->load($this->registry, new HeadContributorRegistry());
         return [$diagnostics, $loader];
     }
 
@@ -472,9 +473,9 @@ final class PluginLoaderTest extends TestCase
         ]));
 
         $loader = new PluginLoader($path);
-        $loader->load($this->registry);
+        $loader->load($this->registry, new HeadContributorRegistry());
         // A second load against a fresh registry must behave identically.
-        $second = $loader->load(new FieldTypeRegistry());
+        $second = $loader->load(new FieldTypeRegistry(), new HeadContributorRegistry());
 
         self::assertSame([], $second, 'no duplicate-id diagnostics from stale state');
         self::assertCount(1, $loader->registered());

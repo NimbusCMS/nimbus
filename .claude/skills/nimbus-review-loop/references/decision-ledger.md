@@ -27,6 +27,30 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** audit other field types for wire-shape correctness if a client
   reports a surprising value (none known now).
 
+### 2026-08-15 · Plugin capability #2: head contributions (ADR 0004)
+- **Status:** accepted
+- **Evidence:** [ADR 0004](../../../../docs/adr/0004-plugin-head-contributions.md);
+  `src/Site/{HeadContributor,HeadContributorRegistry,PageContext}.php`,
+  `src/Plugin/HeadRegistrar.php`, `PluginContext::head()`; `PluginLoader` wiring;
+  `SiteController` integration; `tests/Unit/HeadContributorRegistryTest.php`,
+  `tests/Http/HeadContributionTest.php`
+- **Product:** plugins can add markup to a public page's `<head>` (structured
+  data, extra meta) — the capability `plugin-seo` needs. First `PluginContext`
+  capability beyond field types, added with a concrete consumer (ADR 0001 rule).
+- **Architecture:** mirrors the field-type pattern exactly — shared
+  `HeadContributorRegistry`, provider-scoped `HeadRegistrar`, rollback via
+  `forgetProvider`. Contributor receives a **data-only** `PageContext` (the page's
+  view-model), so the contract keeps refusing repositories/DB. Chose head
+  contribution over a routes capability as the first extension: it needs no data
+  access, where a feed would need routes **and** content-query at once.
+- **Engineering:** render-time contributions are **isolated** — a throwing
+  contributor is logged and skipped, never 500s a public page (a deliberate
+  divergence from the loud, propagating event contract, justified by where it
+  runs). `PageContext` is public API now (small, data-only, additive).
+- **Revisit:** a **routes** capability (for RSS/Atom, OG-image endpoints) with its
+  own consumer; folding SiteController's site-scoped deps into a value object if a
+  6th constructor param appears.
+
 ### 2026-08-15 · SEO split: foundational meta/sitemap/robots in core, rich SEO a future plugin
 - **Status:** accepted (all 3 core slices done: per-page meta PR #44, sitemap.xml PR #45, robots.txt)
 - **Evidence:** PR (feat/seo-meta); `src/Site/SiteController.php` (`meta()`,
