@@ -10,6 +10,7 @@ use Nimbus\Admin\CollectionsController;
 use Nimbus\Admin\EntriesController;
 use Nimbus\Admin\MediaController;
 use Nimbus\Admin\PluginPagesController;
+use Nimbus\Api\ApiAuthContext;
 use Nimbus\Api\ApiController;
 use Nimbus\Auth\Auth;
 use Nimbus\Content\FieldTypeRegistry;
@@ -54,6 +55,9 @@ final class Application
     private AdminPageRegistry $adminPages;
     private EventDispatcher $events;
 
+    /** Request-scoped carrier for the authenticated API principal (ADR 0006). */
+    private ApiAuthContext $apiAuth;
+
     /** @var array<string,array{to:string,status:int}> exact-path redirects, applied before routing */
     private array $redirects;
 
@@ -73,8 +77,9 @@ final class Application
      * @param array<string,array{to:string,status:int}>|null $redirects test seam; defaults to config/redirects.php
      * @param PageCache|null       $pageCache test seam; defaults to the configured cache
      * @param EventDispatcher|null $events    test seam; lets a test observe request.handled
+     * @param ApiAuthContext|null  $apiAuth   test seam; lets a test observe the established API principal
      */
-    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null, ?PageCache $pageCache = null, ?EventDispatcher $events = null)
+    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null, ?PageCache $pageCache = null, ?EventDispatcher $events = null, ?ApiAuthContext $apiAuth = null)
     {
         if ($db === null) {
             Env::load(Config::basePath() . '/.env');
@@ -87,6 +92,7 @@ final class Application
         $this->migrations       = new MigrationRegistry();
         $this->adminPages       = new AdminPageRegistry();
         $this->events           = $events ?? new EventDispatcher();
+        $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
         $this->redirects  = $redirects ?? Config::redirects();
         $this->pageCache  = $pageCache ?? new PageCache(Config::pageCachePath(), Config::pageCacheTtl());
 
@@ -248,7 +254,7 @@ final class Application
         // Plugin admin pages, after the core admin controllers so a plugin slug
         // can never shadow a core /admin route.
         (new PluginPagesController($this->db, $this->auth, $this->adminPages))->routes($router);
-        (new ApiController($this->db, $this->fieldTypes))->routes($router);
+        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth))->routes($router);
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.

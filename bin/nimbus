@@ -98,13 +98,63 @@ try {
         case 'token:create':
             $name = $opt($argv, 'name');
             if ($name === null) {
-                fwrite(STDERR, "Usage: nimbus token:create --name=\"My app\"\n");
+                fwrite(STDERR, "Usage: nimbus token:create --name=\"My app\" [--expires=90d|12h|2026-12-31]\n");
                 exit(1);
             }
-            $plain = (new Nimbus\Api\ApiTokenRepository($db))->create($name);
-            echo "API token created: {$name}\n";
+            $expiresAt = null;
+            $expiresIn = $opt($argv, 'expires');
+            if ($expiresIn !== null) {
+                if (preg_match('/^(\d+)([dh])$/', $expiresIn, $m) === 1) {
+                    $unit      = $m[2] === 'h' ? 'hours' : 'days';
+                    $expiresAt = date('Y-m-d H:i:s', strtotime("+{$m[1]} {$unit}"));
+                } elseif (($ts = strtotime($expiresIn)) !== false) {
+                    $expiresAt = date('Y-m-d H:i:s', $ts);
+                } else {
+                    fwrite(STDERR, "Could not read --expires=\"{$expiresIn}\" (use e.g. 90d, 12h, or 2026-12-31).\n");
+                    exit(1);
+                }
+            }
+            $plain = (new Nimbus\Api\ApiTokenRepository($db))->create($name, [], $expiresAt);
+            echo "API token created: {$name}" . ($expiresAt !== null ? " (expires {$expiresAt})" : '') . "\n";
             echo "  {$plain}\n";
             echo "This is shown once. Store it now — only its hash is kept.\n";
+            break;
+
+        case 'token:list':
+            $rows = (new Nimbus\Api\ApiTokenRepository($db))->all();
+            if ($rows === []) {
+                echo "No API tokens.\n";
+                break;
+            }
+            foreach ($rows as $t) {
+                printf(
+                    "#%-3d %-8s %-22s used %-5d last %s%s\n",
+                    $t->id,
+                    $t->status(),
+                    mb_substr($t->name, 0, 22),
+                    $t->usedCount,
+                    $t->lastUsedAt ?? 'never',
+                    $t->expiresAt !== null ? "  expires {$t->expiresAt}" : '',
+                );
+            }
+            break;
+
+        case 'token:revoke':
+        case 'token:pause':
+        case 'token:resume':
+            $id = $opt($argv, 'id');
+            if ($id === null || !ctype_digit($id)) {
+                fwrite(STDERR, "Usage: nimbus {$command} --id=N\n");
+                exit(1);
+            }
+            $repo   = new Nimbus\Api\ApiTokenRepository($db);
+            $action = substr($command, strlen('token:')); // revoke | pause | resume
+            match ($action) {
+                'revoke' => $repo->revoke((int) $id),
+                'pause'  => $repo->pause((int) $id),
+                default  => $repo->resume((int) $id),
+            };
+            echo "Token #{$id} {$action}d.\n";
             break;
 
         default:
@@ -114,7 +164,11 @@ try {
               migrate                                          run pending migrations
               install  [--email= --name= --password=]          migrate + create the admin user
               create-user --email=  [--password= --name= --role=]
-              token:create --name="My app"                     mint a read-only API token
+              token:create --name="My app" [--expires=90d]      mint a read-only API token
+              token:list                                       show every token + its state
+              token:revoke --id=N                              revoke a token (permanent)
+              token:pause  --id=N                              temporarily disable a token
+              token:resume --id=N                              re-enable a paused token
 
             TXT;
     }
