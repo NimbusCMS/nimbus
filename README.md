@@ -135,7 +135,7 @@ field never means an `ALTER TABLE`.
 - [x] Headless JSON API + tokens — read-only `/api/v1`, publishing-lifecycle aware, relations expanded
 - [x] **Server-rendered public site** — home page (`config/site.php`) + collection + entry pages via plain-PHP themes (`themes/starter`), live-set only
 - [x] **Theme capabilities** — partials, per-collection template specialization, themed 404, static assets (`/theme/assets`), navigation menus, reusable blocks
-- [x] **Public-site polish** — config-driven URL redirects, applied before routing
+- [x] **Public-site polish** — config-driven URL redirects (applied before routing) and opt-in page caching (`PAGE_CACHE_TTL`, flushed on every content write)
 - [ ] Rich-text / Markdown editor
 - [ ] RBAC + revisions + activity log
 - [ ] SEO surface (meta, Open Graph, sitemap, RSS)

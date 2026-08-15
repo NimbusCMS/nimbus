@@ -22,8 +22,10 @@ use Nimbus\Plugin\PluginLoader;
 use Nimbus\Plugin\PluginStatus;
 use Nimbus\Site\SiteController;
 use Nimbus\Support\Config;
+use Nimbus\Support\CoreEvents;
 use Nimbus\Support\Env;
 use Nimbus\Support\EventDispatcher;
+use Nimbus\Support\PageCache;
 use Nimbus\View\View;
 
 /**
@@ -47,6 +49,8 @@ final class Application
     /** @var array<string,array{to:string,status:int}> exact-path redirects, applied before routing */
     private array $redirects;
 
+    private PageCache $pageCache;
+
     /** @var list<PluginDiagnostic> */
     private array $pluginDiagnostics = [];
 
@@ -57,8 +61,11 @@ final class Application
      * Defaults to the configured database — pass one in to run the kernel
      * against a different connection (the HTTP-functional tests do this).
      */
-    /** @param array<string,array{to:string,status:int}>|null $redirects test seam; defaults to config/redirects.php */
-    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null)
+    /**
+     * @param array<string,array{to:string,status:int}>|null $redirects test seam; defaults to config/redirects.php
+     * @param PageCache|null $pageCache test seam; defaults to the configured cache
+     */
+    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null, ?PageCache $pageCache = null)
     {
         if ($db === null) {
             Env::load(Config::basePath() . '/.env');
@@ -69,6 +76,16 @@ final class Application
         $this->fieldTypes = new FieldTypeRegistry();
         $this->events     = new EventDispatcher();
         $this->redirects  = $redirects ?? Config::redirects();
+        $this->pageCache  = $pageCache ?? new PageCache(Config::pageCachePath(), Config::pageCacheTtl());
+
+        // Any content write flushes the page cache. Full-flush is deliberate: one
+        // edit can change an index, a relation, or a shared block elsewhere, so
+        // clearing everything is simpler and safer than tracking dependencies.
+        $flush = function (): void {
+            $this->pageCache->flush();
+        };
+        $this->events->listen(CoreEvents::ENTRY_SAVED, $flush);
+        $this->events->listen(CoreEvents::ENTRY_DELETED, $flush);
 
         $this->loadPlugins();
     }
@@ -140,8 +157,25 @@ final class Application
                 return $this->notice('Not installed yet', 'Run <code>php bin/nimbus install</code> to conjure the schema and your first user.', 503);
             }
 
-            return $this->routes()->dispatch($request)
+            // Public pages may be cached. A hit skips routing entirely; a miss
+            // renders, then stores only a 200 HTML page. Admin, API and asset
+            // paths are never cached (they are per-user, JSON, or self-caching).
+            $cacheKey  = $this->cacheKey($request);
+            if ($cacheKey !== null) {
+                $hit = $this->pageCache->get($cacheKey);
+                if ($hit !== null) {
+                    return Response::html($hit);
+                }
+            }
+
+            $response = $this->routes()->dispatch($request)
                 ?? $this->notice('Not found', 'Nothing lives at <code>' . View::e($request->path) . '</code>.', 404);
+
+            if ($cacheKey !== null && $response->status === 200 && str_contains((string) $response->header('Content-Type'), 'text/html')) {
+                $this->pageCache->put($cacheKey, $response->body);
+            }
+
+            return $response;
         } catch (HttpException $e) {
             return $e->response;
         } catch (\Throwable $e) {
@@ -193,6 +227,25 @@ final class Application
             'samesite' => 'Lax',
         ]);
         session_start();
+    }
+
+    /**
+     * The page-cache key for a request, or null when it must not be cached:
+     * a non-GET request, an admin / API / theme-asset path, or caching disabled.
+     * Only the `page` query param varies a public page, so nothing else is keyed.
+     */
+    private function cacheKey(Request $request): ?string
+    {
+        if ($request->method !== 'GET' || !$this->pageCache->enabled()) {
+            return null;
+        }
+        foreach (['/admin', '/api', '/theme/assets'] as $prefix) {
+            if ($request->path === $prefix || str_starts_with($request->path, $prefix . '/')) {
+                return null;
+            }
+        }
+        $page = (int) ($request->query('page') ?? 1);
+        return $request->path . ($page > 1 ? '?page=' . $page : '');
     }
 
     private function notice(string $title, string $html, int $status = 200): Response

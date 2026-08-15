@@ -100,6 +100,14 @@ set, and the rendered pages may still change before `1.0.0`. Copy
 `themes/starter/` as a starting point, and expect to adjust it across `0.x`
 releases.
 
+## Page caching
+
+Off by default. Set `PAGE_CACHE_TTL` to a positive number of seconds to cache
+rendered public pages (never `/admin`, `/api`, or theme assets). The cache is
+flushed on every content write, and the TTL bounds staleness for time-based
+changes such as a scheduled entry becoming live. The on-disk cache format under
+`storage/` is internal and may change without notice.
+
 ## Versioning
 
 [Semantic Versioning](https://semver.org). Against the **public plugin API**

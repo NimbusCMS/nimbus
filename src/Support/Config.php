@@ -217,6 +217,22 @@ final class Config
         return $out;
     }
 
+    /**
+     * Seconds a rendered public page may be cached. 0 (the default) disables
+     * page caching entirely. A positive value opts in and bounds how long a
+     * time-based change (a scheduled entry going live) can be stale.
+     */
+    public static function pageCacheTtl(): int
+    {
+        return max(0, (int) Env::get('PAGE_CACHE_TTL', '0'));
+    }
+
+    /** Directory the page cache writes to (under the gitignored storage/). */
+    public static function pageCachePath(): string
+    {
+        return self::basePath() . '/storage/cache/pages';
+    }
+
     public static function basePath(): string
     {
         return dirname(__DIR__, 2);
