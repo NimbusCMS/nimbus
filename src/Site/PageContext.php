@@ -12,7 +12,9 @@ namespace Nimbus\Site;
 final class PageContext
 {
     /**
-     * @param 'home'|'collection'|'entry'   $kind
+     * @param string $kind 'home', 'collection', or 'entry' today — a plain
+     *     string, not a frozen enum, so a contributor tolerates kinds core may
+     *     add later (handle the ones you know, ignore the rest)
      * @param array<string,mixed>|null      $entry      the entry view-model, on an entry page
      * @param array{handle:string,name:string}|null $collection on a collection page
      */
