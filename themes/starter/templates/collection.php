@@ -6,10 +6,8 @@
  * @var list<array{slug:string,title:string,published_at:?string}> $entries
  * @var int                                                       $page
  * @var int                                                       $total_pages
+ * @var callable                                                  $e  escape helper
  */
-use Nimbus\View\View;
-
-$e = static fn (?string $v): string => View::e($v);
 ?>
 <h1><?= $e($collection['name']) ?></h1>
 

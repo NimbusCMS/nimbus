@@ -44,12 +44,12 @@ final class SiteController
     /** Handle of the collection rendered at `/`, or null for the placeholder. */
     private ?string $home;
 
-    public function __construct(Connection $db, FieldTypeRegistry $types, ?string $home = null)
+    public function __construct(Connection $db, FieldTypeRegistry $types, ?string $home = null, ?string $themePath = null)
     {
         $this->collections = new CollectionRepository($db);
         $this->entries     = new EntryRepository($db);
         $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
-        $this->render      = new View(Config::themePath(), ['appName' => Config::appName()]);
+        $this->render      = new View($themePath ?? Config::themePath(), ['appName' => Config::appName()]);
         $this->home        = $home;
     }
 
@@ -117,7 +117,7 @@ final class SiteController
         $total = $this->entries->countLive($collection->id);
         $rows  = $this->entries->liveForCollection($collection->id, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
 
-        return Response::html($this->render->render('collection', [
+        return Response::html($this->render->render($this->specialize('collection', $collection->handle), [
             'title'       => $collection->name,
             'collection'  => ['handle' => $collection->handle, 'name' => $collection->name],
             'entries'     => $this->view->many($collection, $rows),
@@ -133,7 +133,7 @@ final class SiteController
      */
     private function renderEntry(Collection $collection, array $row): Response
     {
-        return Response::html($this->render->render('entry', [
+        return Response::html($this->render->render($this->specialize('entry', $collection->handle), [
             'title'      => (string) $row['title'],
             'collection' => ['handle' => $collection->handle, 'name' => $collection->name],
             'entry'      => $this->view->one($collection, $row),
@@ -141,11 +141,27 @@ final class SiteController
     }
 
     /**
-     * A minimal 404 — deliberately not themed, so a theme only has to provide
-     * the two content templates. The requested path is never echoed back.
+     * The most specific template the theme provides: `{base}-{handle}` when it
+     * exists (e.g. `entry-posts`, or `entry-homepage` for a home page), else the
+     * generic `{base}`. One rule serves both per-collection styling and a
+     * home-specific template, with a guaranteed fallback.
+     */
+    private function specialize(string $base, string $handle): string
+    {
+        $specific = $base . '-' . $handle;
+        return $this->render->exists($specific) ? $specific : $base;
+    }
+
+    /**
+     * Not found. A theme may provide a `404` template (rendered in its layout);
+     * otherwise a minimal built-in page. The requested path is never echoed back.
      */
     private function notFound(): Response
     {
+        if ($this->render->exists('404')) {
+            return Response::html($this->render->render('404', ['title' => 'Not found']), 404);
+        }
+
         return Response::html(
             '<!doctype html><meta charset="utf-8"><title>Not found</title>'
             . '<p style="font-family:system-ui,sans-serif;max-width:40rem;margin:14vh auto;padding:0 1.5rem">'

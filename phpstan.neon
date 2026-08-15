@@ -10,6 +10,8 @@ parameters:
             # Themes are PHP templates rendered with extract()ed view data;
             # their variables are documented in @var headers, not typed code.
             - src/View/themes/*
+            # Test-fixture theme templates are the same kind of extract()ed PHP.
+            - tests/fixtures/*
     treatPhpDocTypesAsCertain: false
 
     typeAliases:
