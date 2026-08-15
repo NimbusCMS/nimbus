@@ -10,7 +10,6 @@ use Nimbus\Content\EntryRepository;
 use Nimbus\Content\EntryService;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\RelationRepository;
-use Nimbus\Http\Response;
 use Nimbus\Support\EventDispatcher;
 
 /**
