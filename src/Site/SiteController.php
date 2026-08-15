@@ -39,6 +39,9 @@ final class SiteController
     /** Most reusable blocks loaded for a page — blocks are a handful, not a feed. */
     private const MAX_BLOCKS = 100;
 
+    /** Per-collection cap on sitemap URLs; keeps a single sitemap bounded. */
+    private const SITEMAP_MAX = 5000;
+
     /**
      * Extensions a theme may serve as static assets, mapped to their content
      * type. An allowlist, so a stray `.php` (or anything executable) in a theme
@@ -92,9 +95,10 @@ final class SiteController
 
     public function routes(Router $r): void
     {
-        // Registered first among the site routes: a literal, specific prefix that
-        // must resolve before the {collection} catch-alls ever see it.
+        // Registered first among the site routes: literal, specific paths that
+        // must resolve before the {collection} catch-alls ever see them.
         $r->get('/theme/assets/{path*}', fn (Request $req, array $p): Response => $this->asset($p['path']))->name('site.asset');
+        $r->get('/sitemap.xml', fn (Request $req, array $p): Response => $this->sitemap())->name('site.sitemap');
         $r->get('/', fn (Request $req, array $p): Response => $this->homePage($req))->name('site.home');
         $r->get('/{collection}', fn (Request $req, array $p): Response => $this->index($req, $p['collection']))->name('site.collection');
         $r->get('/{collection}/{slug}', fn (Request $req, array $p): Response => $this->show($req, $p['collection'], $p['slug']))->name('site.entry');
@@ -132,6 +136,50 @@ final class SiteController
     private function assetNotFound(): Response
     {
         return Response::file('Asset not found', 'text/plain; charset=UTF-8', 404);
+    }
+
+    /**
+     * An XML sitemap of the public site: the home page, each browsable
+     * collection's index, and its live entries. Single-entry collections (a
+     * Homepage, Settings) and the `blocks` fragments are left out — they are not
+     * standalone pages to crawl. URLs are absolute, built from APP_URL.
+     */
+    private function sitemap(): Response
+    {
+        $base = Config::appUrl();
+        $urls = ['<url><loc>' . $this->xml($base . '/') . '</loc></url>'];
+
+        foreach ($this->collections->all() as $collection) {
+            if ($collection->handle === 'blocks' || $collection->isSingle()) {
+                continue;
+            }
+            $urls[] = '<url><loc>' . $this->xml($base . '/' . $collection->handle) . '</loc></url>';
+            foreach ($this->entries->liveForCollection($collection->id, self::SITEMAP_MAX, 0) as $row) {
+                $loc = $base . '/' . $collection->handle . '/' . (string) $row['slug'];
+                $urls[] = '<url><loc>' . $this->xml($loc) . '</loc>' . $this->lastmod($row['published_at'] ?? null) . '</url>';
+            }
+        }
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+            . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n"
+            . implode("\n", $urls) . "\n"
+            . '</urlset>' . "\n";
+
+        return Response::file($xml, 'application/xml; charset=UTF-8');
+    }
+
+    /** A `<lastmod>` element for a stored timestamp, or empty when there is none. */
+    private function lastmod(mixed $stored): string
+    {
+        if (!is_string($stored) || $stored === '') {
+            return '';
+        }
+        return '<lastmod>' . (new \DateTimeImmutable($stored))->format('Y-m-d') . '</lastmod>';
+    }
+
+    private function xml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_XML1, 'UTF-8');
     }
 
     /**
