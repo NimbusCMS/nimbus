@@ -27,6 +27,15 @@ This skill is governed by [`docs/CHARTER.md`](../../../docs/CHARTER.md); where
 this skill and the charter ever disagree, the charter wins and this skill is
 corrected.
 
+**Companion:** this loop reviews whether a change is *good for the platform*. Its
+sibling [`nimbus-security-review`](../nimbus-security-review/SKILL.md) reviews
+whether a change is *safe* — an adversarial Attacker / Defender / QA pass. Run the
+security loop **in addition** to this one on any security-relevant change (auth,
+tokens/scopes, permissions, SQL, templates, upload, redirects, the plugin
+boundary, HTTP/proxy handling). The Principal-Engineer hat here flags security
+concerns; the security loop is where they are actually exploited, rated, and
+gated.
+
 ## When to run it
 
 - **Before** planning or implementing a meaningful change — to review and classify.
