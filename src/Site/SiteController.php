@@ -36,10 +36,37 @@ final class SiteController
     /** Entries per collection-index page. */
     private const PER_PAGE = 20;
 
+    /**
+     * Extensions a theme may serve as static assets, mapped to their content
+     * type. An allowlist, so a stray `.php` (or anything executable) in a theme
+     * is never handed out as source or run.
+     */
+    private const ASSET_TYPES = [
+        'css'   => 'text/css; charset=UTF-8',
+        'js'    => 'text/javascript; charset=UTF-8',
+        'mjs'   => 'text/javascript; charset=UTF-8',
+        'map'   => 'application/json; charset=UTF-8',
+        'svg'   => 'image/svg+xml',
+        'png'   => 'image/png',
+        'jpg'   => 'image/jpeg',
+        'jpeg'  => 'image/jpeg',
+        'gif'   => 'image/gif',
+        'webp'  => 'image/webp',
+        'avif'  => 'image/avif',
+        'ico'   => 'image/x-icon',
+        'woff'  => 'font/woff',
+        'woff2' => 'font/woff2',
+        'ttf'   => 'font/ttf',
+        'txt'   => 'text/plain; charset=UTF-8',
+    ];
+
     private CollectionRepository $collections;
     private EntryRepository $entries;
     private EntryView $view;
     private View $render;
+
+    /** Absolute path to the active theme directory (for serving its assets). */
+    private string $themeDir;
 
     /** Handle of the collection rendered at `/`, or null for the placeholder. */
     private ?string $home;
@@ -49,15 +76,53 @@ final class SiteController
         $this->collections = new CollectionRepository($db);
         $this->entries     = new EntryRepository($db);
         $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
-        $this->render      = new View($themePath ?? Config::themePath(), ['appName' => Config::appName()]);
+        $this->themeDir    = $themePath ?? Config::themePath();
+        $this->render      = new View($this->themeDir, ['appName' => Config::appName()]);
         $this->home        = $home;
     }
 
     public function routes(Router $r): void
     {
+        // Registered first among the site routes: a literal, specific prefix that
+        // must resolve before the {collection} catch-alls ever see it.
+        $r->get('/theme/assets/{path*}', fn (Request $req, array $p): Response => $this->asset($p['path']))->name('site.asset');
         $r->get('/', fn (Request $req, array $p): Response => $this->homePage())->name('site.home');
         $r->get('/{collection}', fn (Request $req, array $p): Response => $this->index($req, $p['collection']))->name('site.collection');
         $r->get('/{collection}/{slug}', fn (Request $req, array $p): Response => $this->show($p['collection'], $p['slug']))->name('site.entry');
+    }
+
+    /**
+     * Serve a file from the active theme's `assets/` directory.
+     *
+     * The path comes from the URL, so it is resolved with realpath() and
+     * confirmed to sit inside the assets directory — a `..` or an absolute path
+     * escapes to nothing (404), never to a file elsewhere on disk. Only
+     * allowlisted extensions are served, so a theme's PHP is never disclosed.
+     */
+    private function asset(string $path): Response
+    {
+        $base = realpath($this->themeDir . '/assets');
+        if ($base === false) {
+            return $this->assetNotFound();
+        }
+
+        $full = realpath($base . '/' . $path);
+        if ($full === false || !is_file($full) || !str_starts_with($full, $base . DIRECTORY_SEPARATOR)) {
+            return $this->assetNotFound();
+        }
+
+        $type = self::ASSET_TYPES[strtolower(pathinfo($full, PATHINFO_EXTENSION))] ?? null;
+        if ($type === null) {
+            return $this->assetNotFound();
+        }
+
+        return Response::file((string) file_get_contents($full), $type)
+            ->withHeader('Cache-Control', 'public, max-age=3600');
+    }
+
+    private function assetNotFound(): Response
+    {
+        return Response::file('Asset not found', 'text/plain; charset=UTF-8', 404);
     }
 
     /**

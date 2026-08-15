@@ -286,4 +286,31 @@ final class SiteRoutesTest extends HttpTestCase
         /** @var Response $generic */
         self::assertStringContainsString('GENERIC ENTRY: Yo', $generic->body, 'falls back to entry with no override');
     }
+
+    // --------------------------------------------------------- theme assets
+
+    public function test_a_theme_asset_is_served_with_its_content_type(): void
+    {
+        $response = $this->get('/theme/assets/app.css');
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('text/css', (string) $response->header('Content-Type'));
+        self::assertStringContainsString('font-family', $response->body, 'the real stylesheet is served');
+        self::assertNotNull($response->header('Cache-Control'), 'assets are cacheable');
+    }
+
+    public function test_a_missing_asset_is_404(): void
+    {
+        self::assertSame(404, $this->get('/theme/assets/nope.css')->status);
+    }
+
+    public function test_asset_path_traversal_cannot_escape_the_assets_directory(): void
+    {
+        // The theme's own templates live one directory up from assets/ — a `..`
+        // must not reach them (or anything else outside assets/).
+        $response = $this->get('/theme/assets/../templates/layout.php');
+
+        self::assertSame(404, $response->status, 'traversal never resolves to a real file');
+        self::assertStringNotContainsString('<!doctype', $response->body, 'a template is never disclosed');
+    }
 }

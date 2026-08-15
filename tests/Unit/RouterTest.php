@@ -26,6 +26,26 @@ final class RouterTest extends TestCase
         self::assertSame('posts:9', $router->dispatch($this->request('GET', '/admin/collections/posts/entries/9/edit'))->body);
     }
 
+    public function test_a_wildcard_param_captures_the_rest_of_the_path(): void
+    {
+        $router = new Router();
+        $router->get('/theme/assets/{path*}', fn (Request $req, array $p): Response => Response::html($p['path']));
+
+        // A single segment and a nested path both match; the slashes are kept.
+        self::assertSame('app.css', $router->dispatch($this->request('GET', '/theme/assets/app.css'))->body);
+        self::assertSame('img/logo.png', $router->dispatch($this->request('GET', '/theme/assets/img/logo.png'))->body);
+        // But a plain {param} still stops at one segment.
+        self::assertNull($router->dispatch($this->request('GET', '/theme')));
+    }
+
+    public function test_a_wildcard_route_generates_a_url_keeping_slashes(): void
+    {
+        $router = new Router();
+        $router->get('/theme/assets/{path*}', fn (Request $req, array $p): Response => Response::html('x'))->name('asset');
+
+        self::assertSame('/theme/assets/img/logo.png', $router->url('asset', ['path' => 'img/logo.png']));
+    }
+
     public function test_handler_receives_the_dispatched_request_instance(): void
     {
         $router   = new Router();

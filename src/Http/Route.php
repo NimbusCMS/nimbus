@@ -90,14 +90,18 @@ final class Route
      */
     public function url(array $params = []): string
     {
-        $path = preg_replace_callback('#\{(\w+)\}#', static function (array $m) use (&$params): string {
+        $path = preg_replace_callback('#\{(\w+)(\*?)\}#', static function (array $m) use (&$params): string {
             $key = $m[1];
             if (!array_key_exists($key, $params)) {
                 throw new \RuntimeException("Missing route parameter: {$key}");
             }
-            $value = $params[$key];
+            $value = (string) $params[$key];
             unset($params[$key]);
-            return rawurlencode((string) $value);
+            // A wildcard ({name*}) captures a whole path — encode each segment
+            // but keep the slashes; a plain param is a single segment.
+            return $m[2] === '*'
+                ? implode('/', array_map('rawurlencode', explode('/', $value)))
+                : rawurlencode($value);
         }, $this->pattern);
 
         return $params === [] ? $path : $path . '?' . http_build_query($params);
@@ -105,7 +109,13 @@ final class Route
 
     private function regex(): string
     {
-        $regex = preg_replace('#\{(\w+)\}#', '(?P<$1>[^/]+)', $this->pattern);
+        $regex = preg_replace_callback('#\{(\w+)(\*?)\}#', static function (array $m): string {
+            // {name} matches one path segment; {name*} matches the rest of the
+            // path (slashes included) — for catch-alls like static asset serving.
+            $class = $m[2] === '*' ? '.+' : '[^/]+';
+            return '(?P<' . $m[1] . '>' . $class . ')';
+        }, $this->pattern);
+
         return '#^' . $regex . '/?$#';
     }
 }

@@ -76,6 +76,14 @@ The active theme is named in `config/theme.php`. Templates rendered today:
 `collection-{handle}` (e.g. `entry-homepage`) — and Nimbus falls back to the
 generic `entry`/`collection` when the specific one is absent.
 
+**Static assets.** Files under a theme's `assets/` directory are served at
+`/theme/assets/<path>` (e.g. `assets/app.css` → `/theme/assets/app.css`), so a
+theme can ship real stylesheets, scripts, images and fonts instead of inlining
+them. Only an allowlist of extensions is served (CSS, JS, common image and font
+types) — a theme's PHP is never disclosed — and the path cannot escape `assets/`.
+Bodies are served through PHP, which suits the modest files a theme ships; a
+front webserver may serve `themes/*/assets` directly in production if desired.
+
 This contract is **not frozen**. Template names, the view-model keys, the helper
 set, and the rendered pages may still change before `1.0.0`. Copy
 `themes/starter/` as a starting point, and expect to adjust it across `0.x`

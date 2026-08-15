@@ -57,6 +57,16 @@ final class Response
         );
     }
 
+    /**
+     * A response with an explicit content type — for static assets and other
+     * non-HTML, non-attachment bodies. The body is held in memory, so this suits
+     * the small files a theme ships (CSS/JS/images), not large downloads.
+     */
+    public static function file(string $content, string $contentType, int $status = 200): self
+    {
+        return new self($status, $content, ['Content-Type' => $contentType]);
+    }
+
     public static function download(string $content, string $filename, string $contentType = 'application/octet-stream'): self
     {
         return new self(200, $content, [
