@@ -44,6 +44,9 @@ final class Application
     private FieldTypeRegistry $fieldTypes;
     private EventDispatcher $events;
 
+    /** @var array<string,array{to:string,status:int}> exact-path redirects, applied before routing */
+    private array $redirects;
+
     /** @var list<PluginDiagnostic> */
     private array $pluginDiagnostics = [];
 
@@ -54,7 +57,8 @@ final class Application
      * Defaults to the configured database — pass one in to run the kernel
      * against a different connection (the HTTP-functional tests do this).
      */
-    public function __construct(?Connection $db = null, ?Auth $auth = null)
+    /** @param array<string,array{to:string,status:int}>|null $redirects test seam; defaults to config/redirects.php */
+    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null)
     {
         if ($db === null) {
             Env::load(Config::basePath() . '/.env');
@@ -64,6 +68,7 @@ final class Application
         $this->auth       = $auth ?? new Auth($this->db);
         $this->fieldTypes = new FieldTypeRegistry();
         $this->events     = new EventDispatcher();
+        $this->redirects  = $redirects ?? Config::redirects();
 
         $this->loadPlugins();
     }
@@ -121,6 +126,13 @@ final class Application
     private function respond(Request $request): Response
     {
         try {
+            // Redirects come from config (no database), so they resolve before
+            // the readiness checks — an old URL keeps working during an outage.
+            $redirect = $this->redirects[$request->path] ?? null;
+            if ($redirect !== null) {
+                return Response::redirect($redirect['to'], $redirect['status']);
+            }
+
             if (!$this->db->isReady()) {
                 return $this->notice('Database unavailable', 'NimbusCMS can’t reach the database. Check your <code>.env</code> or Docker stack.', 503);
             }

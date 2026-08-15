@@ -169,6 +169,54 @@ final class Config
         return is_string($home) && $home !== '' ? $home : null;
     }
 
+    /**
+     * URL redirects, read from config/redirects.php — an exact source path maps
+     * to a destination, applied before routing. A value is either a destination
+     * string (a 301) or `['to' => …, 'status' => 301|302|307|308]`. Malformed
+     * entries are dropped. Editor-managed redirects are a later capability.
+     *
+     * @return array<string,array{to:string,status:int}>
+     */
+    public static function redirects(): array
+    {
+        $file = self::basePath() . '/config/redirects.php';
+        return self::normalizeRedirects(is_file($file) ? require $file : []);
+    }
+
+    /**
+     * Validate a raw redirect map into `from => {to, status}`, dropping anything
+     * malformed so a config typo can never break routing.
+     *
+     * @internal exposed to test the validation without a file on disk.
+     * @return array<string,array{to:string,status:int}>
+     */
+    public static function normalizeRedirects(mixed $raw): array
+    {
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($raw as $from => $target) {
+            if (!is_string($from) || $from === '') {
+                continue;
+            }
+            if (is_string($target)) {
+                [$to, $status] = [$target, 301];
+            } elseif (is_array($target) && isset($target['to']) && is_string($target['to'])) {
+                $to     = $target['to'];
+                $status = (isset($target['status']) && is_int($target['status'])) ? $target['status'] : 301;
+            } else {
+                continue;
+            }
+            if ($to === '' || !in_array($status, [301, 302, 307, 308], true)) {
+                continue;
+            }
+            $out[$from] = ['to' => $to, 'status' => $status];
+        }
+        return $out;
+    }
+
     public static function basePath(): string
     {
         return dirname(__DIR__, 2);
