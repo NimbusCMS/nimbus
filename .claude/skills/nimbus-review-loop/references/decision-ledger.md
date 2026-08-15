@@ -13,6 +13,29 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-15 · Public rendering, first vertical slice (starter theme + site router)
+- **Status:** accepted
+- **Evidence:** PR (feat/public-rendering); `src/Site/SiteController.php`,
+  `themes/starter/*`, `config/theme.php`, `Config::theme()/themePath()`;
+  `tests/Http/SiteRoutesTest.php`
+- **Product:** a Nimbus site renders its own live content — a collection's
+  entries and a single entry — through a plain-PHP theme, no build step. Basic
+  but real; the home page and richer theming are explicitly later.
+- **Architecture:** themes are a directory of plain-PHP templates + `theme.json`
+  under `themes/{name}/`, rendered by the existing `View`; a template gets the
+  EntryView view-model + an escaping helper, never a service or the DB. Theme
+  selected by `config/theme.php` (mirrors `config/plugins.php`). `SiteController`
+  registered **last** so `{collection}` routes never shadow /admin or /api
+  (first-match-wins; verified by test). Combined slices 2–4 because a theme with
+  no router and a router with no theme each fail the integrated+verified gate.
+- **Engineering:** live predicate reused (drafts/scheduled 404, indistinguishable
+  from absent); output escape-by-default in templates (escaping test); 404 is a
+  minimal un-themed page so a theme only owes two content templates; themes/ and
+  config/ sit outside the phpstan/cs-fixer paths, like the admin theme already does.
+- **Revisit:** designated home page (needs a home-collection mechanism); theme
+  capabilities (asset pipeline, partial/template overrides, per-collection
+  templates) — each added on concrete evidence, not speculatively.
+
 ### 2026-08-15 · Relation fields expand at the EntryView edge, live-only (F1 resolved)
 - **Status:** accepted
 - **Evidence:** PR (feat/relation-expansion); `src/Content/EntryView.php`,

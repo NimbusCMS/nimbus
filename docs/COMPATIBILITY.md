@@ -59,6 +59,19 @@ change the wire shape are not breaking.
 Not yet part of the contract, and may appear without a version bump until they
 do: filtering/sorting params, sparse fieldsets, ETags.
 
+## The theme contract
+
+A theme is a directory under `themes/{name}/` — a `theme.json` and plain-PHP
+templates in `templates/`, rendered by `View`. A template is handed a data-only
+view-model (the same shape the API serializes) and an escaping helper, and
+nothing else: no services, no repositories, no database. The active theme is
+named in `config/theme.php`.
+
+This contract is **not frozen**. Today the site renders `collection` and `entry`
+templates inside a `layout`; template names, the view-model keys, and the set of
+rendered pages may still change before `1.0.0`. Copy `themes/starter/` as a
+starting point, and expect to adjust it across `0.x` releases.
+
 ## Versioning
 
 [Semantic Versioning](https://semver.org). Against the **public plugin API**

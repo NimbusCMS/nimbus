@@ -1,0 +1,10 @@
+{
+    "name": "Starter",
+    "version": "0.1.0",
+    "description": "The bundled reference theme — plain PHP templates, no build step. Copy it to make your own.",
+    "templates": {
+        "layout": "The HTML shell every page renders inside.",
+        "collection": "A collection's live entries, newest first.",
+        "entry": "A single entry."
+    }
+}
