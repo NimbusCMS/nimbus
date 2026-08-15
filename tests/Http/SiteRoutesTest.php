@@ -329,4 +329,42 @@ final class SiteRoutesTest extends HttpTestCase
         self::assertStringContainsString('site-nav', $response->body, 'the header renders the configured menu');
         self::assertStringContainsString('Home', $response->body);
     }
+
+    // --------------------------------------------------------------- blocks
+
+    public function test_a_reusable_block_renders_across_pages(): void
+    {
+        // A block is a live entry in the conventional `blocks` collection.
+        $blocks = $this->makeCollection('blocks', [$this->field('body', 'textarea')]);
+        $this->publish($blocks, 'Announcement', 'announcement', 'published', null, ['body' => 'Sitewide sale on now!']);
+
+        $posts = $this->makeCollection('posts');
+        $this->publish($posts, 'Hello', 'hello');
+
+        // Defined once, it appears on unrelated pages — an index and an entry.
+        $index = $this->get('/posts');
+        self::assertStringContainsString('class="announcement"', $index->body);
+        self::assertStringContainsString('Sitewide sale on now!', $index->body);
+
+        self::assertStringContainsString('Sitewide sale on now!', $this->get('/posts/hello')->body);
+    }
+
+    public function test_a_draft_block_does_not_render(): void
+    {
+        $blocks = $this->makeCollection('blocks', [$this->field('body', 'textarea')]);
+        $this->publish($blocks, 'Secret', 'announcement', 'draft', null, ['body' => 'Not live yet']);
+
+        $posts = $this->makeCollection('posts');
+        $this->publish($posts, 'Hello', 'hello');
+
+        self::assertStringNotContainsString('Not live yet', $this->get('/posts')->body, 'only live blocks render');
+    }
+
+    public function test_a_page_without_a_blocks_collection_has_no_announcement(): void
+    {
+        $posts = $this->makeCollection('posts');
+        $this->publish($posts, 'Hello', 'hello');
+
+        self::assertStringNotContainsString('class="announcement"', $this->get('/posts')->body);
+    }
 }
