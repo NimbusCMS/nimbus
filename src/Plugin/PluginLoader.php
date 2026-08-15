@@ -68,12 +68,22 @@ final class PluginLoader
     }
 
     /**
-     * Register every enabled plugin into the registry.
+     * Register every enabled plugin into the shared registries.
+     *
+     * The head-contributor registry is optional; omit it and head contributions
+     * go to a throwaway. The real kernel always passes one — this keeps the
+     * internal loader callable by a plugin's package test that predates it.
      *
      * @return list<PluginDiagnostic> everything that did not register, and why
      */
-    public function load(FieldTypeRegistry $fieldTypes, HeadContributorRegistry $head): array
+    public function load(FieldTypeRegistry $fieldTypes, ?HeadContributorRegistry $head = null): array
     {
+        // Optional so that adding a capability never breaks an existing plugin's
+        // package-integration test, which calls this internal loader directly and
+        // may not know about the newest registry. A plugin that ignores a
+        // capability simply has its registrations land nowhere.
+        $head ??= new HeadContributorRegistry();
+
         $this->diagnostics = [];
         $this->statuses    = [];
         $this->loaded      = [];

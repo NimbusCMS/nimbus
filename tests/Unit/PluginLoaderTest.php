@@ -158,6 +158,20 @@ final class PluginLoaderTest extends TestCase
         self::assertSame('nimbuscms.fixture', $this->registry->providerOf('fixture'));
     }
 
+    public function test_load_without_a_head_registry_still_registers_plugins(): void
+    {
+        // A plugin's package-integration test calls the internal loader with one
+        // argument; adding a capability must not break it.
+        $path = $this->installed($this->package('nimbuscms/fixture', [
+            'id' => 'nimbuscms.fixture', 'plugin' => FixturePlugin::class,
+        ]));
+
+        $diagnostics = (new PluginLoader($path))->load($this->registry);
+
+        self::assertSame([], $diagnostics);
+        self::assertTrue($this->registry->has('fixture'));
+    }
+
     public function test_plugin_registers_exactly_once(): void
     {
         $path = $this->installed($this->package('nimbuscms/fixture', [
