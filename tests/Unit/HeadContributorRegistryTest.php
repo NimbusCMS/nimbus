@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Tests\Unit;
 
 use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Database\MigrationRegistry;
 use Nimbus\Plugin\PluginContext;
 use Nimbus\Site\HeadContributor;
 use Nimbus\Site\HeadContributorRegistry;
@@ -70,7 +71,7 @@ final class HeadContributorRegistryTest extends TestCase
     public function test_plugin_context_binds_contributions_to_the_plugin_id(): void
     {
         $registry = new HeadContributorRegistry();
-        $context  = new PluginContext(new FieldTypeRegistry(), $registry, new EventDispatcher(), 'nimbuscms.seo');
+        $context  = new PluginContext(new FieldTypeRegistry(), $registry, new EventDispatcher(), new MigrationRegistry(), 'nimbuscms.seo');
 
         $context->head()->register($this->contributor('<x>'));
         self::assertSame('<x>', $registry->render($this->page()));

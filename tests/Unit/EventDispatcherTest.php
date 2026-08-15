@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Tests\Unit;
 
 use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Database\MigrationRegistry;
 use Nimbus\Plugin\PluginContext;
 use Nimbus\Site\HeadContributorRegistry;
 use Nimbus\Support\EventDispatcher;
@@ -64,6 +65,7 @@ final class EventDispatcherTest extends TestCase
             new FieldTypeRegistry(),
             new HeadContributorRegistry(),
             $dispatcher,
+            new MigrationRegistry(),
             'nimbuscms.analytics',
         );
 

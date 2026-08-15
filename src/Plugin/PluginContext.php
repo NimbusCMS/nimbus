@@ -5,19 +5,20 @@ declare(strict_types=1);
 namespace Nimbus\Plugin;
 
 use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Database\MigrationRegistry;
 use Nimbus\Site\HeadContributorRegistry;
 use Nimbus\Support\EventDispatcher;
 
 /**
  * Everything a plugin is allowed to touch.
  *
- * Three capabilities today: field types, head contributions (ADR 0004), and
- * event subscription. Each was added alongside a plugin that concretely needed
- * it — field types by the built-in types and Markdown, head contributions by
- * plugin-seo, event subscription by plugin-analytics. Routes, permissions,
- * migrations and admin navigation get added the same way, one at a time,
- * because a capability published without a consumer is a guess that becomes a
- * commitment.
+ * Four capabilities today: field types, head contributions (ADR 0004), event
+ * subscription, and migrations for the plugin's own tables (ADR 0005). Each was
+ * added alongside a plugin that concretely needed it — field types by the
+ * built-in types and Markdown, head contributions by plugin-seo, events and
+ * migrations by plugin-analytics. Routes, permissions and admin navigation get
+ * added the same way, one at a time, because a capability published without a
+ * consumer is a guess that becomes a commitment.
  *
  * A context is built per plugin, so the plugin's id is bound to whatever it
  * registers and cannot be spoofed.
@@ -40,16 +41,19 @@ final class PluginContext
     private FieldTypeRegistrar $fieldTypes;
     private HeadRegistrar $head;
     private EventRegistrar $events;
+    private MigrationRegistrar $migrations;
 
     public function __construct(
         FieldTypeRegistry $fieldTypes,
         HeadContributorRegistry $head,
         EventDispatcher $events,
+        MigrationRegistry $migrations,
         private string $pluginId,
     ) {
         $this->fieldTypes = new FieldTypeRegistrar($fieldTypes, $pluginId);
         $this->head       = new HeadRegistrar($head, $pluginId);
         $this->events     = new EventRegistrar($events, $pluginId);
+        $this->migrations = new MigrationRegistrar($migrations, $pluginId);
     }
 
     /** Register field types. Registrations are stamped with this plugin's id. */
@@ -68,6 +72,12 @@ final class PluginContext
     public function events(): EventRegistrar
     {
         return $this->events;
+    }
+
+    /** Declare migrations for the plugin's own tables. Stamped with its id. */
+    public function migrations(): MigrationRegistrar
+    {
+        return $this->migrations;
     }
 
     /** The id this plugin was loaded under, from its Composer manifest. */

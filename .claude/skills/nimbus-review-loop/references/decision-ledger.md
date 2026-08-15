@@ -27,6 +27,27 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** audit other field types for wire-shape correctness if a client
   reports a surprising value (none known now).
 
+### 2026-08-15 · Capability B built: plugin-owned migrations
+- **Status:** accepted (analytics milestone, slice B of A–D)
+- **Evidence:** PR (feat/plugin-migrations); `src/Database/MigrationRegistry.php`,
+  `src/Plugin/MigrationRegistrar.php`, `PluginContext::migrations()`;
+  `Migrator` runs plugin migrations after core; `bin/nimbus` boots the app to
+  collect them; `tests/Unit/MigrationRegistryTest.php`,
+  `tests/Integration/PluginMigrationTest.php`
+- **Product:** a plugin ships and evolves its own tables — the storage analytics
+  (and forms/search/comments) need.
+- **Architecture:** mirrors the capability pattern — shared `MigrationRegistry`,
+  provider-scoped `MigrationRegistrar`, rollback via `forgetProvider`. Migration
+  names are prefixed with the plugin id (globally unique in `nb_migrations`),
+  run **after** core's (a plugin's tables may reference core's). The CLI boots the
+  app (no DB touched in the constructor) so plugins declare migrations, then hands
+  the registry to the Migrator. Per ADR 0005: own tables only, never core `nb_*`.
+- **Engineering:** loader threads the registry as an **optional** 4th arg (keeps
+  plugin package tests green); idempotent + integration-tested against a real DB.
+- **Watch:** `PluginContext`/`load` arg count is climbing (5/4). A capabilities
+  **bundle** should precede C/D to stop the churn (and coordinated plugin-test
+  updates). Uninstall/table-drop deferred.
+
 ### 2026-08-15 · Capability A built: plugin event subscription + request.handled
 - **Status:** accepted (analytics milestone, slice A of A–D)
 - **Evidence:** PR (feat/plugin-events); `src/Plugin/EventRegistrar.php`,

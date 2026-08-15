@@ -12,6 +12,7 @@ use Nimbus\Api\ApiController;
 use Nimbus\Auth\Auth;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
+use Nimbus\Database\MigrationRegistry;
 use Nimbus\Http\HttpException;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
@@ -46,6 +47,7 @@ final class Application
      */
     private FieldTypeRegistry $fieldTypes;
     private HeadContributorRegistry $headContributors;
+    private MigrationRegistry $migrations;
     private EventDispatcher $events;
 
     /** @var array<string,array{to:string,status:int}> exact-path redirects, applied before routing */
@@ -78,6 +80,7 @@ final class Application
         $this->auth       = $auth ?? new Auth($this->db);
         $this->fieldTypes       = new FieldTypeRegistry();
         $this->headContributors = new HeadContributorRegistry();
+        $this->migrations       = new MigrationRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->redirects  = $redirects ?? Config::redirects();
         $this->pageCache  = $pageCache ?? new PageCache(Config::pageCachePath(), Config::pageCacheTtl());
@@ -107,7 +110,7 @@ final class Application
             Config::basePath() . '/vendor/composer/installed.json',
             Config::enabledPlugins(),
         );
-        $this->pluginDiagnostics = $loader->load($this->fieldTypes, $this->headContributors, $this->events);
+        $this->pluginDiagnostics = $loader->load($this->fieldTypes, $this->headContributors, $this->events, $this->migrations);
         $this->pluginStatuses    = $loader->statuses();
 
         foreach ($this->pluginDiagnostics as $diagnostic) {
@@ -121,6 +124,12 @@ final class Application
     public function pluginDiagnostics(): array
     {
         return $this->pluginDiagnostics;
+    }
+
+    /** The migrations enabled plugins declared — handed to the Migrator by the CLI. */
+    public function migrationRegistry(): MigrationRegistry
+    {
+        return $this->migrations;
     }
 
     public function run(): void
