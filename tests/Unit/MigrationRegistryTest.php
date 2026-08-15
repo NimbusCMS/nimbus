@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace Nimbus\Tests\Unit;
 
-use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\MigrationRegistry;
+use Nimbus\Plugin\PluginCapabilities;
 use Nimbus\Plugin\PluginContext;
-use Nimbus\Site\HeadContributorRegistry;
-use Nimbus\Support\EventDispatcher;
 use PHPUnit\Framework\TestCase;
 
 final class MigrationRegistryTest extends TestCase
@@ -36,13 +34,7 @@ final class MigrationRegistryTest extends TestCase
     public function test_the_registrar_namespaces_the_name_and_binds_the_provider(): void
     {
         $registry = new MigrationRegistry();
-        $context  = new PluginContext(
-            new FieldTypeRegistry(),
-            new HeadContributorRegistry(),
-            new EventDispatcher(),
-            $registry,
-            'nimbuscms.analytics',
-        );
+        $context  = new PluginContext(new PluginCapabilities(migrations: $registry), 'nimbuscms.analytics');
 
         $context->migrations()->register('001_hits', ['CREATE TABLE …']);
 

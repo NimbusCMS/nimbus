@@ -27,6 +27,23 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** audit other field types for wire-shape correctness if a client
   reports a surprising value (none known now).
 
+### 2026-08-15 · Refactor: plugin capabilities bundled into PluginCapabilities
+- **Status:** accepted
+- **Evidence:** PR (refactor/plugin-capabilities-bundle); `src/Plugin/PluginCapabilities.php`;
+  `PluginContext` + `PluginLoader::load` now take one value; `Application` composes it
+- **Product:** none (pure refactor); no behaviour change.
+- **Architecture:** the four capability registries (field types, head, events,
+  migrations) were growing `PluginContext::__construct` and `PluginLoader::load`
+  and every test that built them. Bundled into one `PluginCapabilities` value
+  object (each registry `new`-defaulted, so a caller names only what it needs).
+  Adding capability #5/#6 is now one field, not two signature changes. Done
+  **before** C/D deliberately, to stop the churn.
+- **Engineering:** plugins' *production* code is untouched (they receive
+  `PluginContext`, whose methods are unchanged); only the internal loader
+  signature changed, so the two plugin repos' package-integration **tests** need a
+  one-line update (coordinated). The cross-repo boundary test exercises plugin
+  production code through HTTP, so it stays green.
+
 ### 2026-08-15 · Capability B built: plugin-owned migrations
 - **Status:** accepted (analytics milestone, slice B of A–D)
 - **Evidence:** PR (feat/plugin-migrations); `src/Database/MigrationRegistry.php`,

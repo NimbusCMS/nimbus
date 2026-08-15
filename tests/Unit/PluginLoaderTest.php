@@ -8,11 +8,11 @@ use Nimbus\Content\Field;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\FieldTypes\BaseType;
 use Nimbus\Plugin\Plugin;
+use Nimbus\Plugin\PluginCapabilities;
 use Nimbus\Plugin\PluginContext;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
 use Nimbus\Plugin\PluginStatus;
-use Nimbus\Site\HeadContributorRegistry;
 use PHPUnit\Framework\TestCase;
 
 // ---------------------------------------------------------------- fixtures
@@ -138,7 +138,7 @@ final class PluginLoaderTest extends TestCase
     private function load(string $path, array $enabled = []): array
     {
         $loader      = new PluginLoader($path, $enabled);
-        $diagnostics = $loader->load($this->registry, new HeadContributorRegistry());
+        $diagnostics = $loader->load(new PluginCapabilities(fieldTypes: $this->registry));
         return [$diagnostics, $loader];
     }
 
@@ -158,15 +158,15 @@ final class PluginLoaderTest extends TestCase
         self::assertSame('nimbuscms.fixture', $this->registry->providerOf('fixture'));
     }
 
-    public function test_load_without_a_head_registry_still_registers_plugins(): void
+    public function test_a_bundle_naming_only_field_types_still_registers(): void
     {
-        // A plugin's package-integration test calls the internal loader with one
-        // argument; adding a capability must not break it.
+        // The bundle defaults every other registry, so a caller (e.g. a plugin's
+        // package test) constructs only the one it cares about.
         $path = $this->installed($this->package('nimbuscms/fixture', [
             'id' => 'nimbuscms.fixture', 'plugin' => FixturePlugin::class,
         ]));
 
-        $diagnostics = (new PluginLoader($path))->load($this->registry);
+        $diagnostics = (new PluginLoader($path))->load(new PluginCapabilities(fieldTypes: $this->registry));
 
         self::assertSame([], $diagnostics);
         self::assertTrue($this->registry->has('fixture'));
@@ -487,9 +487,9 @@ final class PluginLoaderTest extends TestCase
         ]));
 
         $loader = new PluginLoader($path);
-        $loader->load($this->registry, new HeadContributorRegistry());
+        $loader->load(new PluginCapabilities(fieldTypes: $this->registry));
         // A second load against a fresh registry must behave identically.
-        $second = $loader->load(new FieldTypeRegistry(), new HeadContributorRegistry());
+        $second = $loader->load(new PluginCapabilities());
 
         self::assertSame([], $second, 'no duplicate-id diagnostics from stale state');
         self::assertCount(1, $loader->registered());

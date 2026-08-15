@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Nimbus\Tests\Unit;
 
-use Nimbus\Content\FieldTypeRegistry;
-use Nimbus\Database\MigrationRegistry;
+use Nimbus\Plugin\PluginCapabilities;
 use Nimbus\Plugin\PluginContext;
-use Nimbus\Site\HeadContributorRegistry;
 use Nimbus\Support\EventDispatcher;
 use PHPUnit\Framework\TestCase;
 
@@ -61,13 +59,7 @@ final class EventDispatcherTest extends TestCase
     public function test_plugin_context_binds_listeners_to_the_plugin_id(): void
     {
         $dispatcher = new EventDispatcher();
-        $context    = new PluginContext(
-            new FieldTypeRegistry(),
-            new HeadContributorRegistry(),
-            $dispatcher,
-            new MigrationRegistry(),
-            'nimbuscms.analytics',
-        );
+        $context    = new PluginContext(new PluginCapabilities(events: $dispatcher), 'nimbuscms.analytics');
 
         $fired = 0;
         $context->events()->listen('x', function () use (&$fired): void {

@@ -18,6 +18,7 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\SecurityHeaders;
+use Nimbus\Plugin\PluginCapabilities;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
 use Nimbus\Plugin\PluginStatus;
@@ -110,7 +111,12 @@ final class Application
             Config::basePath() . '/vendor/composer/installed.json',
             Config::enabledPlugins(),
         );
-        $this->pluginDiagnostics = $loader->load($this->fieldTypes, $this->headContributors, $this->events, $this->migrations);
+        $this->pluginDiagnostics = $loader->load(new PluginCapabilities(
+            fieldTypes: $this->fieldTypes,
+            head: $this->headContributors,
+            events: $this->events,
+            migrations: $this->migrations,
+        ));
         $this->pluginStatuses    = $loader->statuses();
 
         foreach ($this->pluginDiagnostics as $diagnostic) {
