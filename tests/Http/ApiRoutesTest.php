@@ -186,6 +186,19 @@ final class ApiRoutesTest extends HttpTestCase
         self::assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/', $data['published_at']);
     }
 
+    public function test_a_boolean_field_serializes_as_a_json_boolean(): void
+    {
+        $c = $this->makeCollection('posts', [$this->field('featured', 'boolean')]);
+        $this->publish($c, 'On', 'on', 'published', null, ['featured' => '1']);
+        $this->publish($c, 'Off', 'off', 'published', null, ['featured' => '0']);
+
+        $on = $this->json($this->api('/api/v1/collections/posts/entries/on'))['data'];
+        self::assertTrue($on['fields']['featured'], 'a set toggle is true, not 1');
+
+        $off = $this->json($this->api('/api/v1/collections/posts/entries/off'))['data'];
+        self::assertFalse($off['fields']['featured'], 'an unset toggle is false, not 0');
+    }
+
     // ------------------------------------------------------------ pagination
 
     public function test_pagination_meta_and_pages(): void

@@ -13,6 +13,20 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-15 · Boolean fields serialize as JSON booleans
+- **Status:** accepted
+- **Evidence:** PR (fix/boolean-toapi); `src/Content/FieldTypes/BooleanType.php`;
+  `tests/Http/ApiRoutesTest.php`. Found live in Docker (a `featured` toggle
+  rendered as "1" on the public site) while validating public rendering.
+- **Product:** a toggle field is `true`/`false` for API clients and themes,
+  not `1`/`0` — the starter theme's Yes/No branch now works.
+- **Architecture:** `BooleanType` overrides `toApi()` (was inheriting the
+  pass-through `BaseType::toApi`). Field-type edge, no core change.
+- **Engineering:** wire change for boolean fields (int → bool); pre-1.0, noted
+  in COMPATIBILITY. Covered by a new API test.
+- **Revisit:** audit other field types for wire-shape correctness if a client
+  reports a surprising value (none known now).
+
 ### 2026-08-15 · Navigation menus via config/menus.php, rendered by the theme
 - **Status:** accepted
 - **Evidence:** PR (feat/menus); `config/menus.php`, `Config::menus()`;
