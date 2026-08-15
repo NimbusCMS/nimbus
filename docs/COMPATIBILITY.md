@@ -76,6 +76,11 @@ The active theme is named in `config/theme.php`. Templates rendered today:
 `collection-{handle}` (e.g. `entry-homepage`) — and Nimbus falls back to the
 generic `entry`/`collection` when the specific one is absent.
 
+**Navigation menus.** `config/menus.php` defines named menus, each a list of
+`{label, url}` items; the view-model carries them as `$menus`, and the starter
+header renders `$menus['main']`. Malformed entries are dropped before a template
+sees them. Editor-managed menus (an admin builder) are a later capability.
+
 **Static assets.** Files under a theme's `assets/` directory are served at
 `/theme/assets/<path>` (e.g. `assets/app.css` → `/theme/assets/app.css`), so a
 theme can ship real stylesheets, scripts, images and fonts instead of inlining

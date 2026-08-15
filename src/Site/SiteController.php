@@ -77,7 +77,10 @@ final class SiteController
         $this->entries     = new EntryRepository($db);
         $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
         $this->themeDir    = $themePath ?? Config::themePath();
-        $this->render      = new View($this->themeDir, ['appName' => Config::appName()]);
+        $this->render      = new View($this->themeDir, [
+            'appName' => Config::appName(),
+            'menus'   => Config::menus(),
+        ]);
         $this->home        = $home;
     }
 

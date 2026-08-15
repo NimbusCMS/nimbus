@@ -61,7 +61,31 @@ final class ViewTest extends TestCase
         // and footer partials through the injected $partial helper.
         $html = $view->render('footer');
 
-        self::assertStringContainsString('<header>', $html, 'header partial composed by layout');
+        self::assertStringContainsString('<header', $html, 'header partial composed by layout');
         self::assertStringContainsString('Powered by', $html, 'footer partial composed by layout');
+    }
+
+    public function test_the_header_renders_a_configured_menu(): void
+    {
+        $view = new View($this->starter(), ['appName' => 'Site', 'menus' => ['main' => [
+            ['label' => 'Blog', 'url' => '/posts'],
+            ['label' => 'About', 'url' => '/pages/about'],
+        ]]]);
+
+        $html = $view->partial('header');
+
+        self::assertStringContainsString('href="/posts"', $html);
+        self::assertStringContainsString('Blog', $html);
+        self::assertStringContainsString('href="/pages/about"', $html);
+        self::assertStringContainsString('About', $html);
+    }
+
+    public function test_the_header_has_no_nav_without_a_menu(): void
+    {
+        $view = new View($this->starter(), ['appName' => 'Site', 'menus' => []]);
+
+        $html = $view->partial('header');
+
+        self::assertStringNotContainsString('site-nav', $html, 'no menu, no nav element');
     }
 }

@@ -109,6 +109,44 @@ final class Config
     }
 
     /**
+     * Named navigation menus, read from config/menus.php — each menu a list of
+     * `{label, url}` items the active theme renders (a theme reads `main` for its
+     * header). Malformed entries are dropped rather than trusted, so a typo in
+     * config never reaches a template. Editor-managed menus are a later
+     * capability; this keeps navigation in config, like the rest of the site.
+     *
+     * @return array<string,list<array{label:string,url:string}>>
+     */
+    public static function menus(): array
+    {
+        $file = self::basePath() . '/config/menus.php';
+        if (!is_file($file)) {
+            return [];
+        }
+        $raw = require $file;
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $menus = [];
+        foreach ($raw as $name => $items) {
+            if (!is_string($name) || !is_array($items)) {
+                continue;
+            }
+            $clean = [];
+            foreach ($items as $item) {
+                if (is_array($item) && isset($item['label'], $item['url']) && is_string($item['label']) && is_string($item['url'])) {
+                    $clean[] = ['label' => $item['label'], 'url' => $item['url']];
+                }
+            }
+            if ($clean !== []) {
+                $menus[$name] = $clean;
+            }
+        }
+        return $menus;
+    }
+
+    /**
      * The collection rendered at the site root (`/`), read from config/site.php,
      * or null when no home is configured (the root then shows a placeholder).
      *
