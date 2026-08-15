@@ -43,7 +43,8 @@ and response shapes, not on any PHP class. What is promised:
 - **Auth** — a bearer token (`Authorization: Bearer …`).
 - **Visibility** — only the *live* set is served (published, `published_at` in
   the past); drafts and scheduled entries are indistinguishable from absent.
-- **Field values** pass through each field type's `toApi()`.
+- **Field values** pass through each field type's `toApi()` — e.g. a `boolean`
+  (toggle) field is a JSON `true`/`false`, not the `1`/`0` it is stored as.
 - **Reference fields are expanded** so a client needs no second request. A
   `media` field is the media object (`{ id, url, alt, mime, width, height }`) or
   `null`. A `relation` field is a JSON array of `{ id, slug, title }` objects, in

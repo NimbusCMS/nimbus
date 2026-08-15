@@ -37,4 +37,10 @@ class BooleanType extends BaseType
     {
         return $value ? '✓' : '—';
     }
+
+    /** A toggle is a JSON boolean on the wire, not the 1/0 it is stored as. */
+    public function toApi(Field $field, mixed $value): bool
+    {
+        return (bool) $value;
+    }
 }
