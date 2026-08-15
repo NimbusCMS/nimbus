@@ -13,6 +13,27 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-15 · Home page: designated via config/site.php, reusing the single kind
+- **Status:** accepted
+- **Evidence:** PR (feat/home-page); `config/site.php`, `Config::home()`;
+  `SiteController::homePage()`; `tests/Http/SiteRoutesTest.php`
+- **Product:** `/` renders a chosen collection — a `single`-kind Homepage shows
+  its one live entry, a regular collection shows its index (a blog at the root).
+  Every public-site shape (brochure, blog, docs, portfolio) is served.
+- **Architecture:** **reused the existing `single` collection kind** (which the
+  code already named "Homepage, Settings") instead of adding a `home` flag to
+  collection options. A scalar `config/site.php['home']` models "a site has one
+  home" correctly, needs no schema change/migration, and mirrors
+  `config/theme.php`. Home handle is injected into `SiteController` (testable),
+  resolved from `Config::home()` by the kernel. `/` moved from `Application` into
+  `SiteController`, consolidating all public rendering.
+- **Engineering:** the single entry is fetched with `findLiveBySlug(id,
+  __singleton)`, so a draft home never leaks; unknown handle / unset / draft all
+  fall through to an un-themed placeholder (never a 500). No new content concept.
+- **Revisit:** designating a specific *entry* as home; an optional `home.php`
+  theme template; broader `config/site.php` settings (meta, etc.) — each on
+  evidence, not speculatively. Supersedes ADR 0003's "home deferred" decision.
+
 ### 2026-08-15 · Public rendering, first vertical slice (starter theme + site router)
 - **Status:** accepted
 - **Evidence:** PR (feat/public-rendering); `src/Site/SiteController.php`,

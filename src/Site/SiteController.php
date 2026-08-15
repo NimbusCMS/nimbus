@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Nimbus\Site;
 
+use Nimbus\Content\Collection;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\EntryRepository;
+use Nimbus\Content\EntryService;
 use Nimbus\Content\EntryView;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\RelationRepository;
@@ -39,18 +41,45 @@ final class SiteController
     private EntryView $view;
     private View $render;
 
-    public function __construct(Connection $db, FieldTypeRegistry $types)
+    /** Handle of the collection rendered at `/`, or null for the placeholder. */
+    private ?string $home;
+
+    public function __construct(Connection $db, FieldTypeRegistry $types, ?string $home = null)
     {
         $this->collections = new CollectionRepository($db);
         $this->entries     = new EntryRepository($db);
         $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
         $this->render      = new View(Config::themePath(), ['appName' => Config::appName()]);
+        $this->home        = $home;
     }
 
     public function routes(Router $r): void
     {
+        $r->get('/', fn (Request $req, array $p): Response => $this->homePage())->name('site.home');
         $r->get('/{collection}', fn (Request $req, array $p): Response => $this->index($req, $p['collection']))->name('site.collection');
         $r->get('/{collection}/{slug}', fn (Request $req, array $p): Response => $this->show($p['collection'], $p['slug']))->name('site.entry');
+    }
+
+    /**
+     * The site root. Renders the designated home collection: a single-kind
+     * collection shows its one live entry, a regular collection its live index.
+     * No home configured, an unknown handle, or a home whose single entry is not
+     * live all fall through to the placeholder — a misconfiguration never 500s
+     * and a draft home never leaks.
+     */
+    private function homePage(): Response
+    {
+        $collection = $this->home === null ? null : $this->collections->findByHandle($this->home);
+        if ($collection === null) {
+            return $this->placeholder();
+        }
+
+        if ($collection->isSingle()) {
+            $row = $this->entries->findLiveBySlug($collection->id, EntryService::SINGLETON_SLUG);
+            return $row === null ? $this->placeholder() : $this->renderEntry($collection, $row);
+        }
+
+        return $this->renderCollection($collection, 1);
     }
 
     /** A collection's live entries, newest first. */
@@ -61,17 +90,7 @@ final class SiteController
             return $this->notFound();
         }
 
-        $page    = max(1, (int) ($request->query('page') ?? 1));
-        $total   = $this->entries->countLive($collection->id);
-        $rows    = $this->entries->liveForCollection($collection->id, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
-
-        return Response::html($this->render->render('collection', [
-            'title'       => $collection->name,
-            'collection'  => ['handle' => $collection->handle, 'name' => $collection->name],
-            'entries'     => $this->view->many($collection, $rows),
-            'page'        => $page,
-            'total_pages' => $total === 0 ? 0 : (int) ceil($total / self::PER_PAGE),
-        ]));
+        return $this->renderCollection($collection, max(1, (int) ($request->query('page') ?? 1)));
     }
 
     /** A single live entry by slug. */
@@ -89,6 +108,31 @@ final class SiteController
             return $this->notFound();
         }
 
+        return $this->renderEntry($collection, $row);
+    }
+
+    /** Render a collection's live entry index (paginated). */
+    private function renderCollection(Collection $collection, int $page): Response
+    {
+        $total = $this->entries->countLive($collection->id);
+        $rows  = $this->entries->liveForCollection($collection->id, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
+
+        return Response::html($this->render->render('collection', [
+            'title'       => $collection->name,
+            'collection'  => ['handle' => $collection->handle, 'name' => $collection->name],
+            'entries'     => $this->view->many($collection, $rows),
+            'page'        => $page,
+            'total_pages' => $total === 0 ? 0 : (int) ceil($total / self::PER_PAGE),
+        ]));
+    }
+
+    /**
+     * Render one live entry.
+     *
+     * @param array<string,mixed> $row a live nb_entries row
+     */
+    private function renderEntry(Collection $collection, array $row): Response
+    {
         return Response::html($this->render->render('entry', [
             'title'      => (string) $row['title'],
             'collection' => ['handle' => $collection->handle, 'name' => $collection->name],
@@ -107,6 +151,23 @@ final class SiteController
             . '<p style="font-family:system-ui,sans-serif;max-width:40rem;margin:14vh auto;padding:0 1.5rem">'
             . 'Nothing lives here.</p>',
             404,
+        );
+    }
+
+    /**
+     * The site root before a home is chosen — deliberately un-themed, so a fresh
+     * install renders something honest without any configuration or content.
+     */
+    private function placeholder(): Response
+    {
+        $name = View::e(Config::appName());
+        return Response::html(
+            '<!doctype html><meta charset="utf-8"><title>' . $name . '</title>'
+            . '<div style="font-family:system-ui,sans-serif;max-width:40rem;margin:14vh auto;padding:0 1.5rem">'
+            . '<h1 style="letter-spacing:-.02em">' . $name . '</h1>'
+            . '<p style="color:#6b7280;line-height:1.6">No home page is configured yet. Point '
+            . '<code>home</code> in <code>config/site.php</code> at a collection, or head to '
+            . '<a href="/admin">/admin</a> to manage content.</p></div>',
         );
     }
 }

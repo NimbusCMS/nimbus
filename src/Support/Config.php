@@ -108,6 +108,29 @@ final class Config
         return self::basePath() . '/themes/' . self::theme();
     }
 
+    /**
+     * The collection rendered at the site root (`/`), read from config/site.php,
+     * or null when no home is configured (the root then shows a placeholder).
+     *
+     * A `single`-kind collection renders its one live entry; a regular
+     * collection renders its entry index. Keeping this in config — not a column
+     * on a collection — models the fact that a site has exactly one home, and
+     * keeps site-wide settings in one place, consistent with config/theme.php.
+     */
+    public static function home(): ?string
+    {
+        $file = self::basePath() . '/config/site.php';
+        if (!is_file($file)) {
+            return null;
+        }
+        $site = require $file;
+        if (!is_array($site)) {
+            return null;
+        }
+        $home = $site['home'] ?? null;
+        return is_string($home) && $home !== '' ? $home : null;
+    }
+
     public static function basePath(): string
     {
         return dirname(__DIR__, 2);

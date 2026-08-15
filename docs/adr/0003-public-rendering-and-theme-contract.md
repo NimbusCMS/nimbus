@@ -116,12 +116,13 @@ next comes the designated home page and richer theme capabilities.
 
 ## Resolved decisions (were open questions)
 
-1. **Home page — deferred.** `/` keeps its current placeholder in this slice. A
-   real home page waits until a collection can be *designated* as home, and that
-   designation is itself deferred until collections and the entry/collection
-   routes exist and there is evidence for what a home page should show. We ship
-   `GET /{collection}` and `GET /{collection}/{slug}` first; `/` is decided
-   later, with the routing in place, rather than guessed at now.
+1. **Home page — deferred** *(now resolved — see the 2026-08-15 ledger entry).*
+   `/` kept its placeholder for this slice. A real home page waited until a
+   collection could be *designated* as home. **Resolution:** `config/site.php`
+   names the home collection — a `single`-kind collection renders its one live
+   entry, a regular collection its index — reusing the existing single kind
+   rather than a new flag. We shipped `GET /{collection}` and
+   `GET /{collection}/{slug}` first, then `/`, with the routing already in place.
 2. **Theme selection — `config/theme.php`.** A config file returning the active
    theme name, matching the existing `config/plugins.php` convention, not an
    `THEME=` environment variable. Selection stays in the same place, and in the
