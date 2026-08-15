@@ -77,6 +77,12 @@ The active theme is named in `config/theme.php`. Templates rendered today:
 `collection-{handle}` (e.g. `entry-homepage`) — and Nimbus falls back to the
 generic `entry`/`collection` when the specific one is absent.
 
+**Page metadata.** The view-model carries `$meta` for the document head —
+`{ title, description, canonical, og_type }`. The starter renders a
+`<meta name="description">`, a `<link rel="canonical">`, and Open Graph tags from
+it. A description comes from an entry's `excerpt`/`summary`/`description` field,
+then the collection's description, then `config/site.php`'s `description`.
+
 **Reusable blocks.** A collection with the handle `blocks` holds shared content
 fragments — the live entries are passed to the view-model as `$blocks`, keyed by
 slug. A theme renders one by slug (the starter renders an `announcement` block as

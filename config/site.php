@@ -18,4 +18,8 @@ declare(strict_types=1);
 
 return [
     'home' => null,
+
+    // A one-line description used as the default meta and Open Graph description
+    // for pages that don't supply their own. Leave null to omit it.
+    'description' => null,
 ];
