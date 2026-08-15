@@ -46,11 +46,16 @@ final class EntryView
                 $fields[$field->handle] = $this->media($data[$field->handle] ?? null);
                 continue;
             }
-            // Relations live in their own table, not the entry's JSON.
-            $value = $field->type === 'relation'
-                ? $this->relations->targets($id, $field->id)
-                : ($data[$field->handle] ?? null);
+            if ($field->type === 'relation') {
+                // Relations live in their own table, not the entry's JSON, and
+                // expand at this edge to {id,slug,title} objects — the consumer
+                // gets a usable link without a second request, and only the live
+                // set is exposed (a link to a draft resolves to nothing).
+                $fields[$field->handle] = $this->relations->liveTargets($id, $field->id);
+                continue;
+            }
 
+            $value = $data[$field->handle] ?? null;
             $fields[$field->handle] = $this->types->forDisplay($field->type)->toApi($field, $value);
         }
 

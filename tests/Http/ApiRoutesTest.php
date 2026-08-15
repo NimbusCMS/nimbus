@@ -74,16 +74,22 @@ final class ApiRoutesTest extends HttpTestCase
         return json_decode($response->body, true);
     }
 
-    /** @return array{handle:string,label:string,type:string,required:bool,options:array<string,mixed>} */
-    private function field(string $handle, string $type = 'text'): array
+    /**
+     * @param array<string,mixed> $options
+     * @return array{handle:string,label:string,type:string,required:bool,options:array<string,mixed>}
+     */
+    private function field(string $handle, string $type = 'text', array $options = []): array
     {
-        return ['handle' => $handle, 'label' => ucfirst($handle), 'type' => $type, 'required' => false, 'options' => []];
+        return ['handle' => $handle, 'label' => ucfirst($handle), 'type' => $type, 'required' => false, 'options' => $options];
     }
 
-    /** @param array<string,mixed> $values */
-    private function publish(Collection $c, string $title, string $slug, string $status = 'published', ?string $at = null, array $values = []): void
+    /**
+     * @param array<string,mixed> $values
+     * @return int the saved entry id
+     */
+    private function publish(Collection $c, string $title, string $slug, string $status = 'published', ?string $at = null, array $values = []): int
     {
-        $this->entryService->save($c, new EntryInput($title, $slug, $status, $values, $at), null, null);
+        return (int) $this->entryService->save($c, new EntryInput($title, $slug, $status, $values, $at), null, null)->entryId;
     }
 
     // -------------------------------------------------------- authentication
@@ -258,6 +264,62 @@ final class ApiRoutesTest extends HttpTestCase
 
         self::assertSame(200, $response->status, 'a dangling media reference must not error a public request');
         self::assertNull($this->json($response)['data']['fields']['image']);
+    }
+
+    // -------------------------------------------------------------- relations
+
+    /** @return array{handle:string,label:string,type:string,required:bool,options:array<string,mixed>} */
+    private function relation(string $handle, string $target): array
+    {
+        return $this->field($handle, 'relation', ['target' => $target, 'multiple' => true]);
+    }
+
+    public function test_a_relation_field_expands_to_live_target_objects_in_link_order(): void
+    {
+        $people  = $this->makeCollection('people');
+        $aliceId = $this->publish($people, 'Alice', 'alice');
+        $bobId   = $this->publish($people, 'Bob', 'bob');
+
+        $posts = $this->makeCollection('posts', [$this->relation('authors', 'people')]);
+        // Link Bob before Alice — the API must preserve link order, not id order.
+        $this->publish($posts, 'Post', 'post', 'published', null, ['authors' => [$bobId, $aliceId]]);
+
+        $data = $this->json($this->api('/api/v1/collections/posts/entries/post'))['data'];
+
+        self::assertSame([
+            ['id' => $bobId, 'slug' => 'bob', 'title' => 'Bob'],
+            ['id' => $aliceId, 'slug' => 'alice', 'title' => 'Alice'],
+        ], $data['fields']['authors'], 'each target expands to a usable object, in link order');
+    }
+
+    public function test_a_relation_to_a_non_live_target_leaks_nothing(): void
+    {
+        $people  = $this->makeCollection('people');
+        $liveId  = $this->publish($people, 'Published', 'pub');
+        $draftId = $this->publish($people, 'Secret', 'secret', 'draft');
+        $laterId = $this->publish($people, 'Later', 'later', 'published', (new \DateTimeImmutable('+2 days'))->format('Y-m-d H:i:s'));
+
+        $posts = $this->makeCollection('posts', [$this->relation('authors', 'people')]);
+        $this->publish($posts, 'Post', 'post', 'published', null, ['authors' => [$liveId, $draftId, $laterId]]);
+
+        $data = $this->json($this->api('/api/v1/collections/posts/entries/post'))['data'];
+
+        self::assertSame(
+            [['id' => $liveId, 'slug' => 'pub', 'title' => 'Published']],
+            $data['fields']['authors'],
+            'a link to a draft or a not-yet-due entry contributes nothing — not even its existence',
+        );
+    }
+
+    public function test_an_unlinked_relation_field_is_an_empty_list(): void
+    {
+        $this->makeCollection('people');
+        $posts = $this->makeCollection('posts', [$this->relation('authors', 'people')]);
+        $this->publish($posts, 'Post', 'post', 'published', null, ['authors' => []]);
+
+        $data = $this->json($this->api('/api/v1/collections/posts/entries/post'))['data'];
+
+        self::assertSame([], $data['fields']['authors']);
     }
 
     // ------------------------------------------------------------ not found

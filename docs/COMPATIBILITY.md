@@ -44,6 +44,12 @@ and response shapes, not on any PHP class. What is promised:
 - **Visibility** — only the *live* set is served (published, `published_at` in
   the past); drafts and scheduled entries are indistinguishable from absent.
 - **Field values** pass through each field type's `toApi()`.
+- **Reference fields are expanded** so a client needs no second request. A
+  `media` field is the media object (`{ id, url, alt, mime, width, height }`) or
+  `null`. A `relation` field is a JSON array of `{ id, slug, title }` objects, in
+  link order — and only the *live* targets: a relation to a draft, a not-yet-due
+  scheduled entry, or an archived one contributes nothing, so a relation never
+  reveals an unpublished entry. A dangling reference reads as absent, never a 500.
 
 `v1` is the stability boundary. Additive changes (new optional query params, new
 fields in a response object) are minor. A breaking change to `v1`'s shapes ships
@@ -51,7 +57,7 @@ a `v2` route rather than mutating `v1`. Internal serializer refactors that do no
 change the wire shape are not breaking.
 
 Not yet part of the contract, and may appear without a version bump until they
-do: filtering/sorting params, sparse fieldsets, relation expansion, ETags.
+do: filtering/sorting params, sparse fieldsets, ETags.
 
 ## Versioning
 
