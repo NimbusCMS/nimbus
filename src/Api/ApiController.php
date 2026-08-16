@@ -10,11 +10,14 @@ use Nimbus\Content\EntryView;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Database\Connection;
+use Nimbus\Http\ApiRateLimiter;
 use Nimbus\Http\Middleware\ApiAuthMiddleware;
+use Nimbus\Http\Middleware\RateLimitMiddleware;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Media\MediaRepository;
+use Nimbus\Support\Config;
 
 /**
  * The read-only headless API, v1.
@@ -39,6 +42,8 @@ final class ApiController
     private EntryView $view;
     private ApiAuthMiddleware $auth;
     private ApiAuthContext $authContext;
+    private RateLimitMiddleware $ipFlood;
+    private RateLimitMiddleware $tokenQuota;
 
     public function __construct(Connection $db, FieldTypeRegistry $types, ApiAuthContext $authContext)
     {
@@ -47,11 +52,21 @@ final class ApiController
         $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
         $this->authContext = $authContext;
         $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext);
+
+        $limiter = new ApiRateLimiter($db);
+        $window  = Config::apiRateWindow();
+        // Before auth: a per-IP flood guard — catches no-token / invalid-token
+        // floods (each a different bogus token, bucketable only by IP).
+        $this->ipFlood = new RateLimitMiddleware($limiter, Config::apiFloodLimit(), $window, static fn (Request $req): string => 'ip:' . $req->ip());
+        // After auth: a per-token quota, keyed by the principal the auth
+        // middleware just established.
+        $this->tokenQuota = new RateLimitMiddleware($limiter, Config::apiRateLimit(), $window, fn (Request $req): ?string => ($p = $authContext->principal()) !== null ? 'tok:' . $p->tokenId : null);
     }
 
     public function routes(Router $r): void
     {
-        $r->group('/api/v1', [$this->auth], function (Router $g): void {
+        // Order matters: flood guard → authenticate → per-token quota → handler.
+        $r->group('/api/v1', [$this->ipFlood, $this->auth, $this->tokenQuota], function (Router $g): void {
             $g->get('/collections/{handle}/entries', fn (Request $req, array $p): Response => $this->index($req, $p['handle']))->name('api.entries.index');
             $g->get('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->show($p['handle'], $p['slug']))->name('api.entries.show');
         });
