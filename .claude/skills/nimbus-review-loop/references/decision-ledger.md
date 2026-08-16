@@ -595,6 +595,24 @@ declined (keep it — it stops the idea returning without new evidence).
   `analytics_hits`, and core's `nb_api_rate` all accumulate); the other
   api-advanced features on the roadmap (webhooks, per-token analytics/quotas).
 
+### 2026-08-16 · Maintenance capability + `nimbus prune` (table retention)
+- **Status:** accepted
+- **Evidence:** core PR #69; retention tasks in `nimbuscms/analytics` (PR #1) and
+  `nimbuscms/api-advanced` (PR #1), both CI-green.
+- **Product:** three tables accumulated with nothing pruning them (core
+  `nb_api_rate`, plugin `analytics_hits` / `api_audit_log`). `nimbus prune` (cron)
+  now cleans core's own rate rows and runs every plugin retention task.
+- **Architecture:** a **seventh** `PluginContext` capability, `maintenance()` —
+  and the first capability **born broadly proven**, shipped with two consumers at
+  once. Same registry/registrar/bundle/rollback shape as the others; tasks are
+  `callable():int` run only by the CLI (no scheduler in core yet).
+- **Engineering:** while completing the rollback for the new capability, found the
+  loader was **not** rolling back `adminPages` either — a plugin that registered an
+  admin page then threw would leave it behind. Rollback is now complete (head,
+  events, migrations, adminPages, maintenance, fieldTypes).
+- **Revisit:** a scheduler (so `prune` and future tasks run without operator cron)
+  is the natural next step, when a task needs it.
+
 ---
 
 ## Open findings (proposed — awaiting classification into work)
