@@ -125,7 +125,9 @@ final class ApiController
             return ApiResponse::notFound("No published entry \"{$slug}\" in \"{$handle}\".");
         }
 
-        return ApiResponse::ok($this->view->one($collection, $row, $this->scopeFilter($principal)));
+        // The ETag lets a client cache and, when writes land, edit safely (If-Match).
+        return ApiResponse::ok($this->view->one($collection, $row, $this->scopeFilter($principal)))
+            ->withHeader('ETag', EntryETag::of((int) $row['id'], (int) $row['version']));
     }
 
     /**
