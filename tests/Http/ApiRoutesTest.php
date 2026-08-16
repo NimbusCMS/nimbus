@@ -463,6 +463,29 @@ final class ApiRoutesTest extends HttpTestCase
         self::assertStringContainsString('nope', $this->json($response)['error']['message']);
     }
 
+    public function test_every_error_carries_a_stable_machine_readable_code(): void
+    {
+        $this->makeCollection('posts');
+        $this->makeCollection('pages');
+
+        // 401 unauthenticated
+        self::assertSame('unauthorized', $this->json($this->apiNoAuth('/api/v1/collections/posts/entries'))['error']['code']);
+
+        // 403 out-of-scope (a token scoped to posts, asking for pages)
+        $narrow    = $this->tokens->create('narrow', ['posts:read']);
+        $forbidden = $this->json($this->api('/api/v1/collections/pages/entries', $narrow));
+        self::assertSame('forbidden', $forbidden['error']['code']);
+
+        // 404 absent (a broad token, so it is a real not-found and not a scope 403)
+        $notFound = $this->json($this->api('/api/v1/collections/ghost/entries'));
+        self::assertSame('not_found', $notFound['error']['code']);
+
+        // The envelope is uniform: always status + code + message, in that order.
+        foreach ([$forbidden, $notFound] as $error) {
+            self::assertSame(['status', 'code', 'message'], array_keys($error['error']));
+        }
+    }
+
     public function test_an_empty_collection_returns_an_empty_page_not_an_error(): void
     {
         $this->makeCollection('posts');

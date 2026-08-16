@@ -47,8 +47,13 @@ and response shapes, not on any PHP class. What is promised:
 - **Routes** — `GET /api/v1/collections/{handle}/entries` (paginated) and
   `GET /api/v1/collections/{handle}/entries/{slug}`.
 - **Envelope** — success is `{ "data": …, "meta": { page, per_page, total,
-  total_pages } }`; error is `{ "error": { "status", "message" } }`.
-- **Auth** — a bearer token (`Authorization: Bearer …`).
+  total_pages } }`; error is `{ "error": { "status", "code", "message" } }`. The
+  `code` is a stable machine-readable slug — branch on it, not the `message`:
+  `unauthorized` (401), `forbidden` (403), `not_found` (404), `rate_limited`
+  (429).
+- **Auth** — a bearer token (`Authorization: Bearer …`), with per-collection
+  read scopes: an out-of-scope collection answers `403` `forbidden`, and cannot
+  be told apart from one that does not exist.
 - **Visibility** — only the *live* set is served (published, `published_at` in
   the past); drafts and scheduled entries are indistinguishable from absent.
 - **Field values** pass through each field type's `toApi()` — e.g. a `boolean`
