@@ -18,6 +18,8 @@ use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Media\MediaRepository;
 use Nimbus\Support\Config;
+use Nimbus\Support\CoreEvents;
+use Nimbus\Support\EventDispatcher;
 
 /**
  * The read-only headless API, v1.
@@ -42,16 +44,18 @@ final class ApiController
     private EntryView $view;
     private ApiAuthMiddleware $auth;
     private ApiAuthContext $authContext;
+    private EventDispatcher $events;
     private RateLimitMiddleware $ipFlood;
     private RateLimitMiddleware $tokenQuota;
 
-    public function __construct(Connection $db, FieldTypeRegistry $types, ApiAuthContext $authContext)
+    public function __construct(Connection $db, FieldTypeRegistry $types, ApiAuthContext $authContext, EventDispatcher $events)
     {
         $this->collections = new CollectionRepository($db);
         $this->entries     = new EntryRepository($db);
         $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
         $this->authContext = $authContext;
-        $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext);
+        $this->events      = $events;
+        $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext, $events);
 
         $limiter = new ApiRateLimiter($db);
         $window  = Config::apiRateWindow();
@@ -68,14 +72,14 @@ final class ApiController
         // Order matters: flood guard → authenticate → per-token quota → handler.
         $r->group('/api/v1', [$this->ipFlood, $this->auth, $this->tokenQuota], function (Router $g): void {
             $g->get('/collections/{handle}/entries', fn (Request $req, array $p): Response => $this->index($req, $p['handle']))->name('api.entries.index');
-            $g->get('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->show($p['handle'], $p['slug']))->name('api.entries.show');
+            $g->get('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->show($req, $p['handle'], $p['slug']))->name('api.entries.show');
         });
     }
 
     /** A page of a collection's live entries, newest first. */
     private function index(Request $request, string $handle): Response
     {
-        $principal = $this->authorize($handle);
+        $principal = $this->authorize($request, $handle);
         if ($principal instanceof Response) {
             return $principal;
         }
@@ -102,9 +106,9 @@ final class ApiController
     }
 
     /** A single live entry by slug. */
-    private function show(string $handle, string $slug): Response
+    private function show(Request $request, string $handle, string $slug): Response
     {
-        $principal = $this->authorize($handle);
+        $principal = $this->authorize($request, $handle);
         if ($principal instanceof Response) {
             return $principal;
         }
@@ -133,10 +137,23 @@ final class ApiController
      * so a narrowly-scoped token cannot enumerate the collections outside its
      * scope by telling 403 from 404.
      */
-    private function authorize(string $handle): TokenPrincipal|Response
+    private function authorize(Request $request, string $handle): TokenPrincipal|Response
     {
         $principal = $this->authContext->principal();
         if ($principal === null || !$principal->can($handle, 'read')) {
+            // A valid token refused by scope is worth auditing (a null principal
+            // would be an auth failure, already announced by the middleware).
+            if ($principal !== null) {
+                $this->events->emitBestEffort(CoreEvents::API_ACCESS_DENIED, [
+                    'token_id'   => $principal->tokenId,
+                    'token_name' => $principal->name,
+                    'resource'   => $handle,
+                    'action'     => 'read',
+                    'ip'         => $request->ip(),
+                    'path'       => $request->path,
+                    'at'         => date('Y-m-d H:i:s'),
+                ]);
+            }
             return ApiResponse::forbidden("This token cannot read \"{$handle}\".");
         }
         return $principal;

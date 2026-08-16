@@ -48,6 +48,25 @@ final class EventDispatcher
         return ($this->listeners[$event] ?? []) !== [];
     }
 
+    /**
+     * Fire an observation event that must never affect the caller: nothing is
+     * dispatched when no one is listening, and a listener that throws is caught
+     * and logged rather than propagated. For best-effort events like
+     * request.handled and the api.* failure events — not for post-commit entry
+     * events, whose listeners are allowed to matter.
+     */
+    public function emitBestEffort(string $event, mixed $payload = null): void
+    {
+        if (!$this->hasListeners($event)) {
+            return;
+        }
+        try {
+            $this->dispatch($event, $payload);
+        } catch (\Throwable $e) {
+            error_log("[nimbus {$event}] " . $e);
+        }
+    }
+
     /** Remove every listener a provider registered — used on plugin-load rollback. */
     public function forgetProvider(string $provider): void
     {

@@ -188,14 +188,7 @@ final class Application
      */
     private function notifyHandled(Request $request, Response $response): void
     {
-        if (!$this->events->hasListeners(CoreEvents::REQUEST_HANDLED)) {
-            return;
-        }
-        try {
-            $this->events->dispatch(CoreEvents::REQUEST_HANDLED, ['request' => $request, 'response' => $response]);
-        } catch (\Throwable $e) {
-            error_log('[nimbus request.handled] ' . $e);
-        }
+        $this->events->emitBestEffort(CoreEvents::REQUEST_HANDLED, ['request' => $request, 'response' => $response]);
     }
 
     private function respond(Request $request): Response
@@ -263,7 +256,7 @@ final class Application
         // Plugin admin pages, after the core admin controllers so a plugin slug
         // can never shadow a core /admin route.
         (new PluginPagesController($this->db, $this->auth, $this->adminPages))->routes($router);
-        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth))->routes($router);
+        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth, $this->events))->routes($router);
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.

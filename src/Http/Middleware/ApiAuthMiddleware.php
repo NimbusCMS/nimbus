@@ -10,6 +10,8 @@ use Nimbus\Api\ApiTokenRepository;
 use Nimbus\Api\TokenPrincipal;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
+use Nimbus\Support\CoreEvents;
+use Nimbus\Support\EventDispatcher;
 
 /**
  * Gates the API on a bearer token. Applied to the /api route group, the mirror
@@ -27,6 +29,7 @@ final class ApiAuthMiddleware
     public function __construct(
         private ApiTokenRepository $tokens,
         private ApiAuthContext $context,
+        private EventDispatcher $events,
     ) {
     }
 
@@ -34,16 +37,29 @@ final class ApiAuthMiddleware
     {
         $plain = $request->bearerToken();
         if ($plain === null) {
+            $this->announceRejection($request, 'missing');
             return ApiResponse::unauthorized('Provide an API token as: Authorization: Bearer <token>.');
         }
 
         $token = $this->tokens->findByPlaintext($plain);
         if ($token === null) {
+            $this->announceRejection($request, 'invalid');
             return ApiResponse::unauthorized('That API token is not valid.');
         }
 
         $this->tokens->touch($token->id, $request->ip());
         $this->context->establish(TokenPrincipal::fromToken($token));
         return null; // authenticated — proceed
+    }
+
+    /** Best-effort, isolated: an observer (audit log) can hear the refusal; the caller never does. */
+    private function announceRejection(Request $request, string $reason): void
+    {
+        $this->events->emitBestEffort(CoreEvents::API_TOKEN_REJECTED, [
+            'reason' => $reason,
+            'ip'     => $request->ip(),
+            'path'   => $request->path,
+            'at'     => date('Y-m-d H:i:s'),
+        ]);
     }
 }
