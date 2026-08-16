@@ -326,8 +326,27 @@ consumer of the events + storage capabilities. Planned:
   limiting.* Emitted **with** this plugin (its consumer), not before (ADR-0001).
 - Webhooks · per-token analytics · per-token quotas.
 
-Then, on this foundation and only then: write API · OpenAPI of the read surface ·
-MCP.
+## ✍️ Milestone: Write API (active)
+
+On the hardened base, the same operations the admin performs, over the API.
+Design in [ADR 0007](docs/adr/0007-write-api.md): a new transport in front of
+proven core — the JSON body maps to `EntryInput` and goes through `EntryService`
+(validation, slugs, transactions, events, and the allow-list field binding that
+guards mass-assignment). A single `{handle}:write` scope; optimistic concurrency
+(ETag / If-Match); writes are audited.
+
+- [x] **Slice 0 — ADR 0007**
+- [ ] **Slice 1 — concurrency foundation**: entry `version` column + bump in
+      `EntryService`; `GET` returns `ETag`; an `If-Match` helper.
+- [ ] **Slice 2 — write endpoints**: `POST`/`PATCH`/`DELETE` via `EntryService`;
+      `{handle}:write` enforced deny-by-default (scope before existence); `422`
+      validation errors; `If-Match` required on update/delete (`412`/`428`); the
+      authorization matrix gains write rows.
+- [ ] **Slice 3 — write auditing**: core `api.entry_written` (best-effort, carries
+      the acting token) + `nimbuscms/api-advanced` records it (who-changed-what).
+- [ ] **Slice 4 — docs + review**: COMPATIBILITY, final security-review pass.
+
+Then, on this foundation and only then: OpenAPI of the read+write surface · MCP.
 
 ## 🎯 Release 0.1 — "usable CMS"
 
