@@ -293,6 +293,24 @@ final class ApiRoutesTest extends HttpTestCase
         self::assertSame(5, $data['fields']['rank'], 'number stays a number through toApi');
     }
 
+    public function test_a_single_entry_read_carries_an_etag_that_bumps_on_edit(): void
+    {
+        $c  = $this->makeCollection('posts');
+        $id = $this->publish($c, 'Hello', 'hello');
+
+        $etag1 = $this->api('/api/v1/collections/posts/entries/hello')->header('ETag');
+        self::assertNotNull($etag1);
+        self::assertMatchesRegularExpression('/^"\d+-\d+"$/', (string) $etag1, 'a strong id-version ETag');
+
+        // An edit bumps the stored version…
+        $this->entryService->save($c, new EntryInput('Hello again', 'hello', 'published', []), $id, null);
+        self::assertSame(2, (int) (new EntryRepository($this->db))->find($c->id, $id)['version']);
+
+        // …so the ETag the read returns changes.
+        $etag2 = $this->api('/api/v1/collections/posts/entries/hello')->header('ETag');
+        self::assertNotSame($etag1, $etag2, 'the ETag changes when the entry changes');
+    }
+
     public function test_published_at_is_iso_8601(): void
     {
         $c = $this->makeCollection('posts');

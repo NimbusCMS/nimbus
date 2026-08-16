@@ -96,8 +96,10 @@ final class EntryRepository
     {
         $now = date('Y-m-d H:i:s');
 
+        // version bumps on every update — it is the entry's optimistic-concurrency
+        // token (ADR 0007), surfaced as the API's ETag.
         $this->db->execute(
-            'UPDATE nb_entries SET title = :t, slug = :sl, status = :st, data = :d, published_at = :p, updated_at = :u
+            'UPDATE nb_entries SET title = :t, slug = :sl, status = :st, data = :d, published_at = :p, updated_at = :u, version = version + 1
              WHERE collection_id = :c AND id = :id',
             ['t' => $attrs['title'], 'sl' => $attrs['slug'], 'st' => $attrs['status'], 'd' => json_encode($attrs['data'], JSON_THROW_ON_ERROR),
              'p' => $attrs['published_at'], 'u' => $now, 'c' => $collectionId, 'id' => $id],
