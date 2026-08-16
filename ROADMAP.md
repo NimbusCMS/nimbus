@@ -302,10 +302,27 @@ without a risk-acceptance ADR):
       during the read-only era (removed when the write API lands); scopes settable
       via CLI `--scopes` and the admin picker. Authorization matrix shipped as a
       test.
-- [ ] **Slice 4 — structured API error contract**: consistent JSON envelope;
-      401 (unauthenticated) vs 403 (out-of-scope), no existence leak.
+- [x] **Slice 4 — structured API error contract**: one JSON envelope with a
+      stable machine-readable `code` (`unauthorized`/`forbidden`/`not_found`/…);
+      401 (unauthenticated) vs 403 (out-of-scope) vs 404 (absent), no existence
+      leak. Documented in COMPATIBILITY.
 - [ ] **Slice 5 — API rate limiting** (+ optional CORS): throttle `/api/v1` by
       token + IP; `429` + `Retry-After`.
+
+### The `nimbuscms/api-advanced` plugin track (offloads pro features from core)
+
+Consumes core events into its own append-only tables; the second unrelated
+consumer of the events + storage capabilities. Planned:
+
+- **Per-token activity history / audit** (lifecycle events + a bounded last-used
+  rollup; write attribution once the write API lands).
+- **Security failure events** — core emits `api.token_rejected` /
+  `api.access_denied` at the error choke point, **isolated + `hasListeners`-guarded**
+  (free until subscribed), payloads scrubbed of secrets, names pre-1.0. The plugin
+  records/alerts. *Caveat: a failure event per request is a DoS-amplifier under a
+  flood — the consumer must aggregate/sample, and it pairs with Slice 5 rate
+  limiting.* Emitted **with** this plugin (its consumer), not before (ADR-0001).
+- Webhooks · per-token analytics · per-token quotas.
 
 Then, on this foundation and only then: write API · OpenAPI of the read surface ·
 MCP.
