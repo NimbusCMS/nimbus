@@ -54,4 +54,22 @@ final class ApiRateLimiterTest extends IntegrationTestCase
         $limiter->hit('a', 1, 60);
         self::assertFalse($limiter->hit('b', 1, 60)->exceeded, 'a different key has its own bucket');
     }
+
+    public function test_prune_removes_stale_rows_but_keeps_fresh_ones(): void
+    {
+        $now     = 1_000_000;
+        $limiter = new ApiRateLimiter($this->db, static function () use (&$now): int {
+            return $now;
+        });
+
+        $limiter->hit('old', 10, 60);
+        $now += 100_000; // advance well past a day
+        $limiter->hit('fresh', 10, 60);
+
+        $removed = $limiter->prune(24 * 3600);
+
+        self::assertSame(1, $removed);
+        self::assertNull($this->db->selectOne('SELECT id FROM nb_api_rate WHERE id = :k', ['k' => 'old']));
+        self::assertNotNull($this->db->selectOne('SELECT id FROM nb_api_rate WHERE id = :k', ['k' => 'fresh']));
+    }
 }

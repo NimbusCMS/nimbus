@@ -33,6 +33,7 @@ use Nimbus\Support\Config;
 use Nimbus\Support\CoreEvents;
 use Nimbus\Support\Env;
 use Nimbus\Support\EventDispatcher;
+use Nimbus\Support\MaintenanceRegistry;
 use Nimbus\Support\PageCache;
 use Nimbus\View\View;
 
@@ -55,6 +56,7 @@ final class Application
     private HeadContributorRegistry $headContributors;
     private MigrationRegistry $migrations;
     private AdminPageRegistry $adminPages;
+    private MaintenanceRegistry $maintenance;
     private EventDispatcher $events;
 
     /** Request-scoped carrier for the authenticated API principal (ADR 0006). */
@@ -93,6 +95,7 @@ final class Application
         $this->headContributors = new HeadContributorRegistry();
         $this->migrations       = new MigrationRegistry();
         $this->adminPages       = new AdminPageRegistry();
+        $this->maintenance      = new MaintenanceRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
         $this->redirects  = $redirects ?? Config::redirects();
@@ -129,6 +132,7 @@ final class Application
             events: $this->events,
             migrations: $this->migrations,
             adminPages: $this->adminPages,
+            maintenance: $this->maintenance,
             db: $this->db,
         ));
         $this->pluginStatuses    = $loader->statuses();
@@ -150,6 +154,12 @@ final class Application
     public function migrationRegistry(): MigrationRegistry
     {
         return $this->migrations;
+    }
+
+    /** The maintenance tasks enabled plugins declared — run by `nimbus prune`. */
+    public function maintenanceRegistry(): MaintenanceRegistry
+    {
+        return $this->maintenance;
     }
 
     public function run(): void

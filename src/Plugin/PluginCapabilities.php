@@ -10,6 +10,7 @@ use Nimbus\Database\Connection;
 use Nimbus\Database\MigrationRegistry;
 use Nimbus\Site\HeadContributorRegistry;
 use Nimbus\Support\EventDispatcher;
+use Nimbus\Support\MaintenanceRegistry;
 
 /**
  * The shared registries a plugin registers into, bundled into one value.
@@ -34,6 +35,7 @@ final class PluginCapabilities
         public readonly EventDispatcher $events = new EventDispatcher(),
         public readonly MigrationRegistry $migrations = new MigrationRegistry(),
         public readonly AdminPageRegistry $adminPages = new AdminPageRegistry(),
+        public readonly MaintenanceRegistry $maintenance = new MaintenanceRegistry(),
         // The live connection, for the storage capability. Null when a caller
         // has no database (a unit test, or a plugin that never touches storage).
         public readonly ?Connection $db = null,
