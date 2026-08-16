@@ -58,6 +58,29 @@ final class CoreEvents
      */
     public const REQUEST_HANDLED = 'request.handled';
 
+    /**
+     * An API request was refused authentication — no bearer token, or one that
+     * did not resolve (invalid / expired / revoked / paused, all indistinguishable
+     * to the caller). Payload: `['reason' => 'missing'|'invalid', 'ip' => string,
+     * 'path' => string, 'at' => 'Y-m-d H:i:s']` — **never the presented token**.
+     *
+     * Best-effort and isolated, like {@see REQUEST_HANDLED}. It fires *after* the
+     * per-IP flood guard, so a flood is already `429`'d before it ever emits — but
+     * a listener that records these must still aggregate, since one event per
+     * refused request is otherwise a denial-of-service amplifier. Names/payloads
+     * are pre-1.0.
+     */
+    public const API_TOKEN_REJECTED = 'api.token_rejected';
+
+    /**
+     * A *valid* API token was refused an action by scope. Payload:
+     * `['token_id' => int, 'token_name' => string, 'resource' => string,
+     * 'action' => string, 'ip' => string, 'path' => string, 'at' => 'Y-m-d H:i:s']`.
+     * Best-effort and isolated; pre-1.0. The consumer of choice is an audit /
+     * activity-log plugin.
+     */
+    public const API_ACCESS_DENIED = 'api.access_denied';
+
     private function __construct()
     {
     }
