@@ -525,6 +525,51 @@ declined (keep it — it stops the idea returning without new evidence).
   read via read-model, Tier 2 write via services + scopes + audit) when a plugin
   first needs core data — never raw core-table SQL.
 
+### 2026-08-16 · Programmatic Access Hardening milestone complete (API tokens)
+- **Status:** accepted (milestone complete)
+- **Evidence:** [ADR 0006](../../../../docs/adr/0006-non-human-authentication.md);
+  PRs #60 (ADR), #61 (lifecycle/principal), #62 (admin UI), #63 (scopes+matrix),
+  #64 (error contract), #65 (rate limiting + CORS). 435 core tests green.
+  Governed by the new [`nimbus-security-review`](../../nimbus-security-review/SKILL.md)
+  companion skill, which ran on every slice.
+- **Product:** the read API is safe for non-human clients — scoped, expirable,
+  pausable, revocable tokens; a clean error contract; rate limiting + CORS. This
+  is what a static frontend (e.g. on Cloudflare Pages) needs to consume Nimbus
+  cross-origin. **Classify: Core** (API maturity) — passed the Platform Drift
+  Guard: every headless CMS needs it, independent of any validation app.
+- **Architecture:** API tokens are **standalone principals** with their own
+  **per-collection `resource:action` scopes**, enforced deny-by-default at the
+  query layer; a request-scoped `ApiAuthContext` carries the principal (Request
+  stays immutable, no global singleton). Relation expansion respects scope
+  (`EntryView` gained an optional `canRead` predicate; out-of-scope targets leak
+  nothing, reusing the non-live-target semantics). Two fixed-window rate limiters
+  (per-IP flood before auth, per-token quota after), DB-backed. Minimal CORS via
+  an `Application::handle` decoration seam (the pipeline only pre-processes).
+- **Engineering / security lessons (evidence-linked):**
+  - *Scope before existence* (#63): checking scope before collection existence
+    stops a narrow token enumerating collections by 403-vs-404. A design decision
+    the security review surfaced, not a bug.
+  - *Reload-resubmit* (#62): the show-once mint renders (can't redirect a secret),
+    so a reload re-POSTed and minted a duplicate — found in **browser** verification,
+    not the passing unit tests. Fixed with a single-use `FormNonce` (secret never
+    touches session/URL). Lesson: adversarial "what does a reload do?" catches what
+    happy-path tests miss.
+  - *Ambiguous column* (#65): the `INSERT … AS new … ON DUPLICATE KEY UPDATE`
+    row-alias makes a bare column reference ambiguous — qualify the existing row
+    (`table.col`). Caught by a direct probe before CI.
+  - *Local-env drift:* a stale `vendor/nimbuscms/analytics` (not in the lock) made
+    a local-only test failure; `composer install` re-synced. Local should match a
+    clean CI install.
+- **Revisit / follow-ups:**
+  - `nb_api_rate` rows don't self-expire — prune periodically (or a cache adapter).
+  - Legacy null-ability tokens are compat-granted `*:read`; **remove that grant
+    when the write API lands**.
+  - **Failure events** (`api.token_rejected` / `api.access_denied`) were
+    deliberately deferred to the `nimbuscms/api-advanced` plugin (their consumer,
+    ADR-0001) — isolated + `hasListeners`-guarded, consumer must aggregate (a
+    per-request failure event is a DoS amplifier). Building this next gives the
+    events + storage capabilities their **second unrelated consumer** (broad proof).
+
 ---
 
 ## Open findings (proposed — awaiting classification into work)
