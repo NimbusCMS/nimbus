@@ -134,6 +134,23 @@ try {
             echo "This is shown once. Store it now — only its hash is kept.\n";
             break;
 
+        case 'prune':
+            // Core's own housekeeping: rate-limit rows for windows that rolled
+            // over more than a day ago are dead weight.
+            $removed = (new Nimbus\Http\ApiRateLimiter($db))->prune(24 * 3600);
+            echo "nb_api_rate: removed {$removed} stale row(s).\n";
+
+            // Then every enabled plugin's retention/maintenance task.
+            foreach ((new Nimbus\Application($db))->maintenanceRegistry()->all() as $task) {
+                try {
+                    $affected = ($task['task'])();
+                    echo "{$task['name']}: {$affected} row(s).\n";
+                } catch (\Throwable $e) {
+                    fwrite(STDERR, "{$task['name']}: failed — {$e->getMessage()}\n");
+                }
+            }
+            break;
+
         case 'token:list':
             $rows = (new Nimbus\Api\ApiTokenRepository($db))->all();
             if ($rows === []) {
@@ -176,6 +193,7 @@ try {
             NimbusCMS
 
               migrate                                          run pending migrations
+              prune                                            clean stale rate rows + run plugin retention (cron)
               install  [--email= --name= --password=]          migrate + create the admin user
               create-user --email=  [--password= --name= --role=]
               token:create --name="My app" [--expires=90d] [--scopes=posts:read,*:read]

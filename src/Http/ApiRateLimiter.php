@@ -65,4 +65,16 @@ final class ApiRateLimiter
             retryAfter: max(1, $reset - $now),
         );
     }
+
+    /**
+     * Delete counter rows last touched more than $olderThanSeconds ago — a window
+     * that has long since rolled over is dead weight. Returns the rows removed.
+     * Run from `nimbus prune`.
+     */
+    public function prune(int $olderThanSeconds): int
+    {
+        $cutoff = date('Y-m-d H:i:s', ($this->clock)() - $olderThanSeconds);
+
+        return $this->db->execute('DELETE FROM nb_api_rate WHERE updated_at < :cutoff', ['cutoff' => $cutoff]);
+    }
 }
