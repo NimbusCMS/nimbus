@@ -54,6 +54,12 @@ and response shapes, not on any PHP class. What is promised:
 - **Auth** — a bearer token (`Authorization: Bearer …`), with per-collection
   read scopes: an out-of-scope collection answers `403` `forbidden`, and cannot
   be told apart from one that does not exist.
+- **Rate limiting** — requests are limited per token (and per IP for the
+  unauthenticated flood guard); over the limit is `429` `rate_limited` with a
+  `Retry-After` header. Limits are deployment config, not part of the contract.
+- **CORS** — off by default (same-origin). When origins are allow-listed, an
+  allowed `Origin` gets `Access-Control-Allow-Origin` (echoed, with
+  `Vary: Origin`); browser `OPTIONS` preflights are answered without a token.
 - **Visibility** — only the *live* set is served (published, `published_at` in
   the past); drafts and scheduled entries are indistinguishable from absent.
 - **Field values** pass through each field type's `toApi()` — e.g. a `boolean`

@@ -275,7 +275,7 @@ changes** — collections + relation + number, served over the API):
   Core — a frontend formats money. Only a shared "money" field type if several
   apps want it.
 
-## 🔑 Milestone: Programmatic Access Hardening (active)
+## 🔑 Milestone: Programmatic Access Hardening (complete)
 
 Make Nimbus safe for **non-human clients** before a write API or MCP is built on
 it — the surface where PHP CMSes classically bleed. Design decided in
@@ -306,8 +306,10 @@ without a risk-acceptance ADR):
       stable machine-readable `code` (`unauthorized`/`forbidden`/`not_found`/…);
       401 (unauthenticated) vs 403 (out-of-scope) vs 404 (absent), no existence
       leak. Documented in COMPATIBILITY.
-- [ ] **Slice 5 — API rate limiting** (+ optional CORS): throttle `/api/v1` by
-      token + IP; `429` + `Retry-After`.
+- [x] **Slice 5 — API rate limiting + CORS**: two fixed-window limiters — a
+      per-IP flood guard before auth and a per-token quota after — `429`
+      `rate_limited` + `Retry-After`; DB-backed (swap for a cache adapter at
+      scale). Minimal CORS (origin allow-list + preflight), off by default.
 
 ### The `nimbuscms/api-advanced` plugin track (offloads pro features from core)
 

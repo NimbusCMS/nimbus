@@ -17,6 +17,7 @@ use Nimbus\Auth\Auth;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Database\MigrationRegistry;
+use Nimbus\Http\Cors;
 use Nimbus\Http\HttpException;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
@@ -169,7 +170,13 @@ final class Application
      */
     public function handle(Request $request): Response
     {
-        $response = SecurityHeaders::apply($this->respond($request));
+        // A browser CORS preflight carries no token, so it is answered before
+        // routing/auth. Every actual API response is annotated afterwards; both
+        // only act when the Origin is on the configured allow-list.
+        $response = Cors::isApiPreflight($request)
+            ? Cors::preflight($request)
+            : $this->respond($request);
+        $response = Cors::decorate(SecurityHeaders::apply($response), $request);
         $this->notifyHandled($request, $response);
         return $response;
     }

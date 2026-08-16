@@ -249,6 +249,32 @@ final class Config
         return self::basePath() . '/storage/cache/pages';
     }
 
+    // --------------------------------------------------------------- API limits
+
+    /** Per-token request quota within the rate window; 0 disables the token quota. */
+    public static function apiRateLimit(): int
+    {
+        return max(0, (int) Env::get('API_RATE_LIMIT', '120'));
+    }
+
+    /** Per-IP flood ceiling within the rate window (catches no-token / invalid floods); 0 disables. */
+    public static function apiFloodLimit(): int
+    {
+        return max(0, (int) Env::get('API_FLOOD_LIMIT', '300'));
+    }
+
+    /** The rate-limit window, in seconds. */
+    public static function apiRateWindow(): int
+    {
+        return max(1, (int) Env::get('API_RATE_WINDOW', '60'));
+    }
+
+    /** Comma-separated CORS origin allow-list for the API (`*` allows any); empty = same-origin only. */
+    public static function corsOrigins(): string
+    {
+        return (string) Env::get('CORS_ALLOWED_ORIGINS', '');
+    }
+
     public static function basePath(): string
     {
         return dirname(__DIR__, 2);
