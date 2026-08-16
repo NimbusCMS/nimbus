@@ -570,6 +570,31 @@ declined (keep it — it stops the idea returning without new evidence).
     per-request failure event is a DoS amplifier). Building this next gives the
     events + storage capabilities their **second unrelated consumer** (broad proof).
 
+### 2026-08-16 · api-advanced ships → four plugin capabilities broadly proven
+- **Status:** accepted
+- **Evidence:** core PR #67 (`api.token_rejected` / `api.access_denied` +
+  `EventDispatcher::emitBestEffort`); [`nimbuscms/api-advanced`](https://github.com/NimbusCMS/plugin-api-advanced)
+  (CI green on PHP 8.2 + 8.3; its `PackageIntegrationTest` loads the package
+  through a real Composer install and registers its migration, **both** failure
+  listeners, and its admin page).
+- **Product:** an official **Advanced API** plugin — a home for programmatic
+  "pro" features. First feature: a **security audit log** of API access failures
+  (rejected tokens, scope denials), never storing a presented token. A CF-Pages
+  frontend + this = a headless deployment an operator can actually monitor.
+- **Architecture / the loop closes:** api-advanced is the **second unrelated
+  consumer** of the plugin **events**, **storage**, **migrations**, and **admin
+  pages** capabilities (after Analytics). All four move from "one consumer — a
+  first signal" to **broadly proven** in capability-evidence.md. The failure
+  events were emitted **with** their consumer (ADR-0001), not before — the same
+  discipline as `request.handled` → Analytics.
+- **Engineering:** events are best-effort + isolated (a throwing listener never
+  500s) via the shared `emitBestEffort`; `api.token_rejected` fires only after the
+  per-IP flood guard, so the rate limiter bounds the audit's write volume —
+  the recorder need not aggregate for v1. Payloads carry no secret.
+- **Revisit:** a retention/prune helper for plugin-owned tables (`api_audit_log`,
+  `analytics_hits`, and core's `nb_api_rate` all accumulate); the other
+  api-advanced features on the roadmap (webhooks, per-token analytics/quotas).
+
 ---
 
 ## Open findings (proposed — awaiting classification into work)
