@@ -43,4 +43,10 @@ class BooleanType extends BaseType
     {
         return (bool) $value;
     }
+
+    /** @return array<string,mixed> */
+    public function jsonSchema(Field $field): array
+    {
+        return ['type' => 'boolean'];
+    }
 }

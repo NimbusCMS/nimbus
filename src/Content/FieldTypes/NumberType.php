@@ -50,4 +50,10 @@ class NumberType extends BaseType
         }
         return (is_int($value) || is_float($value)) ? null : 'Enter a valid number.';
     }
+
+    /** @return array<string,mixed> */
+    public function jsonSchema(Field $field): array
+    {
+        return ['type' => 'number'];
+    }
 }
