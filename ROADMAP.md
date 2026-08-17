@@ -378,7 +378,7 @@ version-required on write; management tools are capability-gated; `tools/list` i
 scope-filtered. Every management action is audited.
 
 - [x] **Slice 0 — ADR 0009**
-- [ ] **Slice 1** — management capabilities + shared `EntryOperations`
+- [x] **Slice 1** — management capabilities (`admin` + granular) + shared `EntryOperations`
 - [ ] **Slice 2** — MCP server core + HTTP transport + content tools
 - [ ] **Slice 3** — stdio transport (`nimbus mcp`)
 - [ ] **Slice 4** — schema tools (`schema:write`)
