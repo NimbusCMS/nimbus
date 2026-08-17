@@ -51,7 +51,15 @@ Content scopes (`{handle}:read` / `{handle}:write`) exist. Management adds
 **granular capabilities**, so a token is least-privileged:
 
 `schema:write` · `media:read` / `media:write` · `users:write` · `tokens:write` ·
-`settings:write` — with `*` (or `admin`) as a super-grant.
+`settings:write` — with **`admin`** as the one cross-cutting super-grant.
+
+Precisely (a Slice-1 security finding pinned this): `admin` grants everything;
+an exact `{resource}:{action}` always suffices; and the content wildcard
+`*:{action}` grants that action on every *collection* but **never** on a
+management capability. So `*:write` ("write all my content") cannot silently mint
+tokens, create users, or change settings — those escalate privilege and must be
+granted explicitly. Management capabilities live in the same `resource:action`
+namespace, so keeping the wildcard content-only is what stops that confusion.
 
 These capabilities are deliberately the **atoms of a future roles system**: a role
 will be a named bundle of capabilities, and a lower-privilege role grants exactly

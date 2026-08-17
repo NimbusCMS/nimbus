@@ -19,10 +19,25 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
-_None yet — this loop was introduced alongside the programmatic-access-hardening
-work. The first entries are expected from the API token **scopes** review, where
-broken object-level authorization (catalog #1) and scope confusion (#2) are the
-predicted hot spots._
+### 2026-08-17 · Content wildcard reaches management capabilities — Medium (latent High)
+- **Status:** fixed
+- **Surface:** `src/Api/TokenPrincipal.php::can()` (catalog #2 — scope confusion)
+- **Scenario:** MCP Slice 1 introduces management capabilities (`schema:write`,
+  `users:write`, `tokens:write`, `settings:write`) in the same `resource:action`
+  namespace as collection scopes. A token minted `*:write` ("write all my
+  content") would then satisfy `can('users','write')`, `can('tokens','write')`,
+  etc. once Slices 4–6 add tools that consume them — escalating a content-write
+  token into user creation / token minting / settings changes (site takeover).
+  Rated Medium not High only because no tool consumes those caps *yet*; it
+  becomes High the moment Slice 4 lands, which is why it was fixed in the
+  foundation slice rather than deferred.
+- **Control added:** the content wildcard `*:{action}` is now scoped to
+  collections only — `can()` denies it for the fixed management set and requires
+  an exact grant or `admin` for those. `admin` remains the sole cross-cutting
+  super-grant. ADR 0009's capability section updated to state this precisely.
+- **Evidence:** MCP Slice 1 PR · guarding test
+  `tests/Unit/TokenPrincipalTest.php::test_the_content_wildcard_never_reaches_a_management_capability`
+- **Recurrence:** 1st sighting of scope confusion (catalog #2) — watch for a 2nd.
 
 <!--
 Template for a confirmed finding:
