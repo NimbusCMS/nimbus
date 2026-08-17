@@ -613,6 +613,37 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** a scheduler (so `prune` and future tasks run without operator cron)
   is the natural next step, when a task needs it.
 
+### 2026-08-17 · Write API milestone complete
+- **Status:** accepted (milestone complete)
+- **Evidence:** [ADR 0007](../../../../docs/adr/0007-write-api.md); PRs #72 (version
+  + ETag), #73 (endpoints), #74 (`api.entry_written`), plus `api-advanced` PR #2
+  (write audit). 457 core tests; a live curl run exercised the real `php://input`
+  path. Each slice closed with a `nimbus-security-review` pass — no Critical/High.
+- **Product:** the API can now create / update / delete content, not just read —
+  a real headless CMS for integrations, CI, and (next) MCP.
+- **Architecture — the guiding call that paid off:** the write API is a **new
+  transport in front of `EntryService`, not a second write path.** The JSON body
+  maps to `EntryInput` and goes through the same service the admin uses, so
+  validation, slugs, the transaction, events, and the **allow-list field binding**
+  (the mass-assignment guard) are reused, never reimplemented. A single
+  `{handle}:write` scope, enforced deny-by-default, scope-before-existence.
+  Optimistic concurrency via a monotonic entry `version` → `ETag`/`If-Match`
+  (428/412). `api.entry_written` (best-effort) gives `api-advanced` a
+  who-changed-what trail.
+- **Security (the highest-risk surface, reviewed hardest):** mass-assignment is
+  neutralised by the `EntryService` reuse (undeclared fields + top-level
+  privileged keys ignored); no enumeration (403 before existence); lost updates
+  blocked by mandatory `If-Match`. Accepted low notes: no `415` on non-JSON bodies
+  (they read empty → `422`); API-created entries have a null author (a token is
+  not a user — the token-level trail is the audit event).
+- **Lessons:** the tests inject `rawBody` directly, so they never exercised
+  `php://input` — a **live curl** did, and confirmed the real body path. Worth a
+  live pass on any transport-layer change. The `api.entry_written` payload uses
+  `collection`/`slug` while failure events use `resource`; the audit recorder maps
+  both — a reminder to keep event payload keys consistent (a future cleanup).
+- **Revisit:** finer `publish`/`delete` scopes; bulk writes; media upload over the
+  API; idempotency keys — each on evidence. Next milestones: **OpenAPI**, then **MCP**.
+
 ---
 
 ## Open findings (proposed — awaiting classification into work)

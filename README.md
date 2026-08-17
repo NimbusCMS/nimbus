@@ -11,7 +11,7 @@
 ---
 
 > ⚠️ **Status: in active development — not production-ready.**
-> Content management, a media library, a read-only headless JSON API, and now basic server-rendered public pages work end to end today: define collections and fields; create, schedule and publish entries; upload media; read published content over the API; and render a collection's live entries and a single entry through a plain-PHP theme, with a configurable home page at the site root. **Public theming is an early slice** — richer theme capabilities are still to come. There is no upgrade path between versions, no password reset, and no release has been tagged. See [What works today](#what-works-today).
+> Content management, a media library, a scoped headless JSON API (read **and** write), and now basic server-rendered public pages work end to end today: define collections and fields; create, schedule and publish entries; upload media; read and write content over the API with scoped, expirable tokens (per-collection scopes, ETag/If-Match concurrency, rate limiting); and render a collection's live entries and a single entry through a plain-PHP theme, with a configurable home page at the site root. **Public theming is an early slice** — richer theme capabilities are still to come. There is no upgrade path between versions, no password reset, and no release has been tagged. See [What works today](#what-works-today).
 
 ## Why NimbusCMS?
 
@@ -31,7 +31,7 @@ Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a smal
 - 🎨 **"Nimbus" admin theme** — night-sky admin skin, recolourable via CSS variables
 - 🗓️ **Publishing lifecycle** — draft / published / scheduled / archived with cron-free scheduling; the API serves exactly the live set
 - 🖼️ **Media library** — upload (content-validated, safe names), a library, and a `media` field the API expands to `{ url, alt, … }`
-- 🔌 **Headless JSON API** — read-only `/api/v1`, bearer tokens, pagination, field values serialized through `toApi()`
+- 🔌 **Headless JSON API** — read + write `/api/v1`, scoped bearer tokens (expiry/pause/revoke), ETag/If-Match concurrency, rate limiting + CORS, `toApi()` serialization
 - 🧩 **Plugins** — official [Markdown](https://github.com/NimbusCMS/plugin-markdown), [SEO](https://github.com/NimbusCMS/plugin-seo) and [Analytics](https://github.com/NimbusCMS/plugin-analytics) plugins, a Composer-driven loader, and a read-only Plugins admin page
 
 ### 🔌 Plugins
@@ -77,7 +77,7 @@ authoritative, evidence-backed capability matrix lives in
 ### 🗺️ Roadmap — not built yet
 
 - ✍️ Rich-text editor · 📚 entry revisions · 📋 activity log
-- 🎨 **Plugin-provided / multiple installable themes** (a single starter theme, home page, template overrides, partials and an asset pipeline already ship) · 🔎 API filtering / sparse fieldsets · 🔑 scoped API tokens (expiry + revocation)
+- 🎨 **Plugin-provided / multiple installable themes** (a single starter theme, home page, template overrides, partials and an asset pipeline already ship) · 🔎 API filtering / sparse fieldsets · 📖 OpenAPI + MCP
 
 ### 🚧 Not production-ready
 
@@ -119,7 +119,7 @@ philosophy behind it, read [Core Principles](docs/architecture/CORE_PRINCIPLES.m
 ```
 public/index.php ─▶ Application (router)
                       ├─ Admin\*        the admin area (auth, dashboard, sections)
-                      ├─ Api\*          read-only headless JSON API
+                      ├─ Api\*          headless JSON API (read + write)
                       ├─ Site\*         server-rendered public site  (collection + entry pages)
                       ├─ Content\*      collections, fields, entries
                       ├─ Media\*        uploads + library
@@ -139,7 +139,7 @@ field never means an `ALTER TABLE`.
 - [x] Test & analysis baseline — unit, integration and HTTP-functional suites, PHPStan level 6, install + CRUD smoke test, all on CI
 - [x] Plugin system — `Plugin` + `PluginContext` + Composer-driven loader, proven by [plugin-markdown](https://github.com/NimbusCMS/plugin-markdown)
 - [x] Media library — upload, library, and a `media` field served by the API
-- [x] Headless JSON API + tokens — read-only `/api/v1`, publishing-lifecycle aware, relations expanded
+- [x] Headless JSON API + tokens — read + write `/api/v1`, scoped tokens, ETag/If-Match, rate limiting + CORS, publishing-lifecycle aware, relations expanded
 - [x] **Server-rendered public site** — home page (`config/site.php`) + collection + entry pages via plain-PHP themes (`themes/starter`), live-set only
 - [x] **Theme capabilities** — partials, per-collection template specialization, themed 404, static assets (`/theme/assets`), navigation menus, reusable blocks
 - [x] **Public-site polish** — config-driven URL redirects (applied before routing) and opt-in page caching (`PAGE_CACHE_TTL`, flushed on every content write)
