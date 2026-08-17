@@ -362,9 +362,32 @@ can't work). Design in [ADR 0008](docs/adr/0008-openapi.md).
 - [x] **Slice 3 — serve it**: `GET /api/v1/openapi.json` (auth-gated, full spec)
       + `nimbus openapi` CLI dump; COMPATIBILITY + security-review pass.
 
-Then, on this contract: **MCP** — a thin Model Context Protocol server exposing
-the same operations to agents, riding the existing token/scope/validation model
-(a proof of the architecture, not a second backend).
+## 🤖 Milestone: MCP — the CMS control surface (active)
+
+The payoff the whole API arc was for: an agent with a scoped token runs the
+**entire** CMS through the Model Context Protocol — content, schema, media,
+users, tokens, settings — so the admin UI is optional, not required. MCP is a
+transport + a generated tool surface over the same services the admin uses, never
+new logic. Design in [ADR 0009](docs/adr/0009-mcp-control-surface.md).
+
+Capabilities go granular (`schema:write`, `media:*`, `users:write`,
+`tokens:write`, `settings:write`, + `admin`), designed as the atoms of a future
+**roles** system. Both transports (HTTP `POST /api/v1/mcp` bearer-auth; `nimbus
+mcp` stdio). Content tools are per-collection + typed (from field `jsonSchema()`),
+version-required on write; management tools are capability-gated; `tools/list` is
+scope-filtered. Every management action is audited.
+
+- [x] **Slice 0 — ADR 0009**
+- [ ] **Slice 1** — management capabilities + shared `EntryOperations`
+- [ ] **Slice 2** — MCP server core + HTTP transport + content tools
+- [ ] **Slice 3** — stdio transport (`nimbus mcp`)
+- [ ] **Slice 4** — schema tools (`schema:write`)
+- [ ] **Slice 5** — media tools (`media:*`)
+- [ ] **Slice 6** — users / tokens / settings tools
+- [ ] **Slice 7** — management-action audit + docs + final review
+
+Each slice: CI-green + a `nimbus-security-review` pass (this is the highest-
+privilege surface in the product).
 
 ## 🎯 Release 0.1 — "usable CMS"
 
