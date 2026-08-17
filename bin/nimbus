@@ -134,6 +134,12 @@ try {
             echo "This is shown once. Store it now — only its hash is kept.\n";
             break;
 
+        case 'openapi':
+            $app       = new Nimbus\Application($db);
+            $generator = new Nimbus\Api\OpenApiGenerator(new Nimbus\Content\CollectionRepository($db), $app->fieldTypeRegistry());
+            echo json_encode($generator->generate(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+            break;
+
         case 'prune':
             // Core's own housekeeping: rate-limit rows for windows that rolled
             // over more than a day ago are dead weight.
@@ -194,6 +200,7 @@ try {
 
               migrate                                          run pending migrations
               prune                                            clean stale rate rows + run plugin retention (cron)
+              openapi                                          print the OpenAPI 3.0 spec for the live API
               install  [--email= --name= --password=]          migrate + create the admin user
               create-user --email=  [--password= --name= --role=]
               token:create --name="My app" [--expires=90d] [--scopes=posts:read,*:read]

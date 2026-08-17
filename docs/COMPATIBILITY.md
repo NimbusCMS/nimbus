@@ -63,6 +63,9 @@ response shapes, not on any PHP class. What is promised:
   needs the collection's `write` scope; a `PATCH`/`DELETE` needs `If-Match`
   carrying the entry's current `ETag` (a read returns it) — absent is `428`,
   stale is `412`, so machine clients cannot silently overwrite each other.
+- **OpenAPI** — `GET /api/v1/openapi.json` returns an OpenAPI 3.0 document
+  generated from the live content model (behind the same bearer auth); `nimbus
+  openapi` prints the same for build pipelines. See [ADR 0008](adr/0008-openapi.md).
 - **Rate limiting** — requests are limited per token (and per IP for the
   unauthenticated flood guard); over the limit is `429` `rate_limited` with a
   `Retry-After` header. Limits are deployment config, not part of the contract.

@@ -84,12 +84,23 @@ final class ApiController
     {
         // Order matters: flood guard → authenticate → per-token quota → handler.
         $r->group('/api/v1', [$this->ipFlood, $this->auth, $this->tokenQuota], function (Router $g): void {
+            $g->get('/openapi.json', fn (Request $req, array $p): Response => $this->openapi())->name('api.openapi');
             $g->get('/collections/{handle}/entries', fn (Request $req, array $p): Response => $this->index($req, $p['handle']))->name('api.entries.index');
             $g->get('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->show($req, $p['handle'], $p['slug']))->name('api.entries.show');
             $g->post('/collections/{handle}/entries', fn (Request $req, array $p): Response => $this->create($req, $p['handle']))->name('api.entries.create');
             $g->patch('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->update($req, $p['handle'], $p['slug']));
             $g->delete('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->destroy($req, $p['handle'], $p['slug']));
         });
+    }
+
+    /**
+     * The generated OpenAPI document for this install (ADR 0008). Behind the
+     * group's bearer auth — a contract for authenticated clients — and describes
+     * the full model (a scope-filtered per-token spec is a later refinement).
+     */
+    private function openapi(): Response
+    {
+        return Response::json((new OpenApiGenerator($this->collections, $this->types))->generate());
     }
 
     /** A page of a collection's live entries, newest first. */

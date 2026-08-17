@@ -162,6 +162,12 @@ final class Application
         return $this->maintenance;
     }
 
+    /** The field-type registry (core + plugin types) — used by the OpenAPI CLI dump. */
+    public function fieldTypeRegistry(): FieldTypeRegistry
+    {
+        return $this->fieldTypes;
+    }
+
     public function run(): void
     {
         // The one place globals are read. Everything downstream shares this instance.

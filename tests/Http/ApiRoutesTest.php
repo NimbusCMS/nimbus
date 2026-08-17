@@ -243,6 +243,24 @@ final class ApiRoutesTest extends HttpTestCase
         self::assertSame([['id' => $alice, 'slug' => 'alice', 'title' => 'Alice']], $data['fields']['authors']);
     }
 
+    // ------------------------------------------------------------- openapi
+
+    public function test_the_openapi_spec_is_served_to_an_authenticated_client(): void
+    {
+        $this->makeCollection('posts');
+
+        $response = $this->api('/api/v1/openapi.json');
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('"openapi":"3.0.3"', $response->body);
+        self::assertStringContainsString('/collections/posts/entries', $response->body);
+    }
+
+    public function test_the_openapi_spec_needs_a_token(): void
+    {
+        self::assertSame(401, $this->apiNoAuth('/api/v1/openapi.json')->status);
+    }
+
     // --------------------------------------------------------- published-only
 
     public function test_only_live_entries_are_served(): void
