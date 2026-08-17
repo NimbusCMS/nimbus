@@ -678,3 +678,23 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
   not on Packagist, no library mode/image). Classify **Core / release process**.
 - **F3 — number decimals (`8.00`→`8`).** Classify **application concern** —
   rejected for core unless several apps want a shared money field type.
+
+### 2026-08-17 · MCP Slice 1 — capability model + shared EntryOperations (Core)
+- **Merged:** PR #81 (code), #82 (roadmap). CI-green, 469 tests, PHPStan L6.
+- **Decision:** the scope-checked content path is one service (`EntryOperations`)
+  that both HTTP and MCP call; `ApiController` is now a thin HTTP adapter. The
+  extraction was behavior-preserving — the entire existing API suite passed
+  unchanged, which is the evidence the shared path did not weaken authz,
+  concurrency, mass-assignment binding, or auditing.
+- **Capability model:** `admin` super-grant + granular management capabilities
+  (schema/media/users/tokens/settings) as the atoms of a future roles system.
+  They are inert until Slices 4–6 consume them.
+- **Assumption corrected in review (not after):** management capabilities sharing
+  the `resource:action` namespace let the content wildcard `*:write` transitively
+  grant `users:write` etc. Fixed so `*:{action}` is collection-only; `admin` is
+  the sole cross-cutting grant. Lesson: when a new privilege class joins an
+  existing namespace, re-examine every wildcard/`*` rule that spans it. Recorded
+  in the security ledger (scope confusion, catalog #2, 1st sighting).
+- **Design note (validated later):** the shared-service extraction as the *first*
+  MCP slice is paying off — Slice 2 adds only a JSON-RPC transport over an
+  already-authz/concurrency/audit-complete service, not a second content path.
