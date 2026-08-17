@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Nimbus\Api;
 
+use Nimbus\Content\Collection;
 use Nimbus\Content\CollectionRepository;
+use Nimbus\Content\EntryInput;
 use Nimbus\Content\EntryRepository;
+use Nimbus\Content\EntryService;
 use Nimbus\Content\EntryView;
 use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Content\Publication;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\ApiRateLimiter;
@@ -22,16 +26,17 @@ use Nimbus\Support\CoreEvents;
 use Nimbus\Support\EventDispatcher;
 
 /**
- * The read-only headless API, v1.
+ * The headless API, v1.
  *
- * Serves exactly the *live* set defined in Publication — a draft or a
- * not-yet-due scheduled entry can never be reached here, because the queries
- * (liveForCollection / findLiveBySlug) carry the same predicate the admin
- * badges use. Read-only on purpose: no writes over the API in this slice.
+ * Reads serve exactly the *live* set defined in Publication (a draft or
+ * not-yet-due scheduled entry can never be read). Writes (ADR 0007) are a new
+ * transport in front of the same `EntryService` the admin uses — so validation,
+ * slugs, the transaction, events, and the allow-list field binding that guards
+ * mass-assignment are reused, never reimplemented.
  *
- * Auth is a bearer token, applied to the whole group. Every value is serialized
- * through its field type's toApi(), so the wire format is the field types'
- * contract, not the storage layout.
+ * Auth is a bearer token; every scope is checked deny-by-default before the
+ * entry is looked up. Values serialize through each field type's toApi(), so the
+ * wire format is the field types' contract, not the storage layout.
  */
 final class ApiController
 {
@@ -41,21 +46,29 @@ final class ApiController
 
     private CollectionRepository $collections;
     private EntryRepository $entries;
+    private RelationRepository $relations;
     private EntryView $view;
+    private EntryService $entryService;
     private ApiAuthMiddleware $auth;
     private ApiAuthContext $authContext;
     private EventDispatcher $events;
     private RateLimitMiddleware $ipFlood;
     private RateLimitMiddleware $tokenQuota;
 
-    public function __construct(Connection $db, FieldTypeRegistry $types, ApiAuthContext $authContext, EventDispatcher $events)
-    {
-        $this->collections = new CollectionRepository($db);
-        $this->entries     = new EntryRepository($db);
-        $this->view        = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
-        $this->authContext = $authContext;
-        $this->events      = $events;
-        $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext, $events);
+    public function __construct(
+        Connection $db,
+        private FieldTypeRegistry $types,
+        ApiAuthContext $authContext,
+        EventDispatcher $events,
+    ) {
+        $this->collections   = new CollectionRepository($db);
+        $this->entries       = new EntryRepository($db);
+        $this->relations     = new RelationRepository($db);
+        $this->view          = new EntryView($types, $this->relations, new MediaRepository($db));
+        $this->entryService  = new EntryService($db, $this->entries, $this->relations, $types, $events);
+        $this->authContext   = $authContext;
+        $this->events        = $events;
+        $this->auth          = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext, $events);
 
         $limiter = new ApiRateLimiter($db);
         $window  = Config::apiRateWindow();
@@ -73,6 +86,9 @@ final class ApiController
         $r->group('/api/v1', [$this->ipFlood, $this->auth, $this->tokenQuota], function (Router $g): void {
             $g->get('/collections/{handle}/entries', fn (Request $req, array $p): Response => $this->index($req, $p['handle']))->name('api.entries.index');
             $g->get('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->show($req, $p['handle'], $p['slug']))->name('api.entries.show');
+            $g->post('/collections/{handle}/entries', fn (Request $req, array $p): Response => $this->create($req, $p['handle']))->name('api.entries.create');
+            $g->patch('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->update($req, $p['handle'], $p['slug']));
+            $g->delete('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->destroy($req, $p['handle'], $p['slug']));
         });
     }
 
@@ -125,24 +141,181 @@ final class ApiController
             return ApiResponse::notFound("No published entry \"{$slug}\" in \"{$handle}\".");
         }
 
-        // The ETag lets a client cache and, when writes land, edit safely (If-Match).
+        // The ETag lets a client cache and edit safely (If-Match).
         return ApiResponse::ok($this->view->one($collection, $row, $this->scopeFilter($principal)))
             ->withHeader('ETag', EntryETag::of((int) $row['id'], (int) $row['version']));
     }
 
+    // ------------------------------------------------------------------ writes
+
+    /** Create an entry. Requires `{handle}:write`. → 201 with the entry, a Location, and its ETag. */
+    private function create(Request $request, string $handle): Response
+    {
+        $principal = $this->authorize($request, $handle, 'write');
+        if ($principal instanceof Response) {
+            return $principal;
+        }
+        $collection = $this->collections->findByHandle($handle);
+        if ($collection === null) {
+            return ApiResponse::notFound("No collection with handle \"{$handle}\".");
+        }
+
+        $result = $this->entryService->save($collection, $this->inputFrom($request, $collection, null), null, null);
+        if (!$result->successful) {
+            return ApiResponse::invalid($result->errors);
+        }
+
+        return $this->entityResponse($collection, (int) $result->entryId, 201, $principal);
+    }
+
+    /** Update an entry by slug. Requires `{handle}:write` and a matching If-Match. → 200. */
+    private function update(Request $request, string $handle, string $slug): Response
+    {
+        $principal = $this->authorize($request, $handle, 'write');
+        if ($principal instanceof Response) {
+            return $principal;
+        }
+        $collection = $this->collections->findByHandle($handle);
+        if ($collection === null) {
+            return ApiResponse::notFound("No collection with handle \"{$handle}\".");
+        }
+        $row = $this->entries->findBySlug($collection->id, $slug);
+        if ($row === null) {
+            return ApiResponse::notFound("No entry \"{$slug}\" in \"{$handle}\".");
+        }
+
+        $precondition = $this->requireIfMatch($request, (int) $row['id'], (int) $row['version']);
+        if ($precondition !== null) {
+            return $precondition;
+        }
+
+        $result = $this->entryService->save($collection, $this->inputFrom($request, $collection, $row), (int) $row['id'], null);
+        if (!$result->successful) {
+            return ApiResponse::invalid($result->errors);
+        }
+
+        return $this->entityResponse($collection, (int) $result->entryId, 200, $principal);
+    }
+
+    /** Delete an entry by slug. Requires `{handle}:write` and a matching If-Match. → 204. */
+    private function destroy(Request $request, string $handle, string $slug): Response
+    {
+        $principal = $this->authorize($request, $handle, 'write');
+        if ($principal instanceof Response) {
+            return $principal;
+        }
+        $collection = $this->collections->findByHandle($handle);
+        if ($collection === null) {
+            return ApiResponse::notFound("No collection with handle \"{$handle}\".");
+        }
+        $row = $this->entries->findBySlug($collection->id, $slug);
+        if ($row === null) {
+            return ApiResponse::notFound("No entry \"{$slug}\" in \"{$handle}\".");
+        }
+
+        $precondition = $this->requireIfMatch($request, (int) $row['id'], (int) $row['version']);
+        if ($precondition !== null) {
+            return $precondition;
+        }
+
+        $this->entryService->delete($collection, (int) $row['id']);
+        return ApiResponse::noContent();
+    }
+
     /**
-     * Authorize the token for reading $handle, returning the principal to use —
-     * or a 403 Response to short-circuit.
-     *
-     * The scope check runs *before* collection existence on purpose: a token
-     * that may not read a handle gets 403 whether or not that collection exists,
-     * so a narrowly-scoped token cannot enumerate the collections outside its
-     * scope by telling 403 from 404.
+     * The If-Match precondition for a write: null when it passes, or a 428/412.
+     * Concurrency is mandatory — a client must have read the current version, so
+     * two machine clients cannot silently overwrite each other.
      */
-    private function authorize(Request $request, string $handle): TokenPrincipal|Response
+    private function requireIfMatch(Request $request, int $id, int $version): ?Response
+    {
+        $ifMatch = $request->header('If-Match');
+        if ($ifMatch === null || trim($ifMatch) === '') {
+            return ApiResponse::error(428, 'precondition_required', "This write needs an If-Match header carrying the entry's current ETag.");
+        }
+        if (!EntryETag::ifMatchSatisfied($ifMatch, EntryETag::of($id, $version))) {
+            return ApiResponse::error(412, 'precondition_failed', 'The entry changed since you last read it; re-read it and retry.');
+        }
+        return null;
+    }
+
+    /**
+     * Map the JSON body to an EntryInput. Only the collection's declared fields
+     * are read — the allow-list that guards mass-assignment; unknown keys are
+     * ignored. On update a field the body omits keeps its stored value (PATCH
+     * semantics), and title/slug/status default to the stored entry.
+     *
+     * @param array<string,mixed>|null $existing the stored (hydrated) row on update
+     */
+    private function inputFrom(Request $request, Collection $collection, ?array $existing): EntryInput
+    {
+        $body   = $request->json();
+        $fields = is_array($body['fields'] ?? null) ? $body['fields'] : [];
+        $base   = $existing !== null ? $this->existingValues($collection, $existing) : [];
+
+        $values = [];
+        foreach ($collection->fields as $field) {
+            $type = $this->types->forDisplay($field->type);
+            $values[$field->handle] = array_key_exists($field->handle, $fields)
+                ? $type->normalize($fields[$field->handle])
+                : ($base[$field->handle] ?? $type->normalize(null));
+        }
+
+        $status = is_string($body['status'] ?? null) && Publication::isStoredStatus($body['status'])
+            ? $body['status']
+            : ($existing !== null ? (string) $existing['status'] : Publication::DRAFT);
+        $title = array_key_exists('title', $body) ? trim((string) $body['title']) : ($existing !== null ? (string) $existing['title'] : '');
+        $slug  = array_key_exists('slug', $body) ? trim((string) $body['slug']) : ($existing !== null ? (string) $existing['slug'] : '');
+        $publishedAt = is_string($body['published_at'] ?? null) && trim($body['published_at']) !== '' ? trim($body['published_at']) : null;
+
+        return new EntryInput($title, $slug, $status, $values, $publishedAt);
+    }
+
+    /**
+     * The stored field values of an entry (for keep-omitted-on-PATCH) —
+     * non-relation values from the JSON column, relations from their table.
+     *
+     * @param array<string,mixed> $row a hydrated entry row
+     * @return array<string,mixed>
+     */
+    private function existingValues(Collection $collection, array $row): array
+    {
+        $data   = is_array($row['data'] ?? null) ? $row['data'] : [];
+        $values = [];
+        foreach ($collection->fields as $field) {
+            $values[$field->handle] = $field->type === 'relation'
+                ? $this->relations->targets((int) $row['id'], $field->id)
+                : ($data[$field->handle] ?? null);
+        }
+        return $values;
+    }
+
+    /** Re-read the saved entry and return it with its fresh ETag (plus a Location on create). */
+    private function entityResponse(Collection $collection, int $id, int $status, TokenPrincipal $principal): Response
+    {
+        $row      = $this->entries->find($collection->id, $id) ?? [];
+        $response = ApiResponse::entity($this->view->one($collection, $row, $this->scopeFilter($principal)), $status)
+            ->withHeader('ETag', EntryETag::of($id, (int) ($row['version'] ?? 1)));
+
+        if ($status === 201) {
+            $response = $response->withHeader('Location', "/api/v1/collections/{$collection->handle}/entries/" . (string) ($row['slug'] ?? ''));
+        }
+        return $response;
+    }
+
+    /**
+     * Authorize the token for $action ('read'|'write') on $handle, returning the
+     * principal to use — or a 403 Response to short-circuit.
+     *
+     * The scope check runs *before* collection/entry existence on purpose: a
+     * token that may not act on a handle gets 403 whether or not that collection
+     * exists, so it cannot enumerate what lies outside its scope by telling 403
+     * from 404.
+     */
+    private function authorize(Request $request, string $handle, string $action = 'read'): TokenPrincipal|Response
     {
         $principal = $this->authContext->principal();
-        if ($principal === null || !$principal->can($handle, 'read')) {
+        if ($principal === null || !$principal->can($handle, $action)) {
             // A valid token refused by scope is worth auditing (a null principal
             // would be an auth failure, already announced by the middleware).
             if ($principal !== null) {
@@ -150,13 +323,13 @@ final class ApiController
                     'token_id'   => $principal->tokenId,
                     'token_name' => $principal->name,
                     'resource'   => $handle,
-                    'action'     => 'read',
+                    'action'     => $action,
                     'ip'         => $request->ip(),
                     'path'       => $request->path,
                     'at'         => date('Y-m-d H:i:s'),
                 ]);
             }
-            return ApiResponse::forbidden("This token cannot read \"{$handle}\".");
+            return ApiResponse::forbidden("This token cannot {$action} \"{$handle}\".");
         }
         return $principal;
     }

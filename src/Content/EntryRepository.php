@@ -70,6 +70,21 @@ final class EntryRepository
         return $row === null ? null : $this->hydrate($row);
     }
 
+    /**
+     * An entry by slug regardless of status — the write API's lookup (a client
+     * edits drafts too, not just the live set). Hydrated.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findBySlug(int $collectionId, string $slug): ?array
+    {
+        $row = $this->db->selectOne(
+            'SELECT * FROM nb_entries WHERE collection_id = :c AND slug = :s',
+            ['c' => $collectionId, 's' => $slug],
+        );
+        return $row === null ? null : $this->hydrate($row);
+    }
+
     public function slugExists(int $collectionId, string $slug, int $exceptId = 0): bool
     {
         return $this->db->selectOne(

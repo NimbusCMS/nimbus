@@ -32,6 +32,24 @@ final class Router
         return $this->add('POST', $pattern, $handler);
     }
 
+    /** @param callable(Request,array<string,string>):Response $handler */
+    public function patch(string $pattern, callable $handler): Route
+    {
+        return $this->add('PATCH', $pattern, $handler);
+    }
+
+    /** @param callable(Request,array<string,string>):Response $handler */
+    public function put(string $pattern, callable $handler): Route
+    {
+        return $this->add('PUT', $pattern, $handler);
+    }
+
+    /** @param callable(Request,array<string,string>):Response $handler */
+    public function delete(string $pattern, callable $handler): Route
+    {
+        return $this->add('DELETE', $pattern, $handler);
+    }
+
     /**
      * Register routes under a shared path prefix + middleware.
      *

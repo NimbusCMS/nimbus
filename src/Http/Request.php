@@ -25,6 +25,7 @@ final class Request
         private array $server,
         private array $files,
         ?TrustedProxies $proxies = null,
+        private string $rawBody = '',
     ) {
         $this->proxies = $proxies ?? new TrustedProxies();
     }
@@ -41,6 +42,7 @@ final class Request
             $_SERVER,
             $_FILES,
             TrustedProxies::fromString(Config::trustedProxies()),
+            (string) file_get_contents('php://input'),
         );
     }
 
@@ -120,6 +122,23 @@ final class Request
             return (string) strstr(ltrim($hop, '['), ']', true);
         }
         return substr_count($hop, ':') === 1 ? (string) strstr($hop, ':', true) : $hop;
+    }
+
+    /**
+     * The decoded JSON request body as an associative array — the API's write
+     * transport. An absent, non-object, or malformed body reads as an empty
+     * array (the endpoint's validation then rejects it), never a fatal.
+     *
+     * @return array<string,mixed>
+     */
+    public function json(): array
+    {
+        if (trim($this->rawBody) === '') {
+            return [];
+        }
+        $decoded = json_decode($this->rawBody, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     public function bearerToken(): ?string
