@@ -59,4 +59,20 @@ class RelationType extends BaseType
     {
         return (string) $field->option('target', '');
     }
+
+    /** @return array<string,mixed> */
+    public function jsonSchema(Field $field): array
+    {
+        return [
+            'type'  => 'array',
+            'items' => [
+                'type'       => 'object',
+                'properties' => [
+                    'id'    => ['type' => 'integer'],
+                    'slug'  => ['type' => 'string'],
+                    'title' => ['type' => 'string'],
+                ],
+            ],
+        ];
+    }
 }

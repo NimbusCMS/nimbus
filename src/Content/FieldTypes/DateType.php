@@ -34,4 +34,10 @@ class DateType extends BaseType
         $d = \DateTime::createFromFormat('Y-m-d', (string) $value);
         return ($d && $d->format('Y-m-d') === (string) $value) ? null : 'Enter a valid date (YYYY-MM-DD).';
     }
+
+    /** @return array<string,mixed> */
+    public function jsonSchema(Field $field): array
+    {
+        return ['type' => 'string', 'format' => 'date'];
+    }
 }

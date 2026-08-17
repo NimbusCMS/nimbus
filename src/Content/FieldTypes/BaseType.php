@@ -41,6 +41,12 @@ abstract class BaseType implements FieldType
         return false;
     }
 
+    /** @return array<string,mixed> */
+    public function jsonSchema(Field $field): array
+    {
+        return ['type' => 'string'];
+    }
+
     protected function inputName(Field $field): string
     {
         return 'f[' . $field->handle . ']';

@@ -46,4 +46,13 @@ interface FieldType
 
     /** Whether this type is configured with a list of choices (like select). */
     public function hasChoices(): bool;
+
+    /**
+     * A JSON-Schema fragment describing this field's API value, for the generated
+     * OpenAPI document (ADR 0008) — the schema-language sibling of toApi(). A
+     * type describes what toApi() produces; BaseType defaults to a string.
+     *
+     * @return array<string,mixed>
+     */
+    public function jsonSchema(Field $field): array;
 }

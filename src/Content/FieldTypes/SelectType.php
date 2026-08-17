@@ -48,4 +48,16 @@ class SelectType extends BaseType
         $choices = array_map('strval', (array) $field->option('choices', []));
         return in_array((string) $value, $choices, true) ? null : 'Choose one of the available options.';
     }
+
+    /** @return array<string,mixed> */
+    public function jsonSchema(Field $field): array
+    {
+        $choices = array_values(array_map('strval', (array) $field->option('choices', [])));
+        $schema  = ['type' => 'string'];
+        if ($choices !== []) {
+            $schema['enum'] = $choices;
+        }
+
+        return $schema;
+    }
 }

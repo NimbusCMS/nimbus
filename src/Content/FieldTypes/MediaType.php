@@ -51,4 +51,21 @@ class MediaType extends BaseType
     {
         return $value !== null && $value !== '' ? (int) $value : null;
     }
+
+    /** @return array<string,mixed> */
+    public function jsonSchema(Field $field): array
+    {
+        return [
+            'type'       => 'object',
+            'nullable'   => true,
+            'properties' => [
+                'id'     => ['type' => 'integer'],
+                'url'    => ['type' => 'string'],
+                'alt'    => ['type' => 'string', 'nullable' => true],
+                'mime'   => ['type' => 'string'],
+                'width'  => ['type' => 'integer', 'nullable' => true],
+                'height' => ['type' => 'integer', 'nullable' => true],
+            ],
+        ];
+    }
 }
