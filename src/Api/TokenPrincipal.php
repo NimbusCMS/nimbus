@@ -11,12 +11,25 @@ namespace Nimbus\Api;
  * granted scopes, not a user's. It answers one question — "may I perform this
  * action on this resource?" — and answers it deny-by-default.
  *
- * A scope is `resource:action`, where resource is a collection handle or `*`
- * and action is `read` or `write` (only `read` is exercised while the API is
- * read-only).
+ * A scope is `resource:action`, where resource is a collection handle, a
+ * management capability (`schema`, `media`, `users`, `tokens`, `settings`), or
+ * `*`, and action is `read` or `write`. The bare scope `admin` is a super-grant
+ * — it permits every action on every resource. These management capabilities
+ * are deliberately the atoms of a future roles system (ADR 0009): a role will
+ * be a named bundle of them, so the model is designed now to slot RBAC in later
+ * without rework.
  */
 final readonly class TokenPrincipal
 {
+    /**
+     * The management capabilities (ADR 0009). They live in the `resource:action`
+     * namespace like collection scopes, but they grant power over the whole
+     * install, so the content wildcard `*:action` must NOT reach them — only an
+     * exact grant or `admin` does. Otherwise "write all my content" (`*:write`)
+     * would silently become "create users, mint tokens, change settings".
+     */
+    private const MANAGEMENT = ['schema', 'media', 'users', 'tokens', 'settings'];
+
     /** @param string[] $scopes granted scopes, each `resource:action` */
     public function __construct(
         public int $tokenId,
@@ -39,10 +52,29 @@ final readonly class TokenPrincipal
         return new self($token->id, $token->name, $scopes);
     }
 
-    /** May this token perform $action on $resource? Deny-by-default; `*` grants every resource. */
+    /**
+     * May this token perform $action on $resource? Deny-by-default.
+     *
+     * - `admin` is the one cross-cutting super-grant — every action, every
+     *   resource, content and management alike.
+     * - An exact `{resource}:{action}` grant always suffices.
+     * - The content wildcard `*:{action}` grants that action on every
+     *   *collection*, but deliberately never on a management capability
+     *   (schema/media/users/tokens/settings): those escalate privilege and must
+     *   be granted explicitly. So a `*:write` token can edit any collection yet
+     *   cannot mint tokens or create users.
+     */
     public function can(string $resource, string $action): bool
     {
-        return in_array("{$resource}:{$action}", $this->scopes, true)
-            || in_array("*:{$action}", $this->scopes, true);
+        if (in_array('admin', $this->scopes, true)) {
+            return true;
+        }
+        if (in_array("{$resource}:{$action}", $this->scopes, true)) {
+            return true;
+        }
+        if (in_array($resource, self::MANAGEMENT, true)) {
+            return false;
+        }
+        return in_array("*:{$action}", $this->scopes, true);
     }
 }

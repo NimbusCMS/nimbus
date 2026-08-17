@@ -29,6 +29,42 @@ final class TokenPrincipalTest extends TestCase
         self::assertFalse($p->can('posts', 'write'), 'the wildcard is per-action');
     }
 
+    public function test_admin_is_a_super_grant_over_every_resource_and_action(): void
+    {
+        $p = new TokenPrincipal(1, 'Root', ['admin']);
+
+        self::assertTrue($p->can('posts', 'read'));
+        self::assertTrue($p->can('posts', 'write'));
+        self::assertTrue($p->can('schema', 'write'), 'admin covers management capabilities too');
+        self::assertTrue($p->can('anything', 'delete'), 'admin is action-agnostic');
+    }
+
+    public function test_a_granular_management_capability_is_scoped_to_itself(): void
+    {
+        $p = new TokenPrincipal(1, 'Schema editor', ['schema:write']);
+
+        self::assertTrue($p->can('schema', 'write'));
+        self::assertFalse($p->can('users', 'write'), 'a granular capability grants only itself');
+        self::assertFalse($p->can('posts', 'read'), 'and does not leak into content');
+    }
+
+    public function test_the_content_wildcard_never_reaches_a_management_capability(): void
+    {
+        // `*:write` means "write every collection", not "run the whole CMS".
+        // Management capabilities escalate privilege and must be granted
+        // explicitly (or via admin), so the content wildcard must not confer
+        // them — else a content-write-all token could mint tokens or add users.
+        $p = new TokenPrincipal(1, 'Content bot', ['*:write', '*:read']);
+
+        self::assertTrue($p->can('posts', 'write'), 'the wildcard still grants writing any collection');
+        self::assertTrue($p->can('anything', 'read'));
+        self::assertFalse($p->can('users', 'write'), 'the content wildcard must not grant user management');
+        self::assertFalse($p->can('tokens', 'write'), 'nor token minting');
+        self::assertFalse($p->can('settings', 'write'), 'nor settings');
+        self::assertFalse($p->can('schema', 'write'), 'nor schema changes');
+        self::assertFalse($p->can('media', 'read'), 'management reads are explicit too');
+    }
+
     public function test_no_scopes_denies_everything(): void
     {
         self::assertFalse((new TokenPrincipal(1, 'T', []))->can('posts', 'read'));

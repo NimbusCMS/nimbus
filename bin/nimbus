@@ -119,8 +119,11 @@ try {
             if ($scopesOpt !== null && trim($scopesOpt) !== '') {
                 foreach (explode(',', $scopesOpt) as $scope) {
                     $scope = trim($scope);
-                    if (preg_match('/^(\*|[a-z0-9-]+):(read|write)$/', $scope) !== 1) {
-                        fwrite(STDERR, "Invalid scope \"{$scope}\" (use e.g. posts:read or *:read).\n");
+                    // `admin` is the bare super-grant; every other scope is
+                    // `resource:action` — a collection handle or a management
+                    // capability (schema/media/users/tokens/settings) or `*`.
+                    if ($scope !== 'admin' && preg_match('/^(\*|[a-z0-9-]+):(read|write)$/', $scope) !== 1) {
+                        fwrite(STDERR, "Invalid scope \"{$scope}\" (use e.g. posts:read, schema:write, *:read, or admin).\n");
                         exit(1);
                     }
                     $scopes[] = $scope;
