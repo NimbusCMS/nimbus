@@ -40,6 +40,34 @@ final class ApiResponse
         return Response::json(['error' => ['status' => $status, 'code' => $code, 'message' => $message]], $status);
     }
 
+    /**
+     * A single entity, wrapped like ok() but with an explicit status — 201 for a
+     * create, 200 for an update.
+     *
+     * @param array<string,mixed> $data
+     */
+    public static function entity(array $data, int $status = 200): Response
+    {
+        return Response::json(['data' => $data], $status);
+    }
+
+    /**
+     * A 422 with per-field validation messages — the error envelope plus a
+     * `fields` map so a client can show the errors against the right inputs.
+     *
+     * @param array<string,string> $fields
+     */
+    public static function invalid(array $fields, string $message = 'The entry could not be saved.'): Response
+    {
+        return Response::json(['error' => ['status' => 422, 'code' => 'invalid', 'message' => $message, 'fields' => $fields]], 422);
+    }
+
+    /** 204 No Content — a successful delete, no body. */
+    public static function noContent(): Response
+    {
+        return Response::file('', 'application/json; charset=UTF-8', 204);
+    }
+
     public static function unauthorized(string $message = 'A valid API token is required.'): Response
     {
         return self::error(401, 'unauthorized', $message)->withHeader('WWW-Authenticate', 'Bearer');

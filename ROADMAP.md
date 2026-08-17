@@ -336,9 +336,9 @@ guards mass-assignment). A single `{handle}:write` scope; optimistic concurrency
 (ETag / If-Match); writes are audited.
 
 - [x] **Slice 0 — ADR 0007**
-- [ ] **Slice 1 — concurrency foundation**: entry `version` column + bump in
+- [x] **Slice 1 — concurrency foundation**: entry `version` column + bump in
       `EntryService`; `GET` returns `ETag`; an `If-Match` helper.
-- [ ] **Slice 2 — write endpoints**: `POST`/`PATCH`/`DELETE` via `EntryService`;
+- [x] **Slice 2 — write endpoints**: `POST`/`PATCH`/`DELETE` via `EntryService`;
       `{handle}:write` enforced deny-by-default (scope before existence); `422`
       validation errors; `If-Match` required on update/delete (`412`/`428`); the
       authorization matrix gains write rows.
