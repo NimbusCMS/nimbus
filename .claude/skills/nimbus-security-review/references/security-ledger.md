@@ -59,3 +59,21 @@ Template for an accepted risk:
 - **Owner:** <who accepted> · **Revisit by:** YYYY-MM-DD
 - **ADR:** docs/adr/NNNN-...md · **Reproduction:** <link/steps>
 -->
+
+### 2026-08-17 · MCP tool denial left no audit trail — Low
+- **Status:** fixed
+- **Surface:** `src/Mcp/ContentToolset.php::callContent()` (observability; adjacent to catalog #1/#2)
+- **Scenario:** the MCP content-tool dispatcher pre-checked `can()` and returned
+  "unknown tool" *before* reaching `EntryOperations`, so an out-of-scope tool
+  call (a scope-probe by a valid token) produced no `API_ACCESS_DENIED` event —
+  unlike the equivalent HTTP API request, which audits the denial. A blind spot
+  for the api-advanced audit log on the highest-privilege surface.
+- **Control added:** authorization is now decided by the shared `EntryOperations`
+  (which audits the denial) and its `Forbidden` outcome is mapped to "unknown
+  tool" at the MCP boundary — non-enumeration preserved AND the probe audited.
+  Rate limiting (per-token quota) already bounds probe volume, so auditing every
+  denial adds no new DoS vector.
+- **Evidence:** MCP Slice 2 PR · non-enumeration guarded by
+  `tests/Http/McpTest.php::test_calling_a_tool_outside_scope_is_an_unknown_tool`
+- **Recurrence:** 1st sighting (audit-parity between transports) — watch as stdio
+  (Slice 3) and management tools (4–6) add more surfaces.
