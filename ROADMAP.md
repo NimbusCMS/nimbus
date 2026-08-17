@@ -346,20 +346,20 @@ guards mass-assignment). A single `{handle}:write` scope; optimistic concurrency
       the acting token) + `nimbuscms/api-advanced` records it (who-changed-what).
 - [x] **Slice 4 — docs + review**: COMPATIBILITY, final security-review pass.
 
-## 📖 Milestone: OpenAPI (active)
+## 📖 Milestone: OpenAPI (complete)
 
 A machine-readable contract for the `/api/v1` read+write surface, **generated**
 from the live content model (the model is user-defined, so a hand-written spec
 can't work). Design in [ADR 0008](docs/adr/0008-openapi.md).
 
 - [x] **Slice 0 — ADR 0008**
-- [ ] **Slice 1 — `FieldType::jsonSchema()`**: a JSON-Schema fragment per field
+- [x] **Slice 1 — `FieldType::jsonSchema()`**: a JSON-Schema fragment per field
       type (sibling of `toApi()`), defaulted in `BaseType` so nothing breaks;
       number/boolean/date/email/url/select/relation/media override.
-- [ ] **Slice 2 — `OpenApiGenerator`**: build the OpenAPI 3.0 document from
+- [x] **Slice 2 — `OpenApiGenerator`**: build the OpenAPI 3.0 document from
       collections + fields + the fixed routes/components (bearer security, error
       envelope + codes, pagination, ETag/If-Match). Structure test.
-- [ ] **Slice 3 — serve it**: `GET /api/v1/openapi.json` (auth-gated, full spec)
+- [x] **Slice 3 — serve it**: `GET /api/v1/openapi.json` (auth-gated, full spec)
       + `nimbus openapi` CLI dump; COMPATIBILITY + security-review pass.
 
 Then, on this contract: **MCP** — a thin Model Context Protocol server exposing

@@ -644,6 +644,26 @@ declined (keep it — it stops the idea returning without new evidence).
 - **Revisit:** finer `publish`/`delete` scopes; bulk writes; media upload over the
   API; idempotency keys — each on evidence. Next milestones: **OpenAPI**, then **MCP**.
 
+### 2026-08-17 · OpenAPI milestone complete
+- **Status:** accepted (milestone complete)
+- **Evidence:** [ADR 0008](../../../../docs/adr/0008-openapi.md); PRs #77
+  (`jsonSchema()`), #78 (`OpenApiGenerator`), + serving. 466 tests; live curl:
+  `GET /api/v1/openapi.json` is 401 without a token, 200 with.
+- **Product:** the API now has a machine-readable contract — Swagger UI, typed
+  SDKs, and (next) MCP can consume it.
+- **Architecture:** the spec is **generated from the live model**, not
+  hand-written, so it can never lie about the shapes. Field types **describe
+  their own JSON Schema** via a new `FieldType::jsonSchema()` (defaulted in
+  `BaseType`, so no field-type or plugin broke — the Markdown plugin inherited the
+  default). Served two ways: `GET /api/v1/openapi.json` behind the group's bearer
+  auth (inside the rate-limited group), and a `nimbus openapi` CLI dump.
+- **Security:** the endpoint is auth-gated and rate-limited. Accepted low: it
+  serves the **full** model regardless of the token's scopes (a scope-filtered
+  per-token spec is a documented later refinement — it would vary per caller and
+  break caching).
+- **Revisit:** a bundled Swagger UI page; a scope-filtered spec; OpenAPI 3.1.
+  **Next:** MCP, deriving its tool list from this contract.
+
 ---
 
 ## Open findings (proposed — awaiting classification into work)
