@@ -165,7 +165,9 @@ final class ApiController
             return ApiResponse::invalid($result->errors);
         }
 
-        return $this->entityResponse($collection, (int) $result->entryId, 201, $principal);
+        $row = $this->entries->find($collection->id, (int) $result->entryId) ?? [];
+        $this->announceWrite($request, $principal, $collection, 'create', $row);
+        return $this->entityResponse($collection, $row, 201, $principal);
     }
 
     /** Update an entry by slug. Requires `{handle}:write` and a matching If-Match. → 200. */
@@ -194,7 +196,9 @@ final class ApiController
             return ApiResponse::invalid($result->errors);
         }
 
-        return $this->entityResponse($collection, (int) $result->entryId, 200, $principal);
+        $saved = $this->entries->find($collection->id, (int) $result->entryId) ?? [];
+        $this->announceWrite($request, $principal, $collection, 'update', $saved);
+        return $this->entityResponse($collection, $saved, 200, $principal);
     }
 
     /** Delete an entry by slug. Requires `{handle}:write` and a matching If-Match. → 204. */
@@ -219,7 +223,28 @@ final class ApiController
         }
 
         $this->entryService->delete($collection, (int) $row['id']);
+        $this->announceWrite($request, $principal, $collection, 'delete', $row);
         return ApiResponse::noContent();
+    }
+
+    /**
+     * Announce a write to any audit listener — best-effort, isolated, and it names the token.
+     *
+     * @param array<string,mixed> $row the saved (or, for delete, just-removed) entry row
+     */
+    private function announceWrite(Request $request, TokenPrincipal $principal, Collection $collection, string $action, array $row): void
+    {
+        $this->events->emitBestEffort(CoreEvents::API_ENTRY_WRITTEN, [
+            'token_id'   => $principal->tokenId,
+            'token_name' => $principal->name,
+            'collection' => $collection->handle,
+            'entry_id'   => (int) ($row['id'] ?? 0),
+            'slug'       => (string) ($row['slug'] ?? ''),
+            'action'     => $action,
+            'ip'         => $request->ip(),
+            'path'       => $request->path,
+            'at'         => date('Y-m-d H:i:s'),
+        ]);
     }
 
     /**
@@ -290,12 +315,16 @@ final class ApiController
         return $values;
     }
 
-    /** Re-read the saved entry and return it with its fresh ETag (plus a Location on create). */
-    private function entityResponse(Collection $collection, int $id, int $status, TokenPrincipal $principal): Response
+    /**
+     * The success body for a write: the saved entry with its fresh ETag (plus a
+     * Location on create).
+     *
+     * @param array<string,mixed> $row the saved (hydrated) entry row
+     */
+    private function entityResponse(Collection $collection, array $row, int $status, TokenPrincipal $principal): Response
     {
-        $row      = $this->entries->find($collection->id, $id) ?? [];
         $response = ApiResponse::entity($this->view->one($collection, $row, $this->scopeFilter($principal)), $status)
-            ->withHeader('ETag', EntryETag::of($id, (int) ($row['version'] ?? 1)));
+            ->withHeader('ETag', EntryETag::of((int) ($row['id'] ?? 0), (int) ($row['version'] ?? 1)));
 
         if ($status === 201) {
             $response = $response->withHeader('Location', "/api/v1/collections/{$collection->handle}/entries/" . (string) ($row['slug'] ?? ''));
