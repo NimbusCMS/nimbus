@@ -40,20 +40,29 @@ needs it. New capabilities are additive and never break existing plugins.
 
 ## The public HTTP API
 
-Separate from the plugin PHP surface, the read-only API under `/api/v1` is a
-public **wire** contract — an application consuming it depends on the request
-and response shapes, not on any PHP class. What is promised:
+Separate from the plugin PHP surface, the API under `/api/v1` is a public
+**wire** contract — an application consuming it depends on the request and
+response shapes, not on any PHP class. What is promised:
 
-- **Routes** — `GET /api/v1/collections/{handle}/entries` (paginated) and
-  `GET /api/v1/collections/{handle}/entries/{slug}`.
+- **Routes** — read: `GET …/collections/{handle}/entries` (paginated) and
+  `GET …/collections/{handle}/entries/{slug}`; write ([ADR 0007](adr/0007-write-api.md)):
+  `POST …/entries` (create → `201` + `Location`), `PATCH …/entries/{slug}`
+  (update → `200`), `DELETE …/entries/{slug}` (→ `204`).
 - **Envelope** — success is `{ "data": …, "meta": { page, per_page, total,
-  total_pages } }`; error is `{ "error": { "status", "code", "message" } }`. The
-  `code` is a stable machine-readable slug — branch on it, not the `message`:
-  `unauthorized` (401), `forbidden` (403), `not_found` (404), `rate_limited`
-  (429).
+  total_pages } }` (meta on collections); error is
+  `{ "error": { "status", "code", "message" } }`, plus a `fields` map on
+  validation. The `code` is a stable machine-readable slug — branch on it, not
+  the `message`: `unauthorized` (401), `forbidden` (403), `not_found` (404),
+  `invalid` (422), `precondition_required` (428), `precondition_failed` (412),
+  `rate_limited` (429).
 - **Auth** — a bearer token (`Authorization: Bearer …`), with per-collection
-  read scopes: an out-of-scope collection answers `403` `forbidden`, and cannot
-  be told apart from one that does not exist.
+  `read`/`write` scopes: an out-of-scope collection answers `403` `forbidden`,
+  and cannot be told apart from one that does not exist.
+- **Writes** map the JSON body (`{ title, slug?, status?, fields }`) to the same
+  service the admin uses — only a collection's declared fields are bound. A write
+  needs the collection's `write` scope; a `PATCH`/`DELETE` needs `If-Match`
+  carrying the entry's current `ETag` (a read returns it) — absent is `428`,
+  stale is `412`, so machine clients cannot silently overwrite each other.
 - **Rate limiting** — requests are limited per token (and per IP for the
   unauthenticated flood guard); over the limit is `429` `rate_limited` with a
   `Retry-After` header. Limits are deployment config, not part of the contract.

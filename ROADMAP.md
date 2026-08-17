@@ -326,7 +326,7 @@ consumer of the events + storage capabilities. Planned:
   limiting.* Emitted **with** this plugin (its consumer), not before (ADR-0001).
 - Webhooks · per-token analytics · per-token quotas.
 
-## ✍️ Milestone: Write API (active)
+## ✍️ Milestone: Write API (complete)
 
 On the hardened base, the same operations the admin performs, over the API.
 Design in [ADR 0007](docs/adr/0007-write-api.md): a new transport in front of
@@ -342,11 +342,11 @@ guards mass-assignment). A single `{handle}:write` scope; optimistic concurrency
       `{handle}:write` enforced deny-by-default (scope before existence); `422`
       validation errors; `If-Match` required on update/delete (`412`/`428`); the
       authorization matrix gains write rows.
-- [ ] **Slice 3 — write auditing**: core `api.entry_written` (best-effort, carries
+- [x] **Slice 3 — write auditing**: core `api.entry_written` (best-effort, carries
       the acting token) + `nimbuscms/api-advanced` records it (who-changed-what).
-- [ ] **Slice 4 — docs + review**: COMPATIBILITY, final security-review pass.
+- [x] **Slice 4 — docs + review**: COMPATIBILITY, final security-review pass.
 
-Then, on this foundation and only then: OpenAPI of the read+write surface · MCP.
+Then: OpenAPI of the read+write surface, then MCP.
 
 ## 🎯 Release 0.1 — "usable CMS"
 
