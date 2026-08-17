@@ -13,6 +13,8 @@ use Nimbus\Http\Middleware\RateLimitMiddleware;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Mcp\ContentToolset;
+use Nimbus\Mcp\McpServer;
 use Nimbus\Support\Config;
 use Nimbus\Support\EventDispatcher;
 
@@ -31,6 +33,7 @@ final class ApiController
     private CollectionRepository $collections;
     private FieldTypeRegistry $types;
     private EntryOperations $ops;
+    private McpServer $mcpServer;
     private ApiAuthMiddleware $auth;
     private ApiAuthContext $authContext;
     private RateLimitMiddleware $ipFlood;
@@ -45,6 +48,7 @@ final class ApiController
         $this->collections = new CollectionRepository($db);
         $this->types       = $types;
         $this->ops         = new EntryOperations($db, $types, $events);
+        $this->mcpServer   = new McpServer(new ContentToolset($this->collections, $types, $this->ops));
         $this->authContext = $authContext;
         $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext, $events);
 
@@ -63,6 +67,7 @@ final class ApiController
         // Order matters: flood guard → authenticate → per-token quota → handler.
         $r->group('/api/v1', [$this->ipFlood, $this->auth, $this->tokenQuota], function (Router $g): void {
             $g->get('/openapi.json', fn (Request $req, array $p): Response => $this->openapi())->name('api.openapi');
+            $g->post('/mcp', fn (Request $req, array $p): Response => $this->mcp($req))->name('api.mcp');
             $g->get('/collections/{handle}/entries', fn (Request $req, array $p): Response => $this->index($req, $p['handle']))->name('api.entries.index');
             $g->get('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->show($req, $p['handle'], $p['slug']))->name('api.entries.show');
             $g->post('/collections/{handle}/entries', fn (Request $req, array $p): Response => $this->create($req, $p['handle']))->name('api.entries.create');
@@ -79,6 +84,25 @@ final class ApiController
     private function openapi(): Response
     {
         return Response::json((new OpenApiGenerator($this->collections, $this->types))->generate());
+    }
+
+    /**
+     * The MCP endpoint (ADR 0009): JSON-RPC 2.0 over HTTP, inside the API group,
+     * so it inherits bearer auth and rate limiting. It decodes the body, hands
+     * the message to the shared {@see McpServer}, and returns the JSON-RPC reply
+     * — or 202 Accepted with no body for a notification, which gets no response.
+     */
+    private function mcp(Request $request): Response
+    {
+        $principal = $this->authContext->principal();
+        if ($principal === null) {
+            return ApiResponse::unauthorized();
+        }
+        $reply = $this->mcpServer->handle($request->json(), $principal, $this->context($request));
+        if ($reply === null) {
+            return Response::file('', 'application/json; charset=UTF-8', 202);
+        }
+        return Response::json($reply);
     }
 
     /** A page of a collection's live entries, newest first. */
