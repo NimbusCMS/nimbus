@@ -81,6 +81,19 @@ final class CoreEvents
      */
     public const API_ACCESS_DENIED = 'api.access_denied';
 
+    /**
+     * An entry was created, updated or deleted **through the API** by a token.
+     * Payload: `['token_id' => int, 'token_name' => string, 'collection' => string,
+     * 'entry_id' => int, 'slug' => string, 'action' => 'create'|'update'|'delete',
+     * 'ip' => string, 'path' => string, 'at' => 'Y-m-d H:i:s']`.
+     *
+     * Best-effort and isolated; pre-1.0. Distinct from the `entry.*` events, which
+     * fire for *every* write (admin included) and carry no actor — this one names
+     * the token, for an audit "who changed what" trail. The consumer of choice is
+     * an audit / activity-log plugin.
+     */
+    public const API_ENTRY_WRITTEN = 'api.entry_written';
+
     private function __construct()
     {
     }
