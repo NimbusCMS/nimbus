@@ -698,3 +698,24 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
 - **Design note (validated later):** the shared-service extraction as the *first*
   MCP slice is paying off — Slice 2 adds only a JSON-RPC transport over an
   already-authz/concurrency/audit-complete service, not a second content path.
+
+### 2026-08-18 · MCP Slice 4 — schema tools + the Toolset seam (Core)
+- **Decision:** management tools plug in via a `Toolset` interface the `McpServer`
+  aggregates (management-first ordering, so a fixed name like `create_collection`
+  is claimed before a content verb could parse it). `ContentToolset` now
+  implements it; `SchemaToolset` is the first management group. This is the seam
+  Slices 5–6 extend without touching existing toolsets.
+- **Decision:** schema tools reuse the admin's `CollectionService` (one write
+  path); field-level tools read-current→mutate→re-sync (safe), with `set_fields`
+  the deliberate full-replace power tool. Destructive `delete_collection` gated by
+  `confirm:true` + surfaced entry count (Dan's call: a real need exists).
+- **Decision:** added a `version` column to `nb_collections` now (bumped on every
+  shape change), so a read-before-write guard on schema can land later without a
+  migration then. Guard deferred; column tracks + is surfaced in `describe_collection`.
+- **Lesson (self-learning):** the HTTP suite passes against a **migrated** DB and
+  masked an ordering gap — a live smoke against the un-migrated dev DB 500'd on
+  `add_field` because `repo->update` writes the new `version` column. `create`
+  masked it (INSERT omits the column → default). Takeaway: any slice adding a
+  column + code that writes it must be smoked against a freshly-migrated env, and
+  the deploy release gate (ADR 0010) must run `migrate` before serving. No code
+  defect; a process signal.

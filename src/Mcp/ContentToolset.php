@@ -30,7 +30,7 @@ use Nimbus\Content\Publication;
  * - **Read-before-write**: `update_*` and `delete_*` require the entry's
  *   `version`, evaluated through the same {@see Precondition} the API uses.
  */
-final class ContentToolset
+final class ContentToolset implements Toolset
 {
     public function __construct(
         private CollectionRepository $collections,
@@ -66,20 +66,14 @@ final class ContentToolset
     }
 
     /**
-     * Execute a `tools/call`. Returns a tool-result array (possibly `isError`).
-     * Throws {@see McpError} for a protocol-level fault (missing/unknown tool).
+     * Execute a content `tools/call`, or return null if the name is not a content
+     * tool (so the server can offer it to another toolset).
      *
-     * @param array<string,mixed> $params the JSON-RPC params: `name` + `arguments`
-     * @return array<string,mixed>
+     * @param array<string,mixed> $args
+     * @return array<string,mixed>|null
      */
-    public function call(array $params, TokenPrincipal $principal, EntryOpContext $ctx): array
+    public function call(string $name, array $args, TokenPrincipal $principal, EntryOpContext $ctx): ?array
     {
-        $name = is_string($params['name'] ?? null) ? $params['name'] : '';
-        $args = is_array($params['arguments'] ?? null) ? $params['arguments'] : [];
-        if ($name === '') {
-            throw new McpError(JsonRpc::INVALID_PARAMS, 'A tool call needs a "name".');
-        }
-
         if ($name === 'list_collections') {
             return $this->callListCollections($principal);
         }
@@ -87,7 +81,12 @@ final class ContentToolset
             return $this->callDescribeCollection($args, $principal);
         }
 
-        return $this->callContent($name, $args, $principal, $ctx);
+        [$verb, $handle] = $this->split($name);
+        if ($handle === '' || !in_array($verb, ['list', 'get', 'create', 'update', 'delete'], true)) {
+            return null; // not a content tool — defer to the next toolset
+        }
+
+        return $this->callContent($verb, $handle, $name, $args, $principal, $ctx);
     }
 
     // --------------------------------------------------------------- execution
@@ -96,13 +95,8 @@ final class ContentToolset
      * @param array<string,mixed> $args
      * @return array<string,mixed>
      */
-    private function callContent(string $name, array $args, TokenPrincipal $principal, EntryOpContext $ctx): array
+    private function callContent(string $verb, string $handle, string $name, array $args, TokenPrincipal $principal, EntryOpContext $ctx): array
     {
-        [$verb, $handle] = $this->split($name);
-        if ($handle === '' || !in_array($verb, ['list', 'get', 'create', 'update', 'delete'], true)) {
-            throw new McpError(JsonRpc::INVALID_PARAMS, "Unknown tool \"{$name}\".");
-        }
-
         // Authorization is decided by the one shared service, not re-implemented
         // here: EntryOperations checks scope-before-existence and audits a denial.
         $result = match ($verb) {
@@ -111,6 +105,7 @@ final class ContentToolset
             'create' => $this->ops->create($principal, $ctx, $handle, $this->writePayload($args)),
             'update' => $this->ops->update($principal, $ctx, $handle, $this->stringArg($args, 'slug'), $this->writePayload($args), $this->versionPrecondition($args)),
             'delete' => $this->ops->delete($principal, $ctx, $handle, $this->stringArg($args, 'slug'), $this->versionPrecondition($args)),
+            default  => throw new \LogicException("Unhandled content verb \"{$verb}\"."),
         };
 
         // A tool the token may not use is reported as *unknown*, never
@@ -134,7 +129,7 @@ final class ContentToolset
                 $readable[] = ['handle' => $collection->handle, 'name' => $collection->name];
             }
         }
-        return $this->ok(['collections' => $readable]);
+        return ToolResult::ok(['collections' => $readable]);
     }
 
     /**
@@ -147,7 +142,7 @@ final class ContentToolset
         $collection = $this->collections->findByHandle($handle);
         // Non-enumeration: an unreadable or absent collection is indistinguishable.
         if ($collection === null || !$principal->can($handle, 'read')) {
-            return $this->error("No collection \"{$handle}\".", 'not_found');
+            return ToolResult::error("No collection \"{$handle}\".", 'not_found');
         }
 
         $fields = [];
@@ -161,9 +156,10 @@ final class ContentToolset
             ];
         }
 
-        return $this->ok([
+        return ToolResult::ok([
             'handle'   => $collection->handle,
             'name'     => $collection->name,
+            'version'  => $collection->version,
             'writable' => $principal->can($handle, 'write'),
             'fields'   => $fields,
         ]);
@@ -187,7 +183,7 @@ final class ContentToolset
             if ($result->version !== null) {
                 $payload['version'] = $result->version;
             }
-            return $this->ok($payload);
+            return ToolResult::ok($payload);
         }
 
         // Ok is handled above, so only the failure statuses remain here.
@@ -202,7 +198,7 @@ final class ContentToolset
             ? 'The entry could not be saved.'
             : $result->message;
 
-        return $this->error($message, $code, $result->errors);
+        return ToolResult::error($message, $code, $result->errors);
     }
 
     // ------------------------------------------------------------- definitions
@@ -351,45 +347,6 @@ final class ContentToolset
     private function tool(string $name, string $description, array $inputSchema): array
     {
         return ['name' => $name, 'description' => $description, 'inputSchema' => $inputSchema];
-    }
-
-    // ------------------------------------------------------------- result glue
-
-    /**
-     * @param array<string,mixed> $structured
-     * @return array<string,mixed>
-     */
-    private function ok(array $structured): array
-    {
-        return [
-            'content'           => [['type' => 'text', 'text' => $this->encode($structured)]],
-            'structuredContent' => $structured,
-            'isError'           => false,
-        ];
-    }
-
-    /**
-     * @param array<string,string> $fields field validation errors, when present
-     * @return array<string,mixed>
-     */
-    private function error(string $message, string $code, array $fields = []): array
-    {
-        $error = ['code' => $code, 'message' => $message];
-        if ($fields !== []) {
-            $error['fields'] = $fields;
-        }
-        $structured = ['error' => $error];
-        return [
-            'content'           => [['type' => 'text', 'text' => $this->encode($structured)]],
-            'structuredContent' => $structured,
-            'isError'           => true,
-        ];
-    }
-
-    /** @param array<string,mixed> $value */
-    private function encode(array $value): string
-    {
-        return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     }
 
     // ------------------------------------------------------------------- parse

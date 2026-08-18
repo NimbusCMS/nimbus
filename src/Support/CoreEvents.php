@@ -94,6 +94,19 @@ final class CoreEvents
      */
     public const API_ENTRY_WRITTEN = 'api.entry_written';
 
+    /**
+     * A **management** action was taken through the API/MCP by a token — the
+     * structural equivalent of API_ENTRY_WRITTEN for schema/media/users/tokens/
+     * settings (ADR 0009). Payload: `['token_id' => int, 'token_name' => string,
+     * 'capability' => string, 'action' => string, 'target' => string,
+     * 'ip' => string, 'path' => string, 'at' => 'Y-m-d H:i:s']`.
+     *
+     * Best-effort and isolated; pre-1.0. Emitted as each management tool group
+     * lands; the api-advanced audit log records it (Slice 7), so an agent
+     * reshaping the CMS leaves a full who-did-what trail.
+     */
+    public const API_MANAGEMENT_WRITTEN = 'api.management_written';
+
     private function __construct()
     {
     }

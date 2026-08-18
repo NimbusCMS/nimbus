@@ -30,8 +30,17 @@ final class McpServer
     // Metadata only; the release process should source this from the CMS version.
     private const SERVER_VERSION = '0.1.0-alpha';
 
-    public function __construct(private ContentToolset $content)
+    /** @var list<Toolset> */
+    private array $toolsets;
+
+    /**
+     * @param Toolset ...$toolsets the tool groups, in priority order — management
+     *   toolsets first, content last, so a fixed management name (e.g.
+     *   `create_collection`) is claimed before a content verb could parse it.
+     */
+    public function __construct(Toolset ...$toolsets)
     {
+        $this->toolsets = array_values($toolsets);
     }
 
     /**
@@ -63,8 +72,8 @@ final class McpServer
             $result = match ($method) {
                 'initialize' => $this->initialize(),
                 'ping'       => [],
-                'tools/list' => ['tools' => $this->content->definitions($principal)],
-                'tools/call' => $this->content->call($params, $principal, $ctx),
+                'tools/list' => ['tools' => $this->allDefinitions($principal)],
+                'tools/call' => $this->callTool($params, $principal, $ctx),
                 default      => throw new McpError(JsonRpc::METHOD_NOT_FOUND, "Unknown method \"{$method}\"."),
             };
         } catch (McpError $e) {
@@ -72,6 +81,47 @@ final class McpServer
         }
 
         return JsonRpc::result($id, $result);
+    }
+
+    /**
+     * The union of every toolset's scope-filtered definitions.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function allDefinitions(TokenPrincipal $principal): array
+    {
+        $tools = [];
+        foreach ($this->toolsets as $toolset) {
+            foreach ($toolset->definitions($principal) as $tool) {
+                $tools[] = $tool;
+            }
+        }
+        return $tools;
+    }
+
+    /**
+     * Dispatch a `tools/call` to the first toolset that owns the name; if none
+     * do, it's an unknown tool. A toolset that owns the name but denies it on
+     * scope raises the unknown-tool error itself (non-enumeration).
+     *
+     * @param array<string,mixed> $params the JSON-RPC params: `name` + `arguments`
+     * @return array<string,mixed>
+     */
+    private function callTool(array $params, TokenPrincipal $principal, EntryOpContext $ctx): array
+    {
+        $name = is_string($params['name'] ?? null) ? $params['name'] : '';
+        $args = is_array($params['arguments'] ?? null) ? $params['arguments'] : [];
+        if ($name === '') {
+            throw new McpError(JsonRpc::INVALID_PARAMS, 'A tool call needs a "name".');
+        }
+
+        foreach ($this->toolsets as $toolset) {
+            $result = $toolset->call($name, $args, $principal, $ctx);
+            if ($result !== null) {
+                return $result;
+            }
+        }
+        throw new McpError(JsonRpc::INVALID_PARAMS, "Unknown tool \"{$name}\".");
     }
 
     /** @return array<string,mixed> */

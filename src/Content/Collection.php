@@ -19,6 +19,7 @@ final class Collection
         public readonly string $description,
         public readonly array $fields = [],
         public readonly array $options = [],
+        public readonly int $version = 1,
     ) {
     }
 
@@ -41,6 +42,7 @@ final class Collection
             (string) ($row['description'] ?? ''),
             $fields,
             $options,
+            (int) ($row['version'] ?? 1),
         );
     }
 

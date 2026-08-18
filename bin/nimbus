@@ -165,10 +165,12 @@ try {
             }
             $tokens->touch($token->id, 'stdio');
 
-            $app    = new Nimbus\Application($db);
-            $ops    = new Nimbus\Api\EntryOperations($db, $app->fieldTypeRegistry(), $app->events());
+            $app         = new Nimbus\Application($db);
+            $collections = new Nimbus\Content\CollectionRepository($db);
+            $ops         = new Nimbus\Api\EntryOperations($db, $app->fieldTypeRegistry(), $app->events());
             $server = new Nimbus\Mcp\McpServer(
-                new Nimbus\Mcp\ContentToolset(new Nimbus\Content\CollectionRepository($db), $app->fieldTypeRegistry(), $ops),
+                new Nimbus\Mcp\SchemaToolset($collections, new Nimbus\Content\CollectionService($db, $collections), $app->fieldTypeRegistry(), $app->events()),
+                new Nimbus\Mcp\ContentToolset($collections, $app->fieldTypeRegistry(), $ops),
             );
             $transport = new Nimbus\Mcp\StdioTransport(
                 $server,
