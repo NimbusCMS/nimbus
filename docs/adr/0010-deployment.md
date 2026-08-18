@@ -9,9 +9,9 @@
   + `src/Support/Config.php` (env-based config), `bin/nimbus` (`migrate`/`install`),
   the shipped dev `Dockerfile` + `docker-compose.yml`.
 - **Drives:** hosting *several* sites on Nimbus — the portfolio, the NimbusCMS
-  marketing/docs site, and the Foodmart and Restaurant demos — from one box, for
-  one bill, so the "MCP-native CMS" story can be *shown* on a live, self-hosted
-  platform.
+  marketing/docs site, and the Foodmart and Restaurant demos — from **one
+  dedicated box**, for one bill, so the "MCP-native CMS" story can be *shown* on a
+  live, self-hosted platform.
 
 ## Context
 
@@ -28,20 +28,24 @@ cookies, the router honours trusted proxies, and `bin/nimbus migrate` / `install
 bootstrap a fresh database. What's missing is a **production packaging + wiring
 story**; the shipped `docker-compose.yml` is for local development only.
 
-**The host already exists.** A Hetzner **CX23** (2 vCPU / 4 GB / 40 GB, eu-central,
-€4.99/mo, `49.13.135.236`) already runs the *aegis* project — an intermittent
-batch job (a couple of runs a day), so the box is idle most of the time and has
-ample headroom for a handful of lightweight PHP containers. The Nimbus platform
-**co-locates here**: no new bill.
+**A dedicated Hetzner box — separate from Aegis.** Co-location on the existing
+*aegis* box (Hetzner CX23, `49.13.135.236`) was considered — it's idle most of the
+time — but **rejected on security grounds** (see below). Instead the Nimbus
+platform gets its **own small Hetzner box** (a CX23/CAX11-class 4 GB at ~€5/mo, or
+a CAX21 ARM 8 GB at ~€7/mo for comfort with four sites + MySQL). This still meets
+*don't pay per site*: **one box hosts all the Nimbus sites**, a single ~€5–7/mo
+bill for the whole platform — just not the *same* box as the trading agent.
 
-**Checked against Aegis's own deploy** (`DanMat/Aegis`, its `deploy/` + ADR 0011):
-Aegis is a trading agent run by **systemd timers** (not Docker); its Caddy binds
-**`127.0.0.1:8080` only** and is published **privately over Tailscale** — it never
-touches public `:80`/`:443`, and its ADR is explicit that signals stay
-non-public. Two consequences for co-location: (1) **no port conflict** — our
-Docker Caddy takes the public ports, Aegis's stays on loopback (we just avoid
-host `:8080`), and Docker coexists with its systemd units; (2) a **security
-trade-off**, below.
+**Why not co-locate (checked against `DanMat/Aegis`, its `deploy/` + ADR 0011):**
+Aegis is a trading agent run by **systemd timers**; its Caddy binds
+`127.0.0.1:8080` and is published **privately over Tailscale** — its box is
+**public-facing to no one**, and its ADR is explicit that signals stay non-public.
+There was *no technical blocker* to co-locating (no port conflict — Aegis is on
+loopback; Docker coexists with systemd), but adding a **public** web platform to
+that box would put an internet attack surface next to Aegis's trading + LLM keys,
+breaking its private-only posture. The risk is low *today* (Aegis is in an
+experiment phase on **sandbox/paper keys**), but a separate box is the clean
+long-term boundary and costs little — so we take it now rather than migrate later.
 
 **The Cloudflare reality:** Cloudflare Workers/Pages cannot execute PHP, so Nimbus
 is never *hosted on* Cloudflare. Cloudflare is the edge — DNS, TLS, CDN, WAF — in
@@ -51,7 +55,7 @@ front of the Hetzner origin, per domain.
 
 ### One box, many containers — pay for the host, not the site
 
-The platform is a single Docker Compose stack on the existing Hetzner box:
+The platform is a single Docker Compose stack on its dedicated box:
 
 - **Caddy** reverse proxy owns `:80`/`:443` — automatic TLS and hostname routing.
   Adding a site is a few readable lines and does not disturb the running sites.
@@ -62,8 +66,8 @@ The platform is a single Docker Compose stack on the existing Hetzner box:
 - **One Nimbus container per site**, all the *same production image*, differing
   only by an env file (`DB_NAME`, `APP_URL`, theme, plugins). Same binary, N sites.
 - A dedicated Docker **network** for the web stack; **only Caddy publishes ports**;
-  each Nimbus container gets a **memory limit** so no site — or the aegis job —
-  can starve the others. **Aegis is untouched**, on its own network.
+  each Nimbus container gets a **memory limit** so no one site can starve the
+  others.
 
 Multi-*tenancy in core* (one instance resolving sites by hostname with per-tenant
 isolation) is **explicitly rejected** for now: it is a large, security-sensitive
@@ -72,27 +76,14 @@ already delivers "many sites, one bill" with hard isolation and zero core code.
 It stays a future option only if container density ever becomes the bottleneck —
 which four low-traffic sites will not hit.
 
-### Co-locating with Aegis — a deliberate security trade-off
+### A dedicated box keeps Aegis isolated (decided)
 
-Aegis's box is today **private-only** (Tailscale) and holds **trading + LLM API
-keys** (FMP / Anthropic / Alpaca paper). Adding a public Nimbus platform **raises
-that box's attack surface**: a compromised public site would sit on the same host
-as Aegis's secrets and agent. This is accepted only with hard isolation —
-otherwise use the off-ramp:
-
-- Nimbus containers run **non-root**, `cap_drop: [ALL]` + minimal adds, **no
-  Docker socket** mounted, read-only rootfs where feasible, and (host-wide)
-  Docker **userns-remap**.
-- Aegis's secrets stay in a root/aegis-owned `EnvironmentFile` (`0600`),
-  unreadable by the web stack's user; Aegis keeps its **own network** with no
-  route from the Nimbus containers.
-- The web stack publishes only Caddy's `:80`/`:443`; nothing else is exposed.
-
-**Off-ramp:** if that trade-off isn't wanted, put the public platform on a
-**separate ~€4/mo box** and keep Aegis private — this trades the "one bill" goal
-for keeping the trading host off the public internet. Revisit at Aegis Phase 4/5,
-when its ADR 0011 turns the batch into an **always-on agent** and the 4 GB box
-gets busier (resize, or split then).
+The public platform runs on its **own box**, so a compromise of a public Nimbus
+site cannot reach the Aegis trading host at all — the strongest isolation, and the
+reason we don't co-locate. Standard container hardening still applies as
+defence-in-depth for the public surface: Nimbus containers run **non-root**,
+`cap_drop: [ALL]` + minimal adds, **no Docker socket** mounted, read-only rootfs
+where feasible, host-wide Docker **userns-remap**, and only Caddy publishes ports.
 
 ### The production image is separate from the dev stack
 
@@ -115,7 +106,7 @@ domain; 6. `docker compose up -d <name>` → `bin/nimbus migrate` → env-driven
 
 ### Cloudflare + trust wiring
 
-Each domain is proxied (orange-cloud) to `49.13.135.236`; **TLS end-to-end**
+Each domain is proxied (orange-cloud) to the new box's IP; **TLS end-to-end**
 (Full/strict) via Caddy. Nimbus's trusted-proxy list must contain **the internal
 proxy and Cloudflare's IP ranges** — nothing wider — so the rate limiter and audit
 log read the real client IP from `X-Forwarded-For`. The edge caches only static
@@ -130,47 +121,48 @@ display_errors off (generic 500s already implemented); a strong admin via
 Adminer absent; per-site rate-limit + CORS for the real origin; `composer audit`
 clean; migrations an explicit release step; **backups off-box** (a nightly
 `mysqldump` + `uploads/` to Hetzner Storage Box or Cloudflare R2, so they don't
-consume the 40 GB local disk).
+consume the local disk).
 
 ## Consequences
 
 **Enables**
-- All four sites live on one €4.99/mo box already paid for — no per-site cost.
+- All four sites live on **one dedicated ~€5–7/mo box** — one bill for the whole
+  platform, no per-site cost, and the Aegis trading host stays private + untouched.
 - A repeatable, declarative deploy that closes ledger finding **F2** (no supported
   way to run Nimbus outside the dev root): one production image + per-site env +
   a migrate/install step.
 - The differentiator made real: a public, self-hosted, MCP-native CMS to demo.
 
 **Costs / makes harder**
-- 4 GB RAM is the ceiling — fine for low-traffic PHP sites with OPcache + memory
-  limits, but watch it; add swap, and a CX resize is a one-click bump if needed.
-- Co-location couples uptime to one box **and adds public exposure to a host that
-  today runs a private-only trading agent with API keys** — accepted only with the
-  isolation above; a separate box is the off-ramp. Mitigated by network + memory
-  isolation from aegis and off-box backups.
+- A second Hetzner box (~€5–7/mo) rather than reusing the idle aegis box — the
+  deliberate price of keeping the public platform off the trading host.
+- The box's RAM is the ceiling — fine for low-traffic PHP with OPcache + memory
+  limits (an 8 GB CAX21 gives comfortable room for four sites + MySQL); watch it,
+  add swap, and a resize is a one-click bump if needed.
 - Local-disk media forces a per-site volume now and motivates object-storage media
   later.
 - Public admins are exposed attack surface — hence the hardening gate and optional
   Cloudflare Access.
 
 **Out of scope (later, on need):** in-core multi-tenancy; object-storage media; a
-managed database; a published GHCR image; a second box / HA; Shape B (a Cloudflare
-Pages headless frontend consuming the API — the CORS + scoped tokens exist for it).
+managed database; a published GHCR image; HA / a second platform box; Shape B (a
+Cloudflare Pages headless frontend consuming the API — the CORS + scoped tokens
+exist for it).
 
 ## Slices (a small, independent deploy vertical)
 
 1. **Production image + platform compose** — the prod Docker target, a
    `docker-compose.prod.yml` (Caddy + MySQL + the first site), per-site `.env`
    convention, and a `docs/DEPLOY.md`.
-2. **First site live — the portfolio** — provision on aegis alongside the batch
-   job (isolated network + memory limits), MySQL volume + off-box backup,
-   `migrate` + env `install`, then smoke the public site + API + MCP over HTTPS at
-   `danmat.dev`, Cloudflare in front (apex CNAME-flattened), replacing GitHub Pages.
+2. **Provision the box + first site live (the portfolio)** — spin up the dedicated
+   Hetzner box, the platform stack (isolated network + memory limits), MySQL volume
+   + off-box backup, `migrate` + env `install`, then smoke the public site + API +
+   MCP over HTTPS at `danmat.dev`, Cloudflare in front (apex CNAME-flattened),
+   replacing GitHub Pages.
 3. **Add the remaining sites** — nimbuscms.dev (marketing + docs), then the
    Foodmart and Restaurant demos, each a container + DB + Caddy route + DNS record.
 4. **Hardening pass + go-live** — the checklist above, optional Access on demo
    admins, confirm backups restore.
 
 Slices 2–4 get a `nimbus-security-review` pass (a public admin and an
-internet-facing token surface, co-located with another project, are
-security-relevant).
+internet-facing token surface are security-relevant).
