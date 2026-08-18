@@ -34,6 +34,15 @@ batch job (a couple of runs a day), so the box is idle most of the time and has
 ample headroom for a handful of lightweight PHP containers. The Nimbus platform
 **co-locates here**: no new bill.
 
+**Checked against Aegis's own deploy** (`DanMat/Aegis`, its `deploy/` + ADR 0011):
+Aegis is a trading agent run by **systemd timers** (not Docker); its Caddy binds
+**`127.0.0.1:8080` only** and is published **privately over Tailscale** — it never
+touches public `:80`/`:443`, and its ADR is explicit that signals stay
+non-public. Two consequences for co-location: (1) **no port conflict** — our
+Docker Caddy takes the public ports, Aegis's stays on loopback (we just avoid
+host `:8080`), and Docker coexists with its systemd units; (2) a **security
+trade-off**, below.
+
 **The Cloudflare reality:** Cloudflare Workers/Pages cannot execute PHP, so Nimbus
 is never *hosted on* Cloudflare. Cloudflare is the edge — DNS, TLS, CDN, WAF — in
 front of the Hetzner origin, per domain.
@@ -62,6 +71,28 @@ feature (a tenant-isolation bug leaks across sites), and container-per-site
 already delivers "many sites, one bill" with hard isolation and zero core code.
 It stays a future option only if container density ever becomes the bottleneck —
 which four low-traffic sites will not hit.
+
+### Co-locating with Aegis — a deliberate security trade-off
+
+Aegis's box is today **private-only** (Tailscale) and holds **trading + LLM API
+keys** (FMP / Anthropic / Alpaca paper). Adding a public Nimbus platform **raises
+that box's attack surface**: a compromised public site would sit on the same host
+as Aegis's secrets and agent. This is accepted only with hard isolation —
+otherwise use the off-ramp:
+
+- Nimbus containers run **non-root**, `cap_drop: [ALL]` + minimal adds, **no
+  Docker socket** mounted, read-only rootfs where feasible, and (host-wide)
+  Docker **userns-remap**.
+- Aegis's secrets stay in a root/aegis-owned `EnvironmentFile` (`0600`),
+  unreadable by the web stack's user; Aegis keeps its **own network** with no
+  route from the Nimbus containers.
+- The web stack publishes only Caddy's `:80`/`:443`; nothing else is exposed.
+
+**Off-ramp:** if that trade-off isn't wanted, put the public platform on a
+**separate ~€4/mo box** and keep Aegis private — this trades the "one bill" goal
+for keeping the trading host off the public internet. Revisit at Aegis Phase 4/5,
+when its ADR 0011 turns the batch into an **always-on agent** and the 4 GB box
+gets busier (resize, or split then).
 
 ### The production image is separate from the dev stack
 
@@ -113,8 +144,10 @@ consume the 40 GB local disk).
 **Costs / makes harder**
 - 4 GB RAM is the ceiling — fine for low-traffic PHP sites with OPcache + memory
   limits, but watch it; add swap, and a CX resize is a one-click bump if needed.
-- Co-location couples uptime to one box; mitigated by network + memory isolation
-  from aegis and off-box backups. A second box is trivial to add later.
+- Co-location couples uptime to one box **and adds public exposure to a host that
+  today runs a private-only trading agent with API keys** — accepted only with the
+  isolation above; a separate box is the off-ramp. Mitigated by network + memory
+  isolation from aegis and off-box backups.
 - Local-disk media forces a per-site volume now and motivates object-storage media
   later.
 - Public admins are exposed attack surface — hence the hardening gate and optional
