@@ -143,6 +143,41 @@ try {
             echo json_encode($generator->generate(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
             break;
 
+        case 'mcp':
+            // The MCP stdio transport (ADR 0009): JSON-RPC over stdin/stdout for a
+            // local desktop client. It still runs as a *scoped token* — resolved
+            // from NIMBUS_MCP_TOKEN exactly as the HTTP bearer path resolves one,
+            // so a stdio session is capability-scoped, never raw DB access.
+            //
+            // stdout carries ONLY the JSON-RPC stream: pin PHP errors to stderr so
+            // a stray warning can never corrupt a client's message framing.
+            ini_set('display_errors', 'stderr');
+            $plain = (string) Env::get('NIMBUS_MCP_TOKEN', '');
+            if ($plain === '') {
+                fwrite(STDERR, "nimbus mcp needs a scoped token in NIMBUS_MCP_TOKEN.\n");
+                exit(1);
+            }
+            $tokens = new Nimbus\Api\ApiTokenRepository($db);
+            $token  = $tokens->findByPlaintext($plain);
+            if ($token === null) {
+                fwrite(STDERR, "NIMBUS_MCP_TOKEN is not valid (unknown, revoked, expired, or paused).\n");
+                exit(1);
+            }
+            $tokens->touch($token->id, 'stdio');
+
+            $app    = new Nimbus\Application($db);
+            $ops    = new Nimbus\Api\EntryOperations($db, $app->fieldTypeRegistry(), $app->events());
+            $server = new Nimbus\Mcp\McpServer(
+                new Nimbus\Mcp\ContentToolset(new Nimbus\Content\CollectionRepository($db), $app->fieldTypeRegistry(), $ops),
+            );
+            $transport = new Nimbus\Mcp\StdioTransport(
+                $server,
+                Nimbus\Api\TokenPrincipal::fromToken($token),
+                new Nimbus\Api\EntryOpContext('stdio', 'mcp'),
+            );
+            $transport->run(STDIN, STDOUT);
+            break;
+
         case 'prune':
             // Core's own housekeeping: rate-limit rows for windows that rolled
             // over more than a day ago are dead weight.
@@ -204,6 +239,7 @@ try {
               migrate                                          run pending migrations
               prune                                            clean stale rate rows + run plugin retention (cron)
               openapi                                          print the OpenAPI 3.0 spec for the live API
+              mcp                                              serve MCP over stdio (JSON-RPC); needs NIMBUS_MCP_TOKEN
               install  [--email= --name= --password=]          migrate + create the admin user
               create-user --email=  [--password= --name= --role=]
               token:create --name="My app" [--expires=90d] [--scopes=posts:read,*:read]

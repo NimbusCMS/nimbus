@@ -168,6 +168,16 @@ final class Application
         return $this->fieldTypes;
     }
 
+    /**
+     * The event dispatcher, with plugin subscribers already registered — so a CLI
+     * entrypoint (e.g. `nimbus mcp`) emits the same audited events as the web
+     * kernel instead of a bare dispatcher no one is listening to.
+     */
+    public function events(): EventDispatcher
+    {
+        return $this->events;
+    }
+
     public function run(): void
     {
         // The one place globals are read. Everything downstream shares this instance.

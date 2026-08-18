@@ -380,7 +380,7 @@ scope-filtered. Every management action is audited.
 - [x] **Slice 0 — ADR 0009**
 - [x] **Slice 1** — management capabilities (`admin` + granular) + shared `EntryOperations`
 - [x] **Slice 2** — MCP server core + HTTP transport (`POST /api/v1/mcp`) + typed content tools + introspection
-- [ ] **Slice 3** — stdio transport (`nimbus mcp`)
+- [x] **Slice 3** — stdio transport (`nimbus mcp`) — env-token scoped, reuses the shared server
 - [ ] **Slice 4** — schema tools (`schema:write`)
 - [ ] **Slice 5** — media tools (`media:*`)
 - [ ] **Slice 6** — users / tokens / settings tools
