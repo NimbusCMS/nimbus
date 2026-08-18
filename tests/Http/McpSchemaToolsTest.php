@@ -7,7 +7,6 @@ namespace Nimbus\Tests\Http;
 use Nimbus\Api\ApiTokenRepository;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Http\Request;
-use Nimbus\Http\Response;
 
 /**
  * MCP schema tools (ADR 0009, Slice 4): structural management gated on
