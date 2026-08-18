@@ -383,7 +383,7 @@ scope-filtered. Every management action is audited.
 - [x] **Slice 3** — stdio transport (`nimbus mcp`) — env-token scoped, reuses the shared server
 - [x] **Slice 4** — schema tools (`schema:write`) — create/update/add_field/remove_field/set_fields/delete_collection via a Toolset seam
 - [x] **Slice 5a** — core media usage tracking + shared delete guard (block + pinpoint)
-- [ ] **Slice 5b** — media MCP tools (`media:*`; base64 upload, list/get, delete via the guard)
+- [x] **Slice 5b** — media MCP tools (`media:*`; base64 upload, list/get/usage, guarded delete)
 - [ ] **Slice 6** — users / tokens / settings tools
 - [ ] **Slice 7** — management-action audit + docs + final review
 

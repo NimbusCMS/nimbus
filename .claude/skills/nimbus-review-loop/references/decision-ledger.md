@@ -744,3 +744,19 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
   by hand — drop the table + `DELETE FROM nb_migrations WHERE migration='NNN.php'`
   (column is `migration`, not `name`); the test DB (`nimbus_test`) needs the
   root creds from tests/bootstrap.php, not the app user.
+
+### 2026-08-18 · MCP Slice 5b — media tools (Core/MCP)
+- **Decision:** `MediaToolset` on the shared seam (ordered Schema→Media→Content so
+  `list_media`/`delete_media` are claimed before a content verb could parse
+  them). Tools: `upload_media` (base64), `list_media`, `get_media`, `delete_media`
+  (via the Slice-5a guard — block + pinpoint), and `media_usage` (read, so an
+  agent can check before deleting). Gated `media:read`/`media:write`.
+- **Upload:** base64 → temp file → the admin's MediaUploader with a **copy mover**
+  (not move_uploaded_file). All validation reused (finfo sniff + allow-list + random
+  name + size cap). get_media returns metadata + URL, not bytes (byte read-back
+  deferred; the public URL already serves the file).
+- **ToolResult gained an `extra` param** so a structured error (the in-use usage
+  list) rides on the error object — used by delete_media's `in_use`.
+- **Milestone note:** Slices 1–5 done — MCP is now a working control surface for
+  content, schema and media over both transports. Remaining: users/tokens/settings
+  (S6), management-audit recording + docs + final review (S7).

@@ -16,7 +16,12 @@ use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Mcp\ContentToolset;
 use Nimbus\Mcp\McpServer;
+use Nimbus\Mcp\MediaToolset;
 use Nimbus\Mcp\SchemaToolset;
+use Nimbus\Media\MediaRepository;
+use Nimbus\Media\MediaService;
+use Nimbus\Media\MediaUploader;
+use Nimbus\Media\MediaUsageRepository;
 use Nimbus\Support\Config;
 use Nimbus\Support\EventDispatcher;
 
@@ -52,8 +57,15 @@ final class ApiController
         $this->ops         = new EntryOperations($db, $types, $events);
         // Toolsets are ordered management-first so a fixed management name is
         // claimed before a content verb could parse it.
-        $this->mcpServer   = new McpServer(
+        $mediaRepo  = new MediaRepository($db);
+        $mediaUsage = new MediaUsageRepository($db);
+        // MCP uploads are base64, not HTTP file uploads, so a copy mover replaces
+        // the default is_uploaded_file/move_uploaded_file — the uploader still
+        // sniffs + allow-lists the bytes.
+        $uploader = new MediaUploader($mediaRepo, Config::uploadPath(), Config::uploadUrl(), Config::uploadMaxBytes(), static fn (string $from, string $to): bool => copy($from, $to));
+        $this->mcpServer = new McpServer(
             new SchemaToolset($this->collections, new CollectionService($db, $this->collections), $types, $events),
+            new MediaToolset($mediaRepo, $uploader, new MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $events),
             new ContentToolset($this->collections, $types, $this->ops),
         );
         $this->authContext = $authContext;
