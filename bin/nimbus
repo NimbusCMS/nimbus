@@ -168,8 +168,12 @@ try {
             $app         = new Nimbus\Application($db);
             $collections = new Nimbus\Content\CollectionRepository($db);
             $ops         = new Nimbus\Api\EntryOperations($db, $app->fieldTypeRegistry(), $app->events());
+            $mediaRepo   = new Nimbus\Media\MediaRepository($db);
+            $mediaUsage  = new Nimbus\Media\MediaUsageRepository($db);
+            $uploader    = new Nimbus\Media\MediaUploader($mediaRepo, Config::uploadPath(), Config::uploadUrl(), Config::uploadMaxBytes(), static fn (string $from, string $to): bool => copy($from, $to));
             $server = new Nimbus\Mcp\McpServer(
                 new Nimbus\Mcp\SchemaToolset($collections, new Nimbus\Content\CollectionService($db, $collections), $app->fieldTypeRegistry(), $app->events()),
+                new Nimbus\Mcp\MediaToolset($mediaRepo, $uploader, new Nimbus\Media\MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $app->events()),
                 new Nimbus\Mcp\ContentToolset($collections, $app->fieldTypeRegistry(), $ops),
             );
             $transport = new Nimbus\Mcp\StdioTransport(

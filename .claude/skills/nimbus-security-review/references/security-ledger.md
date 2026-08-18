@@ -135,3 +135,28 @@ Template for an accepted risk:
     locking only if it proves real.
 - **Evidence:** MCP Slice 5a PR · `tests/Integration/MediaUsageTest.php` (sync on
   save/update, block+pinpoint on delete, entry-delete cascade frees media, reindex backfill).
+
+### 2026-08-18 · MCP media upload — content-sniffed, capped, copy-mover — Low (documented relaxation)
+- **Status:** verified (no defect); one documented relaxation
+- **Surface:** `src/Mcp/MediaToolset.php` (file upload over JSON-RPC)
+- **Scenario:** MCP has no multipart, so `upload_media` takes base64. Classic
+  upload risks apply — type spoofing, traversal, oversize, upload-to-exec.
+- **Controls (all reused from the admin's MediaUploader, unchanged):**
+  - **Type sniffed from the real bytes (finfo)** against a fixed allow-list
+    (JPEG/PNG/GIF/WebP/PDF — **no SVG**); the claimed filename/mime never decides.
+    Proven: a text payload named `evil.png` is rejected.
+  - **Random stored filename** (bin2hex) — the agent's filename is display-only,
+    so no path traversal; the extension is derived from the sniffed type.
+  - **Size cap**: base64 length checked *before* decode (~4/3 rule) + the
+    uploader re-checks the decoded size against `UPLOAD_MAX_BYTES` (10 MB).
+  - Temp file staged via `tempnam`, unlinked in `finally`.
+- **Documented relaxation (Low):** the MCP uploader uses a **copy mover** instead
+  of `is_uploaded_file`/`move_uploaded_file`, because the bytes are a legitimate
+  token upload, not an HTTP file upload. Safe — content sniffing + allow-listing
+  are unchanged; only the "arrived via multipart" check is dropped, which is
+  meaningless here. The admin still uses the strict mover.
+- **Gating/audit:** `media:read`/`media:write` (non-enumerating unknown-tool +
+  audited denial); upload/delete emit `api.management_written`. Delete routes
+  through the shared guard (refused + pinpointed when in use).
+- **Evidence:** MCP Slice 5b PR · `tests/Http/McpMediaToolsTest.php` + a live
+  upload smoke (PHP-decoded response: mime=image/png).

@@ -30,16 +30,21 @@ final class ToolResult
     }
 
     /**
-     * A tool-level error: a code, a message, and optional field errors.
+     * A tool-level error: a code, a message, optional field errors, and optional
+     * structured extras (e.g. where a file is still used) merged into the error.
      *
      * @param array<string,string> $fields
+     * @param array<string,mixed>  $extra
      * @return array<string,mixed>
      */
-    public static function error(string $message, string $code, array $fields = []): array
+    public static function error(string $message, string $code, array $fields = [], array $extra = []): array
     {
         $error = ['code' => $code, 'message' => $message];
         if ($fields !== []) {
             $error['fields'] = $fields;
+        }
+        foreach ($extra as $key => $value) {
+            $error[$key] = $value;
         }
         $structured = ['error' => $error];
         return [
