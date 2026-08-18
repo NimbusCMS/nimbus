@@ -381,7 +381,7 @@ scope-filtered. Every management action is audited.
 - [x] **Slice 1** — management capabilities (`admin` + granular) + shared `EntryOperations`
 - [x] **Slice 2** — MCP server core + HTTP transport (`POST /api/v1/mcp`) + typed content tools + introspection
 - [x] **Slice 3** — stdio transport (`nimbus mcp`) — env-token scoped, reuses the shared server
-- [ ] **Slice 4** — schema tools (`schema:write`)
+- [x] **Slice 4** — schema tools (`schema:write`) — create/update/add_field/remove_field/set_fields/delete_collection via a Toolset seam
 - [ ] **Slice 5** — media tools (`media:*`)
 - [ ] **Slice 6** — users / tokens / settings tools
 - [ ] **Slice 7** — management-action audit + docs + final review

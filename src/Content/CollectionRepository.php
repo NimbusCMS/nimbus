@@ -75,8 +75,10 @@ final class CollectionRepository
     /** @param array<string,mixed> $options */
     public function update(int $id, string $name, string $icon, string $description, array $options): void
     {
+        // version bumps on every shape change (mirrors nb_entries) so a future
+        // read-before-write guard on schema edits can compare it (ADR 0009).
         $this->db->execute(
-            'UPDATE nb_collections SET name = :n, icon = :i, description = :d, options = :o, updated_at = :u WHERE id = :id',
+            'UPDATE nb_collections SET name = :n, icon = :i, description = :d, options = :o, version = version + 1, updated_at = :u WHERE id = :id',
             ['n' => $name, 'i' => $icon, 'd' => $description, 'o' => json_encode($options), 'u' => date('Y-m-d H:i:s'), 'id' => $id],
         );
     }

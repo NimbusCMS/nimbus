@@ -94,3 +94,21 @@ Template for an accepted risk:
   `tests/Integration/StdioTransportTest.php` (one reply/line, silent
   notifications, parse/invalid-request handling).
 - **Recurrence:** 1st sighting (transport-hygiene) — noted for future transports.
+
+### 2026-08-18 · Schema tools realize the first management capability — Low (verification)
+- **Status:** verified (no defect)
+- **Surface:** `src/Mcp/SchemaToolset.php` (catalog #2 — scope confusion; #1 — authz)
+- **Scenario:** Slice 4 makes `schema:write` the **first consumed** management
+  capability, which is exactly when the latent scope-confusion finding (2026-08-17)
+  would have become High. Verified the fix holds: a `*:write` (content-write-all)
+  token can neither see nor call the schema tools — `SchemaToolset::definitions`
+  returns `[]` and `call()` reports an unknown tool + audits the denial.
+- **Controls confirmed:** `schema:write`/`admin` gate (deny-by-default, non-
+  enumerating); handle is immutable (no rename → no scope/path hijack); every
+  write audited via `api.management_written`; destructive `delete_collection`
+  requires `confirm:true` and surfaces the entry count. schema:write is a *global*
+  structural privilege (can delete any collection) — CLI-mint only, roles later.
+- **Evidence:** MCP Slice 4 PR · `tests/Http/McpSchemaToolsTest.php`
+  (`test_schema_tools_require_the_schema_write_capability`,
+  `test_delete_collection_requires_confirmation_and_reports_the_blast_radius`)
+  + `tests/Unit/TokenPrincipalTest.php::test_the_content_wildcard_never_reaches_a_management_capability`.

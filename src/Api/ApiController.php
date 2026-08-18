@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Api;
 
 use Nimbus\Content\CollectionRepository;
+use Nimbus\Content\CollectionService;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Http\ApiRateLimiter;
@@ -15,6 +16,7 @@ use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Mcp\ContentToolset;
 use Nimbus\Mcp\McpServer;
+use Nimbus\Mcp\SchemaToolset;
 use Nimbus\Support\Config;
 use Nimbus\Support\EventDispatcher;
 
@@ -48,7 +50,12 @@ final class ApiController
         $this->collections = new CollectionRepository($db);
         $this->types       = $types;
         $this->ops         = new EntryOperations($db, $types, $events);
-        $this->mcpServer   = new McpServer(new ContentToolset($this->collections, $types, $this->ops));
+        // Toolsets are ordered management-first so a fixed management name is
+        // claimed before a content verb could parse it.
+        $this->mcpServer   = new McpServer(
+            new SchemaToolset($this->collections, new CollectionService($db, $this->collections), $types, $events),
+            new ContentToolset($this->collections, $types, $this->ops),
+        );
         $this->authContext = $authContext;
         $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext, $events);
 
