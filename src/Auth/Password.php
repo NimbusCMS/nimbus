@@ -26,4 +26,14 @@ final class Password
     {
         return password_needs_rehash($hash, self::algo());
     }
+
+    /**
+     * The same floor the installer enforces: at least 8 characters and not an
+     * obvious default. Shared so user-creation paths (CLI, MCP) agree.
+     */
+    public static function isWeak(string $plain): bool
+    {
+        return strlen($plain) < 8
+            || in_array(strtolower($plain), ['password', 'admin', '123456', 'changeme'], true);
+    }
 }

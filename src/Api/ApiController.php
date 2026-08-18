@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nimbus\Api;
 
+use Nimbus\Auth\UserRepository;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\CollectionService;
 use Nimbus\Content\FieldTypeRegistry;
@@ -18,6 +19,8 @@ use Nimbus\Mcp\ContentToolset;
 use Nimbus\Mcp\McpServer;
 use Nimbus\Mcp\MediaToolset;
 use Nimbus\Mcp\SchemaToolset;
+use Nimbus\Mcp\TokensToolset;
+use Nimbus\Mcp\UsersToolset;
 use Nimbus\Media\MediaRepository;
 use Nimbus\Media\MediaService;
 use Nimbus\Media\MediaUploader;
@@ -66,6 +69,8 @@ final class ApiController
         $this->mcpServer = new McpServer(
             new SchemaToolset($this->collections, new CollectionService($db, $this->collections), $types, $events),
             new MediaToolset($mediaRepo, $uploader, new MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $events),
+            new UsersToolset(new UserRepository($db), $events),
+            new TokensToolset(new ApiTokenRepository($db), $events),
             new ContentToolset($this->collections, $types, $this->ops),
         );
         $this->authContext = $authContext;

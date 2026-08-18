@@ -160,3 +160,26 @@ Template for an accepted risk:
   through the shared guard (refused + pinpointed when in use).
 - **Evidence:** MCP Slice 5b PR · `tests/Http/McpMediaToolsTest.php` + a live
   upload smoke (PHP-decoded response: mime=image/png).
+
+### 2026-08-18 · Token-mint privilege escalation guard — High-risk surface, verified
+- **Status:** verified (no defect) — the key control of Slice 6
+- **Surface:** `src/Mcp/TokensToolset.php::mintToken()` / `holds()` (catalog #2 — privilege escalation)
+- **Scenario:** minting is the classic escalation path — a `tokens:write` token
+  could otherwise forge itself an `admin` token and own the install.
+- **Control:** you can only mint scopes you already hold. Every requested scope is
+  checked against the minter's own `can()` (`admin` only by an admin; `*:action`
+  only if held; `resource:action` via `can()`). Proven live: a
+  `tokens:write,posts:write` token is refused `admin` and `users:write`, allowed
+  `posts:write`; an `admin` token may grant `admin`. This is the subset-only rule
+  the roles system needs, and it validates the Slice-1 management-cap model
+  (management caps are unreachable via `*:write`, so they can't be minted either).
+- **Secret discipline:** the minted plaintext and any generated user password
+  appear only in the tool result — never persisted (hash only), never in the
+  `api.management_written` audit (records name+scopes/role), never logged (stdio
+  errors pinned to stderr). `list_tokens` exposes no secret.
+- **Other rails:** roles validated against `Permissions::ROLES`; `set_role`
+  refuses demoting the last admin (no self-lockout); weak passwords rejected via
+  the shared `Password::isWeak`.
+- **Evidence:** MCP Slice 6 PR · `tests/Http/McpAdminToolsTest.php`
+  (`test_mint_cannot_grant_scopes_the_minter_does_not_hold`,
+  `test_set_role_but_never_the_last_admin`, show-once + revoke tests).
