@@ -760,3 +760,24 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
 - **Milestone note:** Slices 1–5 done — MCP is now a working control surface for
   content, schema and media over both transports. Remaining: users/tokens/settings
   (S6), management-audit recording + docs + final review (S7).
+
+### 2026-08-18 · MCP Slice 6 — users + tokens; settings DEFERRED (Core/MCP)
+- **Discovery:** `nb_settings` (key/value) exists but is **unused** — site config
+  lives in `config/*.php` files. So there is no settings store to expose, and
+  writing PHP config from an agent is the wrong approach. **`settings:write`
+  deferred** to a future slice that first builds a real DB-backed settings store
+  (activate `nb_settings`, migrate a few values out of `site.php`). The scope
+  stays reserved. This is the review-loop working: don't build a tool for a store
+  nothing reads.
+- **Delivered:** `UsersToolset` (`users:write`: list/create/set_role) + a small new
+  `UserRepository`; `TokensToolset` (`tokens:write`: list/mint/revoke/pause/resume).
+  On the seam as [Schema, Media, Users, Tokens, Content].
+- **Key control:** mint = subset-only (can't grant scopes you don't hold) — the
+  RBAC substrate. Secrets/passwords are show-once (never persisted/audited/logged).
+  `create_user` password optional → strong generated one returned once; roles
+  validated; last-admin demotion refused. `delete_user` deferred (sharp; rarely
+  agent-driven).
+- **Reuse:** `Password::isWeak` extracted from the installer's rule (shared floor).
+- **Milestone:** Slices 1–6 done — MCP reaches content, schema, media, users and
+  tokens. Remaining: S7 (api-advanced records `api.management_written` + docs +
+  final review) and the deferred settings-store slice.

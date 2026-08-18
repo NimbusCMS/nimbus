@@ -384,7 +384,8 @@ scope-filtered. Every management action is audited.
 - [x] **Slice 4** — schema tools (`schema:write`) — create/update/add_field/remove_field/set_fields/delete_collection via a Toolset seam
 - [x] **Slice 5a** — core media usage tracking + shared delete guard (block + pinpoint)
 - [x] **Slice 5b** — media MCP tools (`media:*`; base64 upload, list/get/usage, guarded delete)
-- [ ] **Slice 6** — users / tokens / settings tools
+- [x] **Slice 6** — users + tokens tools (`users:write` / `tokens:write`; mint is subset-only)
+- [ ] **Settings store** — activate a DB-backed settings store, then `settings:write` (deferred: nb_settings is currently unused)
 - [ ] **Slice 7** — management-action audit + docs + final review
 
 Each slice: CI-green + a `nimbus-security-review` pass (this is the highest-
