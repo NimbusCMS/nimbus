@@ -10,8 +10,11 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Media\MediaInUse;
 use Nimbus\Media\MediaRepository;
+use Nimbus\Media\MediaService;
 use Nimbus\Media\MediaUploader;
+use Nimbus\Media\MediaUsageRepository;
 use Nimbus\Media\UploadError;
 use Nimbus\Support\Config;
 
@@ -27,6 +30,7 @@ final class MediaController extends Controller
 {
     private MediaRepository $media;
     private MediaUploader $uploader;
+    private MediaService $service;
 
     public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null)
     {
@@ -38,6 +42,7 @@ final class MediaController extends Controller
             Config::uploadUrl(),
             Config::uploadMaxBytes(),
         );
+        $this->service = new MediaService($this->media, new MediaUsageRepository($this->db), Config::basePath());
     }
 
     public function routes(Router $r): void
@@ -82,16 +87,14 @@ final class MediaController extends Controller
     {
         $this->requireCsrf($req, '/admin/media');
 
-        $item = $this->media->find($id);
-        if ($item !== null) {
-            // Remove the row first, then the file. A leftover file is harmless;
-            // a row pointing at a deleted file is not, so metadata goes first.
-            $this->media->delete($id);
-            // path is stored relative to the project root (e.g. public/uploads/2026/08/x.jpg).
-            $abs = Config::basePath() . '/' . ltrim($item->path, '/');
-            if (is_file($abs)) {
-                @unlink($abs);
-            }
+        // The shared guard refuses to delete a file that content still uses, so
+        // an image never vanishes from a live page. It reports where, so the
+        // editor knows what to detach first.
+        try {
+            $this->service->delete($id);
+        } catch (MediaInUse $e) {
+            $where = array_map(static fn (array $u): string => "{$u['entry_title']} ({$u['collection']}/{$u['field_handle']})", $e->usage);
+            return $this->redirect('/admin/media?err=' . rawurlencode('In use by: ' . implode(', ', $where)));
         }
         return $this->redirect('/admin/media?msg=deleted');
     }
