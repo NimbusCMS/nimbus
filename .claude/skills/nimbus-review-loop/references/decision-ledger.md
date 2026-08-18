@@ -719,3 +719,28 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
   column + code that writes it must be smoked against a freshly-migrated env, and
   the deploy release gate (ADR 0010) must run `migrate` before serving. No code
   defect; a process signal.
+
+### 2026-08-18 · Slice 5a — media usage tracking as a CORE capability (Core)
+- **Decision (user-driven):** "don't let users delete media that's in use." Built
+  as a **core content-integrity capability**, NOT MCP logic — a reverse index
+  (`nb_media_usage`, migration 009) synced by EntryService on save (mirroring
+  relations), a `MediaUsage` query service, and a shared `MediaService::delete`
+  guard that **blocks + pinpoints** (returns the referencing entries/fields). The
+  admin, API and MCP all inherit it via the one delete path. Rationale: keeping the
+  guard in a shared service (not the MCP tool) means the admin is protected too and
+  honors "MCP adds no business rules".
+- **Scope boundary:** "used" = referenced by a media **field** (structured,
+  indexable). A raw media URL pasted in freetext is deliberately out of scope
+  (unreliable to detect). Stated in the migration + guard.
+- **Delete semantics (user's call):** block when in use, never silently orphan;
+  the caller clears the reference first (via normal edit) then deletes. Structured
+  usage is returned so a future explicit "detach optional fields + delete"
+  convenience can consume it (a required media field can't be nulled — must be
+  reassigned; noted for later).
+- **Design note:** `media_id` is not an FK (dangling refs are legitimate and must
+  not fail a save); entry/field FKs give the cascades that free media automatically.
+- **Backfill:** `nimbus media:reindex` rebuilds the index for pre-existing content.
+- **Ops lesson:** correcting an already-applied local migration means resetting it
+  by hand — drop the table + `DELETE FROM nb_migrations WHERE migration='NNN.php'`
+  (column is `migration`, not `name`); the test DB (`nimbus_test`) needs the
+  root creds from tests/bootstrap.php, not the app user.

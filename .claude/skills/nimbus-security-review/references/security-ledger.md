@@ -112,3 +112,26 @@ Template for an accepted risk:
   (`test_schema_tools_require_the_schema_write_capability`,
   `test_delete_collection_requires_confirmation_and_reports_the_blast_radius`)
   + `tests/Unit/TokenPrincipalTest.php::test_the_content_wildcard_never_reaches_a_management_capability`.
+
+### 2026-08-18 · Media delete guard — reference integrity (Low)
+- **Status:** verified (no defect); one accepted Low edge
+- **Surface:** `src/Media/MediaService.php`, `src/Content/EntryService.php` (content write hot path), `src/Media/MediaUsageRepository.php`
+- **Scenario:** Slice 5a adds a reverse index (`nb_media_usage`) synced by
+  EntryService on save and a shared `MediaService::delete` guard that refuses to
+  delete media still referenced by content (block + pinpoint). Reviewed as it
+  touches the entry write path.
+- **Controls / findings:**
+  - Hot-path sync is integer-filtered + bound-parameter, inside the existing save
+    transaction — no injection, no crash on a huge/dangling id.
+  - `media_id` is intentionally **not** an FK: an entry may legitimately hold a
+    dangling media id (file deleted out-of-band / imported), and indexing it must
+    never fail a save. Confirmed by `ApiRoutesTest::test_a_deleted_media_reference_reads_as_null_not_an_error`.
+  - **Single delete choke point:** `MediaRepository::delete` is now called only by
+    `MediaService::delete`; the admin routes through it, and MCP (5b) will too — no
+    path bypasses the guard.
+  - **Accepted Low:** the guard's check→delete is not lock-transactional against a
+    concurrent entry save, so a race could orphan a reference. Consequence is a
+    dangling reference, which already reads as null (graceful). Revisit with row
+    locking only if it proves real.
+- **Evidence:** MCP Slice 5a PR · `tests/Integration/MediaUsageTest.php` (sync on
+  save/update, block+pinpoint on delete, entry-delete cascade frees media, reindex backfill).
