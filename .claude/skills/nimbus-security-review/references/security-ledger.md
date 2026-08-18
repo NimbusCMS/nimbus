@@ -77,3 +77,20 @@ Template for an accepted risk:
   `tests/Http/McpTest.php::test_calling_a_tool_outside_scope_is_an_unknown_tool`
 - **Recurrence:** 1st sighting (audit-parity between transports) — watch as stdio
   (Slice 3) and management tools (4–6) add more surfaces.
+
+### 2026-08-18 · stdio MCP could leak PHP errors into the JSON-RPC stream — Low
+- **Status:** fixed
+- **Surface:** `bin/nimbus` (`mcp` command) / `src/Mcp/StdioTransport.php` (protocol hygiene)
+- **Scenario:** the stdio transport frames JSON-RPC on stdout; a stray PHP
+  warning/notice printed to stdout (display_errors) would corrupt a client's
+  message framing (protocol break, not data exposure). Not remotely reachable —
+  stdio is a local, token-scoped channel — hence Low.
+- **Control added:** the `mcp` command pins `display_errors` to `stderr`, so
+  stdout carries only the JSON-RPC stream. Auth is unchanged: the stdio session
+  resolves NIMBUS_MCP_TOKEN through the same `findByPlaintext` path as HTTP
+  (rejects revoked/expired/paused) → a scoped `TokenPrincipal`, never raw DB; all
+  scope/concurrency/audit come from the shared `McpServer`/`EntryOperations`.
+- **Evidence:** MCP Slice 3 PR · framing guarded by
+  `tests/Integration/StdioTransportTest.php` (one reply/line, silent
+  notifications, parse/invalid-request handling).
+- **Recurrence:** 1st sighting (transport-hygiene) — noted for future transports.
