@@ -814,3 +814,21 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
 - **Tooling:** composer `process-timeout` bumped to 900 (suite > 5 min; CI runs
   phpunit directly so was unaffected).
 - **Next:** Slice 2 (roles admin UI + user assignment + users page).
+
+### 2026-08-19 · Roles Slice 2 — roles + users admin UI (Core)
+- **Delivered:** `RolesController` (`/admin/roles`, admin-only nav) — CRUD roles as
+  a grouped capability checklist (Full admin / Content per-collection read+manage /
+  Administration), built-in roles protected; `UsersController` (`/admin/users`,
+  fills the pre-existing dead nav slot — removed the AdminController stub) — create
+  users (email/name/password + roles) and assign roles, last-admin guard. Reuses
+  `RoleRepository`/`UserRepository`/`Password::isWeak`.
+- **Scope call:** the collection-creation "grant manage to: [roles]" shortcut was
+  MOVED to Slice 3 (it's coupled to the enforcement flip + `managerRoles` retirement;
+  building it now would mean dual-writing during the transition).
+- **Still enforcement-inert:** both pages gate on `requireAdmin` (legacy); assigned
+  roles/edited caps are not yet the enforcement source (Slice 3 flips it). Safe:
+  under-grants until then.
+- **Verified:** 531 tests (9 new) + live browser check of both pages.
+- **Next:** Slice 3 (the risky heart) — migrate `Permissions`/`requireAdmin`/
+  `canManage` to `can()` over the user's roles; retire `managerRoles`; add the
+  collection "grant to roles" shortcut; require the seed has run.

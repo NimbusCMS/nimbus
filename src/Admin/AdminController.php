@@ -42,7 +42,8 @@ final class AdminController extends Controller
             $g->get('/dashboard', fn (Request $req, array $p): Response => $this->dashboardPage());
             $g->get('/plugins', fn (Request $req, array $p): Response => $this->pluginsPage())->name('admin.plugins');
 
-            foreach (['users', 'settings'] as $section) {
+            // `users` is now a real controller; `settings` is still a stub.
+            foreach (['settings'] as $section) {
                 $g->get("/{$section}", fn (Request $req, array $p): Response => $this->page('stub', $section, ['title' => ucfirst($section)]))->name("admin.{$section}");
             }
         });

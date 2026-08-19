@@ -44,9 +44,10 @@ abstract class Controller
             ['key' => 'plugins',     'label' => 'Plugins',     'url' => '/admin/plugins',     'icon' => '⚡'],
             ['key' => 'settings',    'label' => 'Settings',    'url' => '/admin/settings',    'icon' => '⚙'],
         ];
-        // API tokens are an administrator concern — only admins can mint or
-        // revoke them, so only admins see the entry point.
+        // Roles + API tokens are administrator concerns — only admins manage
+        // them, so only admins see the entry points.
         if (Permissions::isAdmin($this->auth->user())) {
+            $items[] = ['key' => 'roles',  'label' => 'Roles',      'url' => '/admin/roles',  'icon' => '⛨'];
             $items[] = ['key' => 'tokens', 'label' => 'API tokens', 'url' => '/admin/tokens', 'icon' => '⚿'];
         }
         // Plugin-registered pages sit below the core sections.
