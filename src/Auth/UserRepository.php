@@ -66,6 +66,14 @@ final class UserRepository
         );
     }
 
+    public function setName(int $id, string $name): void
+    {
+        $this->db->execute(
+            'UPDATE nb_users SET name = :n, updated_at = :u WHERE id = :id',
+            ['n' => $name, 'u' => date('Y-m-d H:i:s'), 'id' => $id],
+        );
+    }
+
     /** @param array<string,mixed> $row */
     private static function hydrate(array $row): User
     {

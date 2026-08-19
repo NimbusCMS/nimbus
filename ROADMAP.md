@@ -401,7 +401,7 @@ fixed roles. One capability vocabulary, one `can()`, role-centric. Design in
 
 - [x] **Slice 0 — ADR 0011**
 - [x] **Slice 1** — `Role`+`nb_user_roles` store + shared `Authorizer` (extracted from `TokenPrincipal`); `RoleSeeder` (system roles, folds manage-lists, assigns users); `UserPrincipal` = union of roles; enforcement-inert compat bridge
-- [ ] **Slice 2** — roles admin UI (CRUD + assign to user; the users admin page it needs)
+- [x] **Slice 2** — roles admin UI (CRUD, capability checklist) + users admin page + role assignment (collection "grant to roles" shortcut moved to Slice 3)
 - [ ] **Slice 3** — migrate the admin enforcement points (`Permissions`/`requireAdmin`/`canManage`) to `can()` checks (behavior-preserving; the risky slice)
 - [ ] **Slice 4** — roles for tokens (mint as a role; live-reference vs snapshot)
 - [ ] **Slice 5** — security review (authorization matrix) + `docs/ROLES.md`

@@ -222,3 +222,25 @@ Template for an accepted risk:
   from an un-seeded state. Slice 3 will require the seed before flipping.
 - **Evidence:** Roles Slice 1 PR · `tests/Unit/AuthorizerTest.php`,
   `tests/Integration/RolesTest.php`, and the unchanged `TokenPrincipalTest`.
+
+### 2026-08-19 · Roles + users admin pages (Roles Slice 2) — Low
+- **Status:** verified (no defect)
+- **Surface:** `src/Admin/RolesController.php`, `src/Admin/UsersController.php`
+- **Scenario:** two new admin write surfaces — composing capability bundles and
+  creating/assigning users.
+- **Controls confirmed:** every action `requireAdmin()` + CSRF; the role form
+  **validates capabilities** against the known set (management + `admin` +
+  wildcards + per-collection), dropping anything else (no arbitrary-capability
+  injection — proven); passwords argon2id-hashed + weak-checked; output escaped
+  via `View::e` (role/user names, emails, capabilities); the **last admin cannot
+  be stripped of the admin role** and built-in roles can't be deleted / the admin
+  role can't be edited (no lockout).
+- **No escalation:** the actor is always an admin here (subset-only trivially
+  holds); delegated `roles:write` + its subset-only check arrive with the
+  enforcement flip (Slice 3).
+- **Transitional note (safe direction):** enforcement is still the legacy
+  `Permissions` path this slice, so assigned roles are not yet the enforcement
+  source — a user's real access still follows `users.role` until Slice 3. This
+  *under*-grants (a role assigned in the UI isn't yet effective), never over-grants.
+- **Evidence:** `tests/Http/RolesAdminTest.php`, `tests/Http/UsersAdminTest.php`
+  (9 tests) + visual verification of both pages.

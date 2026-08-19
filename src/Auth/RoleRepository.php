@@ -61,6 +61,18 @@ final class RoleRepository
         );
     }
 
+    /** Delete a role; its user assignments cascade away (FK). */
+    public function delete(int $id): void
+    {
+        $this->db->execute('DELETE FROM nb_roles WHERE id = :id', ['id' => $id]);
+    }
+
+    /** Count the users assigned a given role. */
+    public function assignedUserCount(int $roleId): int
+    {
+        return (int) ($this->db->selectOne('SELECT COUNT(*) AS c FROM nb_user_roles WHERE role_id = :r', ['r' => $roleId])['c'] ?? 0);
+    }
+
     /** Assign a role to a user, idempotently (the composite key dedupes). */
     public function assignToUser(int $userId, int $roleId): void
     {
@@ -73,6 +85,21 @@ final class RoleRepository
     public function unassignFromUser(int $userId, int $roleId): void
     {
         $this->db->execute('DELETE FROM nb_user_roles WHERE user_id = :u AND role_id = :r', ['u' => $userId, 'r' => $roleId]);
+    }
+
+    /**
+     * Replace a user's role assignments with exactly the given set.
+     *
+     * @param list<int> $roleIds
+     */
+    public function syncUserRoles(int $userId, array $roleIds): void
+    {
+        $this->db->execute('DELETE FROM nb_user_roles WHERE user_id = :u', ['u' => $userId]);
+        foreach (array_unique($roleIds) as $roleId) {
+            if ($roleId > 0) {
+                $this->assignToUser($userId, $roleId);
+            }
+        }
     }
 
     /** @return list<Role> the roles assigned to a user */
