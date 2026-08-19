@@ -362,7 +362,7 @@ can't work). Design in [ADR 0008](docs/adr/0008-openapi.md).
 - [x] **Slice 3 — serve it**: `GET /api/v1/openapi.json` (auth-gated, full spec)
       + `nimbus openapi` CLI dump; COMPATIBILITY + security-review pass.
 
-## 🤖 Milestone: MCP — the CMS control surface (active)
+## 🤖 Milestone: MCP — the CMS control surface ✅ COMPLETE (settings deferred)
 
 The payoff the whole API arc was for: an agent with a scoped token runs the
 **entire** CMS through the Model Context Protocol — content, schema, media,
@@ -386,7 +386,7 @@ scope-filtered. Every management action is audited.
 - [x] **Slice 5b** — media MCP tools (`media:*`; base64 upload, list/get/usage, guarded delete)
 - [x] **Slice 6** — users + tokens tools (`users:write` / `tokens:write`; mint is subset-only)
 - [ ] **Settings store** — activate a DB-backed settings store, then `settings:write` (deferred: nb_settings is currently unused)
-- [ ] **Slice 7** — management-action audit + docs + final review
+- [x] **Slice 7** — management-action audit (api-advanced records `api.management_written`) + docs (`docs/MCP.md`) + final review
 
 Each slice: CI-green + a `nimbus-security-review` pass (this is the highest-
 privilege surface in the product).

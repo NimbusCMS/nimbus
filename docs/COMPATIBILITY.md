@@ -66,6 +66,12 @@ response shapes, not on any PHP class. What is promised:
 - **OpenAPI** — `GET /api/v1/openapi.json` returns an OpenAPI 3.0 document
   generated from the live content model (behind the same bearer auth); `nimbus
   openapi` prints the same for build pipelines. See [ADR 0008](adr/0008-openapi.md).
+- **MCP** — `POST /api/v1/mcp` (and stdio `nimbus mcp`) exposes the CMS to agents
+  over JSON-RPC 2.0, gated by the same scoped tokens. The **tool set is generated
+  from the live model and the token's scopes**, so — like the content shape
+  itself — it is not frozen: a `0.x` release may add, rename or remove tools.
+  Treat tool names/inputs as evolving until `1.0`. See [docs/MCP.md](MCP.md) and
+  [ADR 0009](adr/0009-mcp-control-surface.md).
 - **Rate limiting** — requests are limited per token (and per IP for the
   unauthenticated flood guard); over the limit is `429` `rate_limited` with a
   `Retry-After` header. Limits are deployment config, not part of the contract.

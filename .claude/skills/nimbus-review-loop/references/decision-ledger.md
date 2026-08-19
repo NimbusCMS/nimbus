@@ -781,3 +781,21 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
 - **Milestone:** Slices 1–6 done — MCP reaches content, schema, media, users and
   tokens. Remaining: S7 (api-advanced records `api.management_written` + docs +
   final review) and the deferred settings-store slice.
+
+### 2026-08-18 · MCP milestone CLOSE — final three-hat review (Core)
+- **Product:** MCP is a general agent-control surface for *any* Nimbus site
+  (content/schema/media/users/tokens), not shaped to Restaurant/Foodmart — the
+  "MCP-native" differentiator. Passes the Platform Drift Guard.
+- **Architecture:** Core. The `Toolset` seam + shared services (`EntryOperations`,
+  `CollectionService`, `MediaService`/`MediaUploader`, `UserRepository`,
+  `ApiTokenRepository`) mean MCP adds a transport + generated tool list, never
+  business logic — one backend, two transports (HTTP + stdio). Capabilities are
+  the RBAC substrate. No app-shape assumptions.
+- **Engineering:** 511 core tests + the plugin's audit tests, PHPStan L6, a
+  security-review per slice + this composition pass. Writes transactional; no N+1
+  introduced.
+- **Slices 1–7 done.** `settings:write` deferred to a future DB-backed settings
+  store (nb_settings is unused; config is file-based). ADR 0009 → Implemented.
+- **Enables:** agent-run CMS; the capability model bundles into named roles later.
+- **Makes harder:** the largest privilege surface in the product — mitigated by
+  deny-by-default caps, mint-subset-only, full audit, and per-slice review.
