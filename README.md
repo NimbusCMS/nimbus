@@ -31,7 +31,8 @@ Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a smal
 - 🎨 **"Nimbus" admin theme** — night-sky admin skin, recolourable via CSS variables
 - 🗓️ **Publishing lifecycle** — draft / published / scheduled / archived with cron-free scheduling; the API serves exactly the live set
 - 🖼️ **Media library** — upload (content-validated, safe names), a library, and a `media` field the API expands to `{ url, alt, … }`
-- 🔌 **Headless JSON API** — read + write `/api/v1`, scoped bearer tokens (expiry/pause/revoke), ETag/If-Match concurrency, rate limiting + CORS, `toApi()` serialization
+- 🔌 **Headless JSON API** — read + write `/api/v1`, scoped bearer tokens (expiry/pause/revoke), ETag/If-Match concurrency, rate limiting + CORS, `toApi()` serialization; self-describing via generated **OpenAPI** (`GET /api/v1/openapi.json`)
+- 🤖 **MCP-native** — an agent with a scoped token operates the whole CMS over the [Model Context Protocol](https://modelcontextprotocol.io) (HTTP `POST /api/v1/mcp` **and** stdio `nimbus mcp`): content, schema, media, users and tokens, through the same scope-checked, audited services the admin uses — not a bolt-on. See [docs/MCP.md](docs/MCP.md)
 - 🧩 **Plugins** — official [Markdown](https://github.com/NimbusCMS/plugin-markdown), [SEO](https://github.com/NimbusCMS/plugin-seo) and [Analytics](https://github.com/NimbusCMS/plugin-analytics) plugins, a Composer-driven loader, and a read-only Plugins admin page
 
 ### 🔌 Plugins
@@ -77,7 +78,7 @@ authoritative, evidence-backed capability matrix lives in
 ### 🗺️ Roadmap — not built yet
 
 - ✍️ Rich-text editor · 📚 entry revisions · 📋 activity log
-- 🎨 **Plugin-provided / multiple installable themes** (a single starter theme, home page, template overrides, partials and an asset pipeline already ship) · 🔎 API filtering / sparse fieldsets · 📖 OpenAPI + MCP
+- 🎨 **Plugin-provided / multiple installable themes** (a single starter theme, home page, template overrides, partials and an asset pipeline already ship) · 🔎 API filtering / sparse fieldsets
 
 ### 🚧 Not production-ready
 

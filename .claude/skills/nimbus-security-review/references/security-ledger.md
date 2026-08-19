@@ -183,3 +183,22 @@ Template for an accepted risk:
 - **Evidence:** MCP Slice 6 PR · `tests/Http/McpAdminToolsTest.php`
   (`test_mint_cannot_grant_scopes_the_minter_does_not_hold`,
   `test_set_role_but_never_the_last_admin`, show-once + revoke tests).
+
+### 2026-08-18 · MCP milestone — final composition review — Low
+- **Status:** security-green for the milestone; one Low documented
+- **Surface:** the composed `McpServer` (5 toolsets) — the cross-slice checks a
+  per-slice review can't do.
+- **Checked:** toolset ordering is management-first [Schema, Media, Users, Tokens,
+  Content], so every fixed management name is claimed before a content verb could
+  parse it; each tool still enforces its own capability + the underlying service
+  re-checks; a multi-capability (or admin) token composes without escalation;
+  every content write (`api.entry_written`) and management action
+  (`api.management_written`) is now recorded by api-advanced; the mint guard
+  (subset-only) and media delete guard (block-in-use) hold across the surface.
+- **Low (documented, not an escalation):** a content collection whose *handle*
+  equals a management/media tool name (`media`, `users`, `tokens`, `collections`,
+  `field(s)`, `collection`) has those content tools shadowed by the management
+  tool. The token is *denied* (unknown tool), never granted extra access — a
+  functional quirk. Documented as reserved handles in docs/MCP.md.
+- **Evidence:** the full MCP test suite (content/schema/media/users/tokens over
+  HTTP + stdio) + the plugin audit tests.

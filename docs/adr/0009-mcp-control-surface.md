@@ -1,8 +1,11 @@
 # 9. MCP as the CMS control surface
 
-- **Status:** Accepted (direction approved; each area's concrete tools are
-  designed in their implementation slices)
-- **Date:** 2026-08-17
+- **Status:** Implemented (Slices 1–7). MCP is live over HTTP + stdio for
+  content, schema, media, users and tokens, with management actions audited.
+  `settings:write` is reserved but **deferred** — there is no runtime settings
+  store yet (site config lives in PHP files); it lands with a future DB-backed
+  settings store.
+- **Date:** 2026-08-17 (implemented 2026-08-18)
 - **Related:** [ADR 0006](0006-non-human-authentication.md) (tokens/scopes),
   [ADR 0007](0007-write-api.md) (write path + concurrency),
   [ADR 0008](0008-openapi.md) (the contract MCP tools mirror), the admin services
