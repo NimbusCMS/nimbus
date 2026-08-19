@@ -202,3 +202,23 @@ Template for an accepted risk:
   functional quirk. Documented as reserved handles in docs/MCP.md.
 - **Evidence:** the full MCP test suite (content/schema/media/users/tokens over
   HTTP + stdio) + the plugin audit tests.
+
+### 2026-08-18 · Authorization unified into one decision function (Roles Slice 1) — Low
+- **Status:** verified (no defect); one intended widening
+- **Surface:** `src/Auth/Authorizer.php`, `src/Api/TokenPrincipal.php` (now delegates), `src/Auth/{Role,RoleRepository,RoleSeeder,UserPrincipal}.php`
+- **Scenario:** roles extracts `TokenPrincipal::can()` into a shared `Authorizer`
+  used by both tokens and a new `UserPrincipal`, so people and agents are judged
+  by one deny-by-default function — the security-critical core of the product.
+- **Controls confirmed:** admin super-grant, exact grants, **management-exact-only**
+  (schema/media/users/tokens/settings/**roles** — the content wildcard still can't
+  reach them), content wildcard. The `Authorizer` is small, pure, unit-tested.
+- **Intended widening (Low):** content `{handle}:write` now **implies**
+  `{handle}:read` (ADR 0011 — can't edit what you can't read). Management read/write
+  stay independent (media:write ≠ media:read). No existing test asserted a
+  write-only-content token was denied read, so nothing regressed.
+- **Enforcement-inert this slice:** the admin gates (`Permissions`/`requireAdmin`/
+  `canManage`) are UNCHANGED — roles are populated but not yet the enforcement
+  source (Slice 3). So no admin authz behavior changed, and no lockout is possible
+  from an un-seeded state. Slice 3 will require the seed before flipping.
+- **Evidence:** Roles Slice 1 PR · `tests/Unit/AuthorizerTest.php`,
+  `tests/Integration/RolesTest.php`, and the unchanged `TokenPrincipalTest`.

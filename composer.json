@@ -52,6 +52,7 @@
         "serve": "php -S 0.0.0.0:8080 -t public public/index.php"
     },
     "config": {
-        "sort-packages": true
+        "sort-packages": true,
+        "process-timeout": 900
     }
 }

@@ -799,3 +799,18 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
 - **Enables:** agent-run CMS; the capability model bundles into named roles later.
 - **Makes harder:** the largest privilege surface in the product — mitigated by
   deny-by-default caps, mint-subset-only, full audit, and per-slice review.
+
+### 2026-08-18 · Roles Slice 1 — store + shared Authorizer + seed (Core)
+- **Delivered:** `nb_roles` + `nb_user_roles` (migration 010); `Role`/`RoleRepository`;
+  a shared `Authorizer` (extracted from `TokenPrincipal::can()`, now delegated) used
+  by a new `UserPrincipal` whose capabilities are the **union** of its roles;
+  `RoleSeeder` (system roles admin/editor/author, folding collection manage-lists
+  into caps, assigning users) run by `install` + `nimbus roles:seed`.
+- **Compat bridge:** enforcement is UNCHANGED (Slice 3 flips it). The seed is
+  behavior-preserving — editor/author get `*:read` + their granted `{handle}:write`,
+  each user their current role → union == today's access. Verified on dev.
+- **Decision realized:** `{handle}:write` implies `{handle}:read` for content (in
+  the Authorizer); `roles` added to the management set (subset-only later).
+- **Tooling:** composer `process-timeout` bumped to 900 (suite > 5 min; CI runs
+  phpunit directly so was unaffected).
+- **Next:** Slice 2 (roles admin UI + user assignment + users page).
