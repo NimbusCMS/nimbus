@@ -84,14 +84,27 @@ form offers a "grant manage to: [roles]" checklist** — a collection-centric
 *shortcut* that writes `{handle}:write` into the chosen roles. Storage stays
 role-centric; the shortcut just meets the admin where today's role picker does.
 
+### Heterogeneous, per-collection grants
+
+A role's capabilities are an arbitrary set, so grants are naturally mixed —
+`posts:write` (edit) **and** `pages:read` (view only) **and** nothing for
+`products` (invisible) in one role. Absence is deny-by-default: a collection a
+role doesn't list is unreachable — not in the nav, forbidden on a direct hit.
+This makes **viewing a collection read-gated** (`{handle}:read`), a deliberate
+change from today's "any signed-in user browses everything" (`canView` → always
+true). For content, **`{handle}:write` implies `{handle}:read`** — you cannot
+edit what you cannot list, matching the admin's existing `canManage ⊇ canView`.
+
 ### System roles + a behavior-preserving migration
 
 The three fixed roles are seeded as **system roles** (un-deletable, renamable
-later): `admin` → the `admin` super-grant; `editor` / `author` → the capability
-bundles that reproduce today's behavior. The migration is exact: for every
-collection, each role in its manage list gains that collection's `{handle}:write`
-capability. Existing users keep their role name, now backed by capabilities. **No
-one's access changes on upgrade.**
+later): `admin` → the `admin` super-grant. `editor` / `author` are seeded to
+reproduce today's behavior *exactly*: **`*:read`** (they browse every collection
+today), **plus** each collection's `{handle}:write` for the collections whose
+manage list named them. So a migrated editor is itself a mixed grant — reads all,
+writes the ones granted. Existing users keep their role name, now backed by
+capabilities. **No one's access changes on upgrade** — the read-gating only bites
+for *new*, custom roles an admin deliberately scopes narrower.
 
 ### The admin enforcement points become capability checks
 
