@@ -391,6 +391,24 @@ scope-filtered. Every management action is audited.
 Each slice: CI-green + a `nimbus-security-review` pass (this is the highest-
 privilege surface in the product).
 
+## 🔐 Milestone: Roles — capability bundles for users + tokens (design)
+
+The payoff the MCP capability model was the substrate for: an admin defines
+**named roles** (bundles of granular capabilities) and assigns them to **both**
+session users and API tokens, so authority is least-privilege instead of three
+fixed roles. One capability vocabulary, one `can()`, role-centric. Design in
+[ADR 0011](docs/adr/0011-roles.md).
+
+- [x] **Slice 0 — ADR 0011**
+- [ ] **Slice 1** — `Role` store (`nb_roles`) + shared `Authorizer`; seed the 3 system roles + migrate collection manage-lists into capabilities; users resolve role → capabilities (compat bridge, behavior identical)
+- [ ] **Slice 2** — roles admin UI (CRUD + assign to user; the users admin page it needs)
+- [ ] **Slice 3** — migrate the admin enforcement points (`Permissions`/`requireAdmin`/`canManage`) to `can()` checks (behavior-preserving; the risky slice)
+- [ ] **Slice 4** — roles for tokens (mint as a role; live-reference vs snapshot)
+- [ ] **Slice 5** — security review (authorization matrix) + `docs/ROLES.md`
+
+Each slice: CI-green + a `nimbus-security-review` pass (authorization is the core
+of the product).
+
 ## 🎯 Release 0.1 — "usable CMS"
 
 1. **Publishing workflow** — `[x]` draft / published / scheduled / archived,
