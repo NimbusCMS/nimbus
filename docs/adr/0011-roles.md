@@ -41,9 +41,12 @@ by any multi-author site, independent of Restaurant / Food Store / Packkit.
 A `Role` (`nb_roles`: `name`, `capabilities`, `is_system`) is a named set of
 capabilities drawn from the single vocabulary. It applies to both principals:
 
-- a **user** is assigned a role; the role resolves to the user's capabilities;
-- a **token** may be granted a role (its capabilities expand from the role) or,
-  as today, an explicit capability list for one-off grants.
+- a **user** is assigned **one or more roles** (`nb_user_roles`); their
+  capabilities are the **union** of those roles — so a person who needs "editor
+  *and* media manager" gets both roles, not a bespoke combined role (no role
+  explosion);
+- a **token** may be granted role(s) (its capabilities expand from them) or, as
+  today, an explicit capability list for one-off grants.
 
 `TokenPrincipal::can()`'s logic becomes a shared **`Authorizer`** so a
 `UserPrincipal` answers `can(resource, action)` identically — one deny-by-default
@@ -117,10 +120,11 @@ it is the **riskiest slice** and lands on its own.
 
 ### Deferred (named, not built now)
 
-Multiple roles per user (start with one, for schema compat); whether a token's
-role is a **live reference** (tighten the role → tighten its tokens — the
-RBAC-correct default we lean to) or a snapshot, decided in the token slice; a
-distinct `settings` capability (waits on the deferred settings store, ADR 0009).
+Whether a token's role is a **live reference** (tighten the role → tighten its
+tokens — the RBAC-correct default we lean to) or a snapshot, decided in the token
+slice; a distinct `settings` capability (waits on the deferred settings store,
+ADR 0009); per-entry / ownership rules ("own posts only") finer than collection
+granularity.
 
 ## Consequences
 
@@ -143,14 +147,15 @@ plugins to declare their own capabilities.
 
 ## Slices
 
-1. **Role store + shared `Authorizer`** — `nb_roles` + migration seeding the three
-   system roles and folding manage-lists into capabilities; extract `can()` into a
-   shared authorizer used by `TokenPrincipal` and a new `UserPrincipal`; users
-   resolve role → capabilities behind a compat bridge (behavior identical, all
-   tests green).
+1. **Role store + shared `Authorizer`** — `nb_roles` + `nb_user_roles` (many-to-
+   many) + a migration seeding the three system roles, folding manage-lists into
+   capabilities, and assigning each existing user their current role; extract
+   `can()` into a shared authorizer used by `TokenPrincipal` and a new
+   `UserPrincipal` whose capabilities are the **union** of its roles; behind a
+   compat bridge (behavior identical, all tests green).
 2. **Roles admin UI** — CRUD roles (name + capability checklist, enforcing
-   subset-only) + assign a role to a user (with the users admin page this needs) +
-   the collection-creation "grant manage to: [roles]" shortcut.
+   subset-only) + assign **roles** to a user (with the users admin page this
+   needs) + the collection-creation "grant manage to: [roles]" shortcut.
 3. **Migrate enforcement to capabilities** — `Permissions` / `requireAdmin` /
    `canManage` become `can()` checks; retire the fixed-role assumptions. The risky
    slice; behavior-preserving.
