@@ -27,7 +27,9 @@ There are two authorization models today, and roles must unify them:
 The MCP milestone (ADR 0009) already built the capability vocabulary — content
 `{handle}:read`/`write` and management `schema:write` / `media:*` / `users:write`
 / `tokens:write` — **explicitly as the atoms of this roles system.** So roles is
-mostly *reuse plus a store*, not new authorization theory.
+mostly *reuse plus a store*, not new authorization theory; it adds one capability,
+**`roles:write`** (managing roles), governed by the same subset-only rule as
+minting.
 
 This passes the Platform Drift Guard: custom roles are a general CMS need wanted
 by any multi-author site, independent of Restaurant / Food Store / Packkit.
@@ -54,6 +56,33 @@ not the inverse "each collection lists its roles". This is the granular RBAC the
 brief asked for. The current per-collection manage list is **migrated into roles**
 (see below), and the collection form's role picker becomes a role's capability
 picker.
+
+### Managing roles is itself capability-gated and subset-only
+
+Creating/editing/deleting a role is the action **`roles:write`** (the `admin`
+role holds it). Because a role grants capabilities, this is escalation-sensitive,
+so it reuses the token-mint control (ADR 0009): **you can only put a capability
+into a role that you yourself hold.** A non-admin with `roles:write` may define
+roles, but never one containing `admin` or a capability they lack — no role can
+be used to exceed its author. One rule, two surfaces (mint a token, define a
+role).
+
+### New collections — no orphaned permissions
+
+A new collection has no role's explicit `{handle}:write`, so the model answers
+"who manages it?" two ways the admin chooses **per role**:
+
+- **Broad roles hold the content wildcard `*:write`** — "all collections, present
+  *and future*", so a new collection is covered automatically. (`*` is content-
+  only, ADR 0009 Slice 1, so it never reaches schema/users/tokens.) The seeded
+  `editor` role is `*:write`.
+- **Granular roles list explicit `{handle}:write`** — specific collections only;
+  a new one is excluded *by design*, because opt-in is the point of granularity.
+
+To spare editing N roles after each new collection, the **collection-creation
+form offers a "grant manage to: [roles]" checklist** — a collection-centric
+*shortcut* that writes `{handle}:write` into the chosen roles. Storage stays
+role-centric; the shortcut just meets the admin where today's role picker does.
 
 ### System roles + a behavior-preserving migration
 
@@ -106,8 +135,9 @@ plugins to declare their own capabilities.
    shared authorizer used by `TokenPrincipal` and a new `UserPrincipal`; users
    resolve role → capabilities behind a compat bridge (behavior identical, all
    tests green).
-2. **Roles admin UI** — CRUD roles (name + capability checklist) + assign a role
-   to a user (with the users admin page this needs).
+2. **Roles admin UI** — CRUD roles (name + capability checklist, enforcing
+   subset-only) + assign a role to a user (with the users admin page this needs) +
+   the collection-creation "grant manage to: [roles]" shortcut.
 3. **Migrate enforcement to capabilities** — `Permissions` / `requireAdmin` /
    `canManage` become `can()` checks; retire the fixed-role assumptions. The risky
    slice; behavior-preserving.
