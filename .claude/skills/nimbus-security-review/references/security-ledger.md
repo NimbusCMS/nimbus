@@ -329,3 +329,15 @@ Template for an accepted risk:
   `test_a_token_manager_may_grant_reads_it_holds` (positive).
 - **Note:** the *role-binding* half of A1 lands with Slice 4b-UI (no role field on
   the form yet); the shared `firstUngrantable` set already covers it by design.
+
+### 2026-08-20 · Gate admin media on media:* (Roles Slice 3b) — reviewed pre-build, no High
+- **Status:** shipped (PR #100, commit 4bd2eeb). Closes the last auth-only admin surface; brings it to parity with the MCP media tools. Was A5 (tracked) from the Slice 3 review.
+- **Surface:** `src/Admin/MediaController.php` (index/store/destroy), `Controller::nav()`, the dashboard media card, `RoleSeeder`, migration `012_role_media_caps.php`. Catalog #2 (privilege escalation) + first data migration.
+- **Design had no Critical/High.** The only High was a *build* risk — gating the read but not each write. Controls landed:
+  - **Per-action gating:** index→`requireCan('media','read')`; store+destroy→`requireCan('media','write')` **independently**. Management caps carry no read↔write implication (Authorizer: `media` is management, so `media:write` does not imply `media:read`, and `*:read` never reaches it) — so each write is gated on its own and both media caps must be seeded.
+  - **Behavior-preserving seed:** `RoleSeeder::CONTENT_MEDIA_CAPS` (editor/author get media:read+write, fresh installs) + **migration 012** backfills already-seeded installs.
+- **Findings (both accepted Low, documented):**
+  - **F2 (Low):** a system role an admin *renamed* away from editor/author is skipped by the backfill (`name IN('editor','author')`) → those users lose media. **Fails closed** (visible, admin re-grants) — never an over-grant. Kept the name filter deliberately (safer than matching all `is_system`).
+  - **F3 (Low, accept):** media has **no per-object ACL** — `media:*` gates the surface, not individual files. The entry-form picker still shows media names to a collection-writer without `media:read` (needed to pick media; consistent with pre-3b). A per-object media ACL is a separate, larger design; revisit only if wanted.
+- **First data migration — verified safe:** static SQL (no injection); `capabilities` is `JSON NOT NULL` array (well-typed `JSON_ARRAY_APPEND`); idempotent via `JSON_CONTAINS`; scoped to `is_system=1 AND name IN('editor','author')`; additive-only; runs **once** (tracked in `nb_migrations`) so it can never re-add a cap an admin later strips.
+- **Regression tests:** `tests/Http/MediaRoutesTest.php` (a media:read-only role lists but is denied BOTH writes independently; media-less denied all three; editor/author retain; media caps leak into no other management gate; nav hides without media:read), `tests/Integration/RoleSeederTest.php` (seed grants media; backfill additive/idempotent/parity; custom+admin untouched; empty-install no-op). 562 green.

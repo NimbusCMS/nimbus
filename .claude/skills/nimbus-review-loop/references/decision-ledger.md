@@ -883,3 +883,31 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
   documents the null-ability behavior change.
 - **Next:** Slice 4b (admin token-form role dropdown) + Slice 3b (media gating) +
   Slice 5 (docs/ROLES.md + final security review).
+
+### 2026-08-20 · Roles Slice 3b — gate admin media + first data migration [Core]
+- **Classification:** Core (authorization enforcement on a core admin surface + a
+  system-role seed). Behavior-preserving. Reviewed via both skills pre-build.
+- **Delivered:** `/admin/media` moved from auth-only to `media:read`/`media:write`
+  (per-action), matching the MCP media tools; nav + dashboard media card gated;
+  editor/author keep media via `RoleSeeder::CONTENT_MEDIA_CAPS` (fresh) + migration
+  012 (existing installs). PR #100 (4bd2eeb), 562 tests green.
+- **New pattern — the first DATA migration.** Precedent set and bounded: additive
+  JSON union on **system** roles only, `JSON_CONTAINS`-guarded (idempotent),
+  `is_system=1 AND name IN(...)`, never removes, runs once. The "runs once
+  (tracked in nb_migrations)" property is what makes an additive backfill safe
+  against a later admin edit — a reusable rule for future behavior-preserving
+  backfills.
+- **Lesson reinforced (2nd time, after Slice 3):** a behavior-preserving
+  enforcement change must migrate the **test helpers** in lockstep — `actingAs`
+  AND `makeCollection` base maps both had to gain the media caps, and their
+  ordering (which creates the role first) mattered. Test-setup drift is the
+  recurring cost of these flips; a shared source (`CONTENT_MEDIA_CAPS`) + a parity
+  test is the mitigation.
+- **Key correctness fact captured:** management caps have **no** read↔write
+  implication (only content does), so a media surface needs BOTH `media:read` and
+  `media:write` seeded — seeding only write would silently break listing.
+- **Deferred (unchanged):** Slice 4b-UI (token-form role dropdown, rides the admin
+  redesign), Slice 5 (authz-matrix docs + `docs/ROLES.md` — the milestone closer).
+  Noted a pre-existing minor issue out of scope: the dashboard **Users** card is a
+  dead link for a non-`users:write` user (same class as the media card, not fixed
+  here).
