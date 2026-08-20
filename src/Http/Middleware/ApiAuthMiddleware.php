@@ -7,7 +7,6 @@ namespace Nimbus\Http\Middleware;
 use Nimbus\Api\ApiAuthContext;
 use Nimbus\Api\ApiResponse;
 use Nimbus\Api\ApiTokenRepository;
-use Nimbus\Api\TokenPrincipal;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Support\CoreEvents;
@@ -48,7 +47,7 @@ final class ApiAuthMiddleware
         }
 
         $this->tokens->touch($token->id, $request->ip());
-        $this->context->establish(TokenPrincipal::fromToken($token));
+        $this->context->establish($this->tokens->principalFor($token));
         return null; // authenticated — proceed
     }
 

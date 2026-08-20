@@ -404,7 +404,7 @@ fixed roles. One capability vocabulary, one `can()`, role-centric. Design in
 - [x] **Slice 2** — roles admin UI (CRUD, capability checklist) + users admin page + role assignment (collection "grant to roles" shortcut moved to Slice 3)
 - [x] **Slice 3** — enforcement flipped to capabilities (a per-request `Gate`; requireAdmin→requireCan, canManage→Gate::manages; subset-only on role save + assignment; un-seeded→legacy fallback)
 - [ ] **Slice 3b (fast-follow)** — gate the admin media page on `media:*` (deferred in Slice 3: today auth-only; needs a system-role seed refresh so editor/author keep media)
-- [ ] **Slice 4** — roles for tokens (mint as a role; live-reference vs snapshot)
+- [x] **Slice 4** — roles for tokens (mint bound to a role → **live** capabilities via one resolution point `ApiTokenRepository::principalFor`; migration 011 `role_id` FK ON DELETE SET NULL; legacy empty→read-all grant removed for fail-safe deletes; subset-only at mint on CLI + MCP; `token:create --role`, MCP `mint_token` role param, role shown in listings)
 - [ ] **Slice 5** — security review (authorization matrix) + `docs/ROLES.md`
 
 Each slice: CI-green + a `nimbus-security-review` pass (authorization is the core

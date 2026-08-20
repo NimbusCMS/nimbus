@@ -25,7 +25,7 @@ final class ApiRateLimitTest extends HttpTestCase
         putenv('API_RATE_WINDOW=60');
 
         $this->tokens = new ApiTokenRepository($this->db);
-        $this->token  = $this->tokens->create('T');
+        $this->token  = $this->tokens->create('T', ['*:read']);
         $this->makeCollection('posts');
     }
 

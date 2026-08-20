@@ -70,12 +70,16 @@ final class TokenPrincipalTest extends TestCase
         self::assertFalse((new TokenPrincipal(1, 'T', []))->can('posts', 'read'));
     }
 
-    public function test_from_token_grants_legacy_read_all_only_when_abilities_are_empty(): void
+    public function test_from_token_denies_when_abilities_are_empty(): void
     {
-        $legacy = TokenPrincipal::fromToken(new ApiToken(1, 'Old', [], null));
-        self::assertSame(['*:read'], $legacy->scopes);
-        self::assertTrue($legacy->can('anything', 'read'));
-        self::assertFalse($legacy->can('anything', 'write'), 'the compat grant is read-only');
+        // The legacy "empty abilities → ['*:read']" compat grant was removed in
+        // ADR 0011: keeping it would turn deleting a role-bound token's role
+        // (role_id → NULL, abilities empty) into a read-all *grant*. Empty now
+        // means deny-by-default, the safe direction.
+        $bare = TokenPrincipal::fromToken(new ApiToken(1, 'Old', [], null));
+        self::assertSame([], $bare->scopes);
+        self::assertFalse($bare->can('anything', 'read'), 'no abilities → deny, not read-all');
+        self::assertFalse($bare->can('anything', 'write'));
 
         $scoped = TokenPrincipal::fromToken(new ApiToken(2, 'New', ['posts:read'], null));
         self::assertSame(['posts:read'], $scoped->scopes, 'an explicitly-scoped token is untouched');

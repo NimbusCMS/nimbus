@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nimbus\Api;
 
+use Nimbus\Auth\RoleRepository;
 use Nimbus\Auth\UserRepository;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\CollectionService;
@@ -70,7 +71,7 @@ final class ApiController
             new SchemaToolset($this->collections, new CollectionService($db, $this->collections), $types, $events),
             new MediaToolset($mediaRepo, $uploader, new MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $events),
             new UsersToolset(new UserRepository($db), $events),
-            new TokensToolset(new ApiTokenRepository($db), $events),
+            new TokensToolset(new ApiTokenRepository($db), new RoleRepository($db), $events),
             new ContentToolset($this->collections, $types, $this->ops),
         );
         $this->authContext = $authContext;

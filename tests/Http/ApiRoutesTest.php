@@ -35,7 +35,10 @@ final class ApiRoutesTest extends HttpTestCase
     {
         parent::setUp();
         $this->tokens       = new ApiTokenRepository($this->db);
-        $this->token        = $this->tokens->create('Test app');
+        // Read-all: these read tests reach across collections. (Before ADR 0011
+        // an empty-abilities token implied read-all; that grant was removed, so
+        // the scope is now explicit.)
+        $this->token        = $this->tokens->create('Test app', ['*:read']);
         $this->entryService = new EntryService(
             $this->db,
             new EntryRepository($this->db),
@@ -148,7 +151,7 @@ final class ApiRoutesTest extends HttpTestCase
     public function test_a_paused_token_is_rejected_then_accepted_after_resume(): void
     {
         $this->makeCollection('posts');
-        $plain = $this->tokens->create('Paused');
+        $plain = $this->tokens->create('Paused', ['posts:read']);
         $id    = $this->tokens->findByPlaintext($plain)->id;
 
         $this->tokens->pause($id);
@@ -203,7 +206,7 @@ final class ApiRoutesTest extends HttpTestCase
             [['posts:read'],    'posts', 200],
             [['posts:read'],    'pages', 403],
             [['pages:read'],    'posts', 403],
-            [[],                'posts', 200], // legacy compat: read-all
+            [[],                'posts', 403], // no scopes → deny (ADR 0011: legacy read-all grant removed)
         ];
 
         foreach ($cases as [$scopes, $handle, $expected]) {

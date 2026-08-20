@@ -57,7 +57,13 @@ response shapes, not on any PHP class. What is promised:
   `rate_limited` (429).
 - **Auth** — a bearer token (`Authorization: Bearer …`), with per-collection
   `read`/`write` scopes: an out-of-scope collection answers `403` `forbidden`,
-  and cannot be told apart from one that does not exist.
+  and cannot be told apart from one that does not exist. A token's authority is
+  its explicit scopes, optionally widened by a **bound role** whose capabilities
+  apply *live* ([ADR 0011](adr/0011-roles.md)) — tightening or deleting the role
+  reaches the token at its next request. **Behaviour change (0.x, pre-1.0):** a
+  token with *no* scopes now denies by default; the legacy "empty abilities →
+  read-all" grant from ADR 0006 was removed. Any token that relied on it must be
+  granted explicit scopes or bound to a role.
 - **Writes** map the JSON body (`{ title, slug?, status?, fields }`) to the same
   service the admin uses — only a collection's declared fields are bound. A write
   needs the collection's `write` scope; a `PATCH`/`DELETE` needs `If-Match`

@@ -275,3 +275,34 @@ Template for an accepted risk:
   behind our back).
 - **Evidence:** `tests/Http/RolesEnforcementTest.php` (matrix + A1 + A2 + fallback);
   full suite (538) green — behavior preserved.
+
+### 2026-08-20 · Roles for tokens (Roles Slice 4) — reviewed pre-build, controls landed
+- **Status:** fixed/verified — a token minted bound to a role draws its capabilities **live**; the change touches the API auth path, so it was reviewed adversarially before build.
+- **Surface:** `src/Api/ApiTokenRepository::principalFor` (the one resolution point), `src/Api/TokenPrincipal::fromToken`, `src/Mcp/TokensToolset::mintToken`, `bin/nimbus token:create --role`, migration `011_token_role.php` (`role_id` FK ON DELETE SET NULL) — catalog #2 (privilege escalation) + token handling.
+- **Findings the pre-build review surfaced, and their controls:**
+  - **Escalation by binding a powerful role (High):** a `tokens:write` non-admin
+    minting a token bound to an `admin`/`users:write` role would launder authority
+    it lacks. **Control:** `mintToken` runs subset-only over **every** capability
+    the role grants (`holds($principal, $cap)` for each) — binding is no weaker a
+    gate than granting explicit scopes. Tests:
+    `McpAdminToolsTest::test_mint_cannot_bind_a_role_beyond_the_minter`,
+    `::test_binding_an_admin_role_requires_holding_admin`.
+  - **Deleted/tightened role must fail *safe* (High if wrong):** the legacy
+    "empty abilities → `['*:read']`" compat grant (ADR 0006) is **removed** — with
+    it, deleting a role-bound token's role (`role_id`→NULL, no explicit abilities)
+    would have *granted* read-all. Now empty → deny-by-default. Tests:
+    `ApiTokenRepositoryTest::test_a_role_bound_token_denies_once_its_role_is_deleted`,
+    `::test_a_dangling_role_id_never_resolves_to_extra_authority`,
+    `TokenPrincipalTest::test_from_token_denies_when_abilities_are_empty`,
+    `ApiRoutesTest::test_scope_enforcement_matrix` (`[]`→403).
+  - **Live link is intentional, not a TOCTOU hole:** tightening a role reaches its
+    tokens at the next request (central partial revocation) — the security-positive
+    direction. Test: `ApiTokenRepositoryTest::test_tightening_a_role_immediately_tightens_its_tokens`.
+  - **Union correctness:** effective caps = explicit abilities ∪ live role caps, no
+    more. Test: `::test_principal_for_unions_explicit_abilities_with_live_role_caps`.
+- **Secret handling unchanged:** mint still returns the plaintext once; role caps
+  are never logged. `role_id` is a bound int param (no SQLi/IDOR surface).
+- **Blast radius (behavior change, documented):** null-ability tokens that relied
+  on the old read-all grant now deny — noted in `docs/COMPATIBILITY.md`; the four
+  pre-scope tests that leaned on it were given explicit `*:read`.
+- **Evidence:** full suite (548) green; PHPStan level 6 clean.

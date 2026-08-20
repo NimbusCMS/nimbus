@@ -19,7 +19,14 @@ namespace Nimbus\Api;
  */
 final readonly class ApiToken
 {
-    /** @param string[] $abilities reserved for scoping; every active token can read today */
+    /**
+     * @param string[] $abilities the token's explicit scopes; empty denies by
+     *                             default. Effective authority may be widened by a
+     *                             bound role — resolved live in
+     *                             {@see ApiTokenRepository::principalFor()}.
+     * @param ?int     $roleId     an optional bound role (ADR 0011); its current
+     *                             capabilities are unioned in at resolution.
+     */
     public function __construct(
         public int $id,
         public string $name,
@@ -30,6 +37,7 @@ final readonly class ApiToken
         public ?string $expiresAt = null,
         public ?string $revokedAt = null,
         public ?string $pausedAt = null,
+        public ?int $roleId = null,
     ) {
     }
 

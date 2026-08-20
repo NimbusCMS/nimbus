@@ -8,6 +8,7 @@ use Nimbus\Api\ApiToken;
 use Nimbus\Api\ApiTokenRepository;
 use Nimbus\Api\EntryOpContext;
 use Nimbus\Api\TokenPrincipal;
+use Nimbus\Auth\RoleRepository;
 use Nimbus\Support\CoreEvents;
 use Nimbus\Support\EventDispatcher;
 
@@ -29,6 +30,7 @@ final class TokensToolset implements Toolset
 
     public function __construct(
         private ApiTokenRepository $tokens,
+        private RoleRepository $roles,
         private EventDispatcher $events,
     ) {
     }
@@ -72,12 +74,19 @@ final class TokensToolset implements Toolset
     /** @return array<string,mixed> */
     private function listTokens(): array
     {
+        // Resolve bound-role ids to names once, so a listing shows the role a
+        // token draws its live capabilities from — not just its explicit scopes.
+        $roleNames = [];
+        foreach ($this->roles->all() as $role) {
+            $roleNames[$role->id] = $role->name;
+        }
         $rows = array_map(
             static fn (ApiToken $t): array => [
                 'id'        => $t->id,
                 'name'      => $t->name,
                 'status'    => $t->status(),
                 'scopes'    => $t->abilities,
+                'role'      => $t->roleId !== null ? ($roleNames[$t->roleId] ?? null) : null,
                 'used'      => $t->usedCount,
                 'last_used' => $t->lastUsedAt,
                 'expires'   => $t->expiresAt,
@@ -114,8 +123,27 @@ final class TokensToolset implements Toolset
             }
             $scopes[] = $scope;
         }
-        if ($scopes === []) {
-            return ToolResult::error('A token needs at least one scope.', 'invalid');
+
+        // Optionally bind to a role — its live capabilities. Subset-only applies
+        // to *every* capability the role grants, so binding a powerful role is no
+        // way around the escalation guard.
+        $roleId   = null;
+        $roleName = trim($this->str($args, 'role'));
+        if ($roleName !== '') {
+            $role = $this->roles->findByName($roleName);
+            if ($role === null) {
+                return ToolResult::error("No role named \"{$roleName}\".", 'invalid');
+            }
+            foreach ($role->capabilities as $capability) {
+                if (!$this->holds($principal, $capability)) {
+                    return ToolResult::error("You cannot mint a token as \"{$roleName}\" — it grants a capability you do not hold: \"{$capability}\".", 'forbidden');
+                }
+            }
+            $roleId = $role->id;
+        }
+
+        if ($scopes === [] && $roleId === null) {
+            return ToolResult::error('A token needs at least one scope or a role.', 'invalid');
         }
 
         $expiresAt = null;
@@ -124,12 +152,12 @@ final class TokensToolset implements Toolset
             $expiresAt = date('Y-m-d H:i:s', time() + $days * 86400);
         }
 
-        $plain = $this->tokens->create($name, $scopes, $expiresAt);
+        $plain = $this->tokens->create($name, $scopes, $expiresAt, $roleId);
         // Audit records what was granted, never the secret.
-        $this->announce($principal, $ctx, 'mint_token', $name . ' [' . implode(', ', $scopes) . ']');
+        $this->announce($principal, $ctx, 'mint_token', $name . ($roleName !== '' ? " (role: {$roleName})" : '') . ' [' . implode(', ', $scopes) . ']');
 
         return ToolResult::ok([
-            'token'  => ['name' => $name, 'scopes' => $scopes, 'expires_at' => $expiresAt],
+            'token'  => ['name' => $name, 'scopes' => $scopes, 'role' => $roleName !== '' ? $roleName : null, 'expires_at' => $expiresAt],
             'secret' => $plain, // show-once
         ]);
     }
@@ -200,12 +228,13 @@ final class TokensToolset implements Toolset
     /** @return array<string,mixed> */
     private function mintDefinition(): array
     {
-        return $this->tool('mint_token', 'Mint an API token; the secret is returned once. You can only grant scopes you already hold.', [
+        return $this->tool('mint_token', 'Mint an API token; the secret is returned once. Give explicit scopes, or bind it to a role (its live capabilities). You can only grant scopes/roles you already hold.', [
             'type'       => 'object',
-            'required'   => ['name', 'scopes'],
+            'required'   => ['name'],
             'properties' => [
                 'name'         => ['type' => 'string'],
                 'scopes'       => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'e.g. ["posts:read","posts:write"]. Only scopes you hold.'],
+                'role'         => ['type' => 'string', 'description' => 'Optional; bind the token to a role — its capabilities apply live. Only a role whose capabilities you hold.'],
                 'expires_days' => ['type' => 'integer', 'minimum' => 1, 'description' => 'Optional; days until expiry.'],
             ],
         ]);

@@ -32,17 +32,16 @@ final readonly class TokenPrincipal
     }
 
     /**
-     * Build the principal for a freshly-resolved token, applying the legacy
-     * compatibility grant: a token minted before scopes existed (no abilities)
-     * keeps read-all during the read-only era. This grant is removed when the
-     * write API lands (ADR 0006), so keeping it in one place makes it a
-     * one-line deletion later.
+     * Build the principal from a token's explicit abilities. Deny-by-default: no
+     * abilities means no scopes (the legacy "empty → read-all" compat grant from
+     * ADR 0006 was removed once the write API landed and role-bound tokens
+     * arrived — see ADR 0011; keeping it would turn deleting a role into a
+     * read-all *grant*). Role capabilities are unioned in by
+     * {@see ApiTokenRepository::principalFor()}, the resolution boundary.
      */
     public static function fromToken(ApiToken $token): self
     {
-        $scopes = $token->abilities === [] ? ['*:read'] : $token->abilities;
-
-        return new self($token->id, $token->name, $scopes);
+        return new self($token->id, $token->name, $token->abilities);
     }
 
     /** May this token perform $action on $resource? The shared, deny-by-default decision ({@see Authorizer}). */
