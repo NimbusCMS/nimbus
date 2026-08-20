@@ -55,7 +55,7 @@ final class RolesController extends Controller
 
     private function index(Request $req): Response
     {
-        $this->requireAdmin();
+        $this->requireCan('roles', 'write');
 
         $editId  = $req->query('edit');
         $editing = $editId !== null && ctype_digit($editId) ? $this->roles->find((int) $editId) : null;
@@ -74,7 +74,7 @@ final class RolesController extends Controller
 
     private function store(Request $req): Response
     {
-        $this->requireAdmin();
+        $this->requireCan('roles', 'write');
         $this->requireCsrf($req, '/admin/roles');
 
         $name = trim((string) $req->input('name'));
@@ -85,13 +85,19 @@ final class RolesController extends Controller
             return $this->redirect('/admin/roles?err=' . rawurlencode("A role named \"{$name}\" already exists."));
         }
 
-        $this->roles->create($name, $this->capabilitiesFrom($req), false);
+        $caps      = $this->capabilitiesFrom($req);
+        $ungranted = $this->firstUnheld($caps);
+        if ($ungranted !== null) {
+            return $this->redirect('/admin/roles?err=' . rawurlencode("You cannot grant a capability you do not hold: {$ungranted}."));
+        }
+
+        $this->roles->create($name, $caps, false);
         return $this->redirect('/admin/roles?msg=created');
     }
 
     private function update(Request $req, int $id): Response
     {
-        $this->requireAdmin();
+        $this->requireCan('roles', 'write');
         $this->requireCsrf($req, '/admin/roles');
 
         $role = $this->roles->find($id);
@@ -103,14 +109,41 @@ final class RolesController extends Controller
         if ($role->name === 'admin') {
             return $this->redirect('/admin/roles?err=' . rawurlencode('The admin role cannot be edited.'));
         }
+        // Subset-only, both ways: you cannot edit a role that already grants more
+        // than you hold (no nerf-by-edit / no touching a superior role), and you
+        // cannot grant a capability you do not hold.
+        $existing = $this->firstUnheld($role->capabilities);
+        if ($existing !== null) {
+            return $this->redirect('/admin/roles?err=' . rawurlencode("You cannot edit a role that grants a capability beyond your own: {$existing}."));
+        }
+        $caps      = $this->capabilitiesFrom($req);
+        $ungranted = $this->firstUnheld($caps);
+        if ($ungranted !== null) {
+            return $this->redirect('/admin/roles?err=' . rawurlencode("You cannot grant a capability you do not hold: {$ungranted}."));
+        }
 
-        $this->roles->setCapabilities($id, $this->capabilitiesFrom($req));
+        $this->roles->setCapabilities($id, $caps);
         return $this->redirect('/admin/roles?msg=updated');
+    }
+
+    /**
+     * The first capability the acting user does not hold, or null (subset-only).
+     *
+     * @param list<string> $capabilities
+     */
+    private function firstUnheld(array $capabilities): ?string
+    {
+        foreach ($capabilities as $capability) {
+            if (!$this->gate->holds((string) $capability)) {
+                return (string) $capability;
+            }
+        }
+        return null;
     }
 
     private function destroy(Request $req, int $id): Response
     {
-        $this->requireAdmin();
+        $this->requireCan('roles', 'write');
         $this->requireCsrf($req, '/admin/roles');
 
         $role = $this->roles->find($id);

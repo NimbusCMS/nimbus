@@ -66,13 +66,14 @@ final class UsersAdminTest extends HttpTestCase
 
     public function test_the_last_admin_cannot_lose_the_admin_role(): void
     {
-        $this->actingAs('admin');
-        $adminRole = $this->roles->create('admin', ['admin'], true);
+        // The acting admin is the only admin (actingAs assigns the admin role).
+        $only           = $this->actingAs('admin');
+        $adminRoleModel = $this->roles->findByName('admin');
+        self::assertNotNull($adminRoleModel);
+        $adminRole = $adminRoleModel->id;
         $editor    = $this->roles->create('Editor', ['*:read'], true);
-        $only      = $this->users->create('Boss', 'boss@site.test', 'x', 'admin');
-        $this->roles->assignToUser($only, $adminRole);
 
-        // Try to demote the only admin.
+        // Try to demote the only admin (self).
         $this->post('/admin/users/' . $only, ['roles' => [$editor]]);
         $names = array_map(static fn ($r): string => $r->name, $this->roles->rolesForUser($only));
         self::assertContains('admin', $names, 'the only admin keeps the admin role');

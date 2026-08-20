@@ -61,11 +61,12 @@ final class RolesAdminTest extends HttpTestCase
     public function test_the_admin_role_cannot_be_edited(): void
     {
         $this->actingAs('admin');
-        $id = $this->roles->create('admin', ['admin'], true);
+        $admin = $this->roles->findByName('admin');
+        self::assertNotNull($admin);
 
-        $this->post('/admin/roles/' . $id, ['name' => 'admin', 'caps' => []]);
+        $this->post('/admin/roles/' . $admin->id, ['name' => 'admin', 'caps' => []]);
 
-        self::assertSame(['admin'], $this->roles->find($id)?->capabilities, 'the super-grant is left intact');
+        self::assertSame(['admin'], $this->roles->find($admin->id)?->capabilities, 'the super-grant is left intact');
     }
 
     public function test_built_in_roles_cannot_be_deleted_but_custom_ones_can(): void

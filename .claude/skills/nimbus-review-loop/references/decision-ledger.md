@@ -832,3 +832,25 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
 - **Next:** Slice 3 (the risky heart) — migrate `Permissions`/`requireAdmin`/
   `canManage` to `can()` over the user's roles; retire `managerRoles`; add the
   collection "grant to roles" shortcut; require the seed has run.
+
+### 2026-08-19 · Roles Slice 3 — the enforcement flip (Core) + both review loops
+- **Delivered:** admin authorization moved to capabilities via a per-request
+  `Gate` (lazy user resolution via `Auth`, memoized). `requireAdmin→requireCan`
+  (schema/tokens/users/roles:write; plugins→admin); `canManage→Gate::manages`;
+  nav gated per-cap; `Permissions::canView` deleted; collection form's dead
+  managerRoles picker replaced by a hint to the Roles page (`managerRoles` dormant).
+- **Both review skills materially improved the design pre-build:**
+  - review-loop caught that `canView` is dead code → do NOT newly read-gate the
+    collections list (would silently tighten); and replaced my leaky per-user
+    fallback with an **all-or-nothing legacy fallback** (un-seeded → legacy
+    Permissions verbatim), which also lets the existing suite pass in legacy mode.
+  - security-review escalated **A2 (assignment subset-only)** from a design
+    question to a **required High control**, and required the authorization-matrix
+    test. Media-gating deferred as a tracked Medium.
+- **Behavior-preserving proof:** full suite green (538). Test helpers updated
+  (actingAs assigns the system role; makeCollection grants role caps) so seeded-mode
+  tests reflect the real model; a dedicated un-seeded-fallback test covers legacy.
+- **Lesson:** an enforcement *model flip* is behavior-preserving at the *production*
+  layer (via the seed + fallback), but the test suite's authz *setup* must migrate
+  — the fallback made that far cheaper than feared.
+- **Next:** Slice 4 (roles for tokens) + the media-gating fast-follow.

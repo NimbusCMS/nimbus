@@ -11,7 +11,6 @@ use Nimbus\Content\EntryInput;
 use Nimbus\Content\EntryRepository;
 use Nimbus\Content\EntryService;
 use Nimbus\Content\FieldTypeRegistry;
-use Nimbus\Content\Permissions;
 use Nimbus\Content\Publication;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Database\Connection;
@@ -94,7 +93,7 @@ final class EntriesController extends Controller
             'collection' => $collection,
             'rows'       => $this->entries->forCollection($collection->id, $req->query('q')),
             'types'      => $this->types,
-            'canManage'  => Permissions::canManage($this->auth->user(), $collection),
+            'canManage'  => $this->gate->manages($collection),
             'flash'      => $req->query('msg'),
         ]);
     }
@@ -335,7 +334,7 @@ final class EntriesController extends Controller
 
     private function requireManage(Collection $collection): void
     {
-        if (!Permissions::canManage($this->auth->user(), $collection)) {
+        if (!$this->gate->manages($collection)) {
             $this->abortTo("/admin/collections/{$collection->handle}/entries");
         }
     }
