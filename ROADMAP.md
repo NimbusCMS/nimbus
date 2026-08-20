@@ -405,10 +405,31 @@ fixed roles. One capability vocabulary, one `can()`, role-centric. Design in
 - [x] **Slice 3** — enforcement flipped to capabilities (a per-request `Gate`; requireAdmin→requireCan, canManage→Gate::manages; subset-only on role save + assignment; un-seeded→legacy fallback)
 - [ ] **Slice 3b (fast-follow)** — gate the admin media page on `media:*` (deferred in Slice 3: today auth-only; needs a system-role seed refresh so editor/author keep media)
 - [x] **Slice 4** — roles for tokens (mint bound to a role → **live** capabilities via one resolution point `ApiTokenRepository::principalFor`; migration 011 `role_id` FK ON DELETE SET NULL; legacy empty→read-all grant removed for fail-safe deletes; subset-only at mint on CLI + MCP; `token:create --role`, MCP `mint_token` role param, role shown in listings)
+- [x] **Slice 4b-security** — subset-only on the **admin token form** (`TokensController::firstUngrantable`): a `tokens:write` non-admin can no longer mint a token granting read it does not itself hold (a pre-existing escalation the read-only form masked). Both reviews flagged it as the load-bearing control before the role dropdown lands.
+- [ ] **Slice 4b-UI** — the admin token-form **role dropdown** (mint a role-bound token from the web form; subset-only already in place over the granted set). **Deferred to build in the new admin design language** (see the Admin Experience initiative) so it's built once, not re-skinned.
 - [ ] **Slice 5** — security review (authorization matrix) + `docs/ROLES.md`
 
 Each slice: CI-green + a `nimbus-security-review` pass (authorization is the core
 of the product).
+
+## 🎨 Initiative: Admin Experience — a uniquely-Nimbus admin + themes (design phase)
+
+**Resume point.** Give the admin UI an identity that is unmistakably *Nimbus*
+(leaning into the existing magical / night-sky / gold-broom brand) instead of
+generic CMS chrome, and make the admin **themeable** — multiple selectable themes
+backed by the existing `nb_users.theme` preference. A Fable-authored design vision
+lives in **[`docs/design/admin-experience.md`](docs/design/admin-experience.md)**
+(design language + CSS-variable token system + named themes + a lightweight,
+server-rendered theme-switch mechanism). This is captured now so the creative work
+is not lost.
+
+- [ ] **Design** — the spec at `docs/design/admin-experience.md` (Fable). Design only; non-destructive.
+- [ ] **Drift-guard gate** — run `nimbus-review-loop` on the spec **before building**: classify how much is Core vs. a theme capability, keep it lightweight (no framework, no asset pipeline, token-only theme swaps), stage as small PRs.
+- [ ] **Build** — the design language (token layer + component re-skin over the existing `.nb-` classes) then the theme picker, in increments. **Slice 4b-UI (the token-form role dropdown) rides this** so it's built once in the new language.
+
+Constraints (from the charter): server-rendered PHP templates, inlined vanilla
+CSS, at most small vanilla JS, WCAG-AA, and the "fast/lightweight" promise — a
+theme is a set of CSS custom-property values, never a template fork.
 
 ## 🎯 Release 0.1 — "usable CMS"
 
