@@ -13,7 +13,8 @@ use Nimbus\Database\Connection;
  *
  * - `admin` → the `admin` super-grant.
  * - `editor` / `author` → `*:read` (they browse every collection today) plus
- *   `{handle}:write` for each collection whose manage-list named them.
+ *   `media:read`+`media:write` (the media library was open to all pre-Slice-3b)
+ *   plus `{handle}:write` for each collection whose manage-list named them.
  *
  * Then each existing user is assigned the system role matching their legacy
  * `users.role`, so the union of their roles equals the single role they had —
@@ -22,6 +23,18 @@ use Nimbus\Database\Connection;
  */
 final class RoleSeeder
 {
+    /**
+     * Media caps every content role gets. Before ADR 0011's Slice 3b the media
+     * library was open to any signed-in user; gating it on `media:*` would lock
+     * editor/author out, so they are seeded with both. Management caps grant no
+     * read↔write implication, so both are needed. Migration 012 backfills the
+     * same pair into already-seeded installs — keep the two in lockstep (asserted
+     * by RoleSeederTest).
+     *
+     * @var list<string>
+     */
+    public const CONTENT_MEDIA_CAPS = ['media:read', 'media:write'];
+
     public function __construct(
         private Connection $db,
         private RoleRepository $roles,
@@ -73,8 +86,8 @@ final class RoleSeeder
 
         return [
             'admin'  => ['admin'],
-            'editor' => array_values(array_unique(array_merge(['*:read'], $writes['editor']))),
-            'author' => array_values(array_unique(array_merge(['*:read'], $writes['author']))),
+            'editor' => array_values(array_unique(array_merge(['*:read'], self::CONTENT_MEDIA_CAPS, $writes['editor']))),
+            'author' => array_values(array_unique(array_merge(['*:read'], self::CONTENT_MEDIA_CAPS, $writes['author']))),
         ];
     }
 }

@@ -45,8 +45,10 @@ abstract class Controller
         $items = [
             ['key' => 'dashboard',   'label' => 'Dashboard',   'url' => '/admin',             'icon' => '✦'],
             ['key' => 'collections', 'label' => 'Collections', 'url' => '/admin/collections', 'icon' => '❑'],
-            ['key' => 'media',       'label' => 'Media',       'url' => '/admin/media',       'icon' => '❖'],
         ];
+        if ($this->gate->can('media', 'read')) {
+            $items[] = ['key' => 'media', 'label' => 'Media', 'url' => '/admin/media', 'icon' => '❖'];
+        }
         if ($this->gate->can('users', 'write')) {
             $items[] = ['key' => 'users', 'label' => 'Users', 'url' => '/admin/users', 'icon' => '☾'];
         }
