@@ -854,3 +854,32 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
   layer (via the seed + fallback), but the test suite's authz *setup* must migrate
   — the fallback made that far cheaper than feared.
 - **Next:** Slice 4 (roles for tokens) + the media-gating fast-follow.
+
+### 2026-08-20 · Roles Slice 4 — roles for tokens (LIVE reference) [Core]
+- **Classification:** Core (the payoff of the ADR 0009 capability model: one
+  authority vocabulary now spans users *and* tokens). Reviewed via both skills
+  pre-build; both endorsed **LIVE** over SNAPSHOT.
+- **Delivered:** a token can be minted **bound to a role**; its authority is the
+  role's *current* capabilities, unioned with any explicit abilities, resolved in
+  **one place** — `ApiTokenRepository::principalFor()` — called by both the HTTP
+  middleware and the `nimbus mcp` stdio path (DRY across transports). Migration
+  011 adds `role_id` (FK ON DELETE SET NULL). Surfaces this slice: CLI
+  `token:create --role`, MCP `mint_token` role param, role shown in listings;
+  admin token-form dropdown deferred (Slice 4b).
+- **LIVE vs SNAPSHOT (the load-bearing call):** LIVE chosen — tightening/deleting a
+  role reaches its tokens immediately (central partial revocation), consistent with
+  how roles already work for users. Its extra cost (a schema column + a resolution
+  point + the deleted-role edge) is paid down by keeping *stored* abilities the
+  explicit set and computing *effective* caps only at the one boundary. SNAPSHOT
+  would have frozen caps at mint and forced per-token revocation on every role edit.
+- **Security-required simplification:** removing the legacy empty→`['*:read']`
+  grant is what makes deleted-role fail *safe* (deny, not read-all) — the review
+  turned a compat cleanup into a correctness requirement. See security-ledger
+  2026-08-20.
+- **Coupling check:** `ApiTokenRepository`→`RoleRepository` is acceptable — token
+  resolution *is* an authorization concern; the alternative (a snapshot) only moves
+  the coupling to mint time and loses the live property.
+- **Evidence:** full suite (548) green; PHPStan clean; `docs/COMPATIBILITY.md`
+  documents the null-ability behavior change.
+- **Next:** Slice 4b (admin token-form role dropdown) + Slice 3b (media gating) +
+  Slice 5 (docs/ROLES.md + final security review).

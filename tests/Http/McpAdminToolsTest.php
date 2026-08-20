@@ -146,6 +146,80 @@ final class McpAdminToolsTest extends HttpTestCase
         self::assertFalse($result['result']['isError'], 'admin may grant admin');
     }
 
+    // -------------------------------------------------------- role-bound tokens
+
+    public function test_mint_can_bind_a_role_whose_capabilities_the_minter_holds(): void
+    {
+        $roles = new \Nimbus\Auth\RoleRepository($this->db);
+        $roles->create('writer', ['posts:write'], false);
+
+        // Minter holds tokens:write + posts:write, so it may bind `writer`.
+        $token  = $this->tokens->create('T', ['tokens:write', 'posts:write']);
+        $result = $this->call('mint_token', ['name' => 'bound', 'role' => 'writer'], $token);
+        self::assertFalse($result['result']['isError'], 'a role within the minter\'s authority may be bound');
+
+        // The minted token's authority is the role's live capabilities.
+        $secret = $result['result']['structuredContent']['secret'];
+        $minted = $this->tokens->findByPlaintext($secret);
+        self::assertNotNull($minted);
+        $principal = $this->tokens->principalFor($minted);
+        self::assertTrue($principal->can('posts', 'write'), 'it draws the role\'s caps');
+        self::assertTrue($principal->can('posts', 'read'), 'write implies read');
+        self::assertFalse($principal->can('users', 'write'), 'and nothing more');
+    }
+
+    public function test_mint_cannot_bind_a_role_beyond_the_minter(): void
+    {
+        $roles = new \Nimbus\Auth\RoleRepository($this->db);
+        $roles->create('superuser', ['admin'], false);
+        $roles->create('user-admin', ['users:write'], false);
+
+        // Holds tokens:write + posts:write only — neither admin nor users:write.
+        $token = $this->tokens->create('T', ['tokens:write', 'posts:write']);
+
+        self::assertSame('forbidden', $this->call('mint_token', ['name' => 'esc', 'role' => 'superuser'], $token)['result']['structuredContent']['error']['code'], 'cannot launder admin through a role');
+        self::assertSame('forbidden', $this->call('mint_token', ['name' => 'esc2', 'role' => 'user-admin'], $token)['result']['structuredContent']['error']['code'], 'nor an unheld management capability');
+    }
+
+    public function test_binding_an_admin_role_requires_holding_admin(): void
+    {
+        $roles = new \Nimbus\Auth\RoleRepository($this->db);
+        $roles->create('superuser', ['admin'], false);
+
+        $admin  = $this->tokens->create('root', ['admin']);
+        self::assertFalse($this->call('mint_token', ['name' => 'deputy', 'role' => 'superuser'], $admin)['result']['isError'], 'an admin may mint an admin-role token');
+    }
+
+    public function test_mint_needs_at_least_a_scope_or_a_role(): void
+    {
+        $token = $this->tokens->create('T', ['tokens:write', 'posts:write']);
+        self::assertSame('invalid', $this->call('mint_token', ['name' => 'empty'], $token)['result']['structuredContent']['error']['code'], 'neither scopes nor a role → rejected');
+    }
+
+    public function test_mint_rejects_an_unknown_role(): void
+    {
+        $token = $this->tokens->create('T', ['tokens:write']);
+        self::assertSame('invalid', $this->call('mint_token', ['name' => 'ghost', 'role' => 'nope'], $token)['result']['structuredContent']['error']['code']);
+    }
+
+    public function test_list_tokens_shows_the_bound_role(): void
+    {
+        $roles = new \Nimbus\Auth\RoleRepository($this->db);
+        $roles->create('writer', ['posts:write'], false);
+
+        $token = $this->tokens->create('T', ['tokens:write', 'posts:write']);
+        $this->call('mint_token', ['name' => 'bound', 'role' => 'writer'], $token);
+
+        $row = null;
+        foreach ($this->structured($this->call('list_tokens', [], $token))['data'] as $r) {
+            if ($r['name'] === 'bound') {
+                $row = $r;
+            }
+        }
+        self::assertNotNull($row);
+        self::assertSame('writer', $row['role'], 'the listing names the bound role');
+    }
+
     public function test_revoke_token_disables_it(): void
     {
         $token  = $this->tokens->create('T', ['tokens:write', 'posts:read']);

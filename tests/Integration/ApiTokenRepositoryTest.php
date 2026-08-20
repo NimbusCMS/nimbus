@@ -140,6 +140,73 @@ final class ApiTokenRepositoryTest extends IntegrationTestCase
         self::assertSame('Second', $all[0]->name, 'newest first');
     }
 
+    // --------------------------------------------------- role-bound principals
+
+    public function test_principal_for_unions_explicit_abilities_with_live_role_caps(): void
+    {
+        $roles  = new \Nimbus\Auth\RoleRepository($this->db);
+        $roleId = $roles->create('writer', ['posts:write'], false);
+
+        // Token carries an explicit read scope AND a role that grants posts:write.
+        $plain = $this->tokens->create('Hybrid', ['pages:read'], null, $roleId);
+        $principal = $this->tokens->principalFor($this->tokenRow($plain));
+
+        self::assertTrue($principal->can('pages', 'read'), 'its explicit ability survives');
+        self::assertTrue($principal->can('posts', 'write'), 'unioned with the role\'s live caps');
+        self::assertTrue($principal->can('posts', 'read'), 'write implies read');
+        self::assertFalse($principal->can('users', 'write'), 'and nothing beyond the union');
+    }
+
+    public function test_tightening_a_role_immediately_tightens_its_tokens(): void
+    {
+        $roles  = new \Nimbus\Auth\RoleRepository($this->db);
+        $roleId = $roles->create('broad', ['posts:write', 'pages:write'], false);
+        $plain  = $this->tokens->create('Bound', [], null, $roleId);
+
+        self::assertTrue($this->tokens->principalFor($this->tokenRow($plain))->can('pages', 'write'), 'starts with the role\'s caps');
+
+        // Drop pages:write from the role — the change reaches the token live, with
+        // no re-mint. (The token's stored abilities never held it.)
+        $roles->setCapabilities($roleId, ['posts:write']);
+
+        $principal = $this->tokens->principalFor($this->tokenRow($plain));
+        self::assertTrue($principal->can('posts', 'write'), 'the still-granted cap remains');
+        self::assertFalse($principal->can('pages', 'write'), 'the revoked cap is gone next resolution');
+    }
+
+    public function test_a_role_bound_token_denies_once_its_role_is_deleted(): void
+    {
+        $roles  = new \Nimbus\Auth\RoleRepository($this->db);
+        $roleId = $roles->create('temp', ['posts:write'], false);
+        $plain  = $this->tokens->create('Orphan', [], null, $roleId);
+
+        self::assertTrue($this->tokens->principalFor($this->tokenRow($plain))->can('posts', 'write'));
+
+        // Deleting the role nulls role_id (FK ON DELETE SET NULL). With no explicit
+        // abilities, the token becomes deny-by-default — NOT a legacy read-all grant.
+        $roles->delete($roleId);
+
+        $token = $this->tokenRow($plain);
+        self::assertNull($token->roleId, 'the dangling role_id is nulled, not left pointing at nothing');
+        $principal = $this->tokens->principalFor($token);
+        self::assertFalse($principal->can('posts', 'write'), 'a deleted role neuters the token');
+        self::assertFalse($principal->can('anything', 'read'), 'and does not fail open to read-all');
+    }
+
+    public function test_a_dangling_role_id_never_resolves_to_extra_authority(): void
+    {
+        // A token whose role was deleted keeps only its explicit abilities.
+        $roles  = new \Nimbus\Auth\RoleRepository($this->db);
+        $roleId = $roles->create('gone', ['admin'], false);
+        $plain  = $this->tokens->create('Explicit', ['posts:read'], null, $roleId);
+        $roles->delete($roleId);
+
+        $principal = $this->tokens->principalFor($this->tokenRow($plain));
+        self::assertTrue($principal->can('posts', 'read'), 'the explicit scope stands');
+        self::assertFalse($principal->can('posts', 'write'), 'the deleted admin role grants nothing');
+        self::assertFalse($principal->can('users', 'write'));
+    }
+
     /** Resolve the just-minted token to its stored record (active tokens only). */
     private function tokenRow(string $plain): \Nimbus\Api\ApiToken
     {

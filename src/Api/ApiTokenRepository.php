@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nimbus\Api;
 
+use Nimbus\Auth\RoleRepository;
 use Nimbus\Database\Connection;
 
 /**
@@ -24,7 +25,7 @@ final class ApiTokenRepository
     /** Human-visible prefix so a leaked token is recognisable as a Nimbus one. */
     private const PREFIX = 'nbt_';
 
-    private const COLUMNS = 'id, name, abilities, last_used_at, used_count, last_used_ip, expires_at, revoked_at, paused_at';
+    private const COLUMNS = 'id, name, abilities, role_id, last_used_at, used_count, last_used_ip, expires_at, revoked_at, paused_at';
 
     public function __construct(private Connection $db)
     {
@@ -37,23 +38,44 @@ final class ApiTokenRepository
      * @param string[] $abilities
      * @param ?string  $expiresAt an absolute 'Y-m-d H:i:s'; null never expires
      */
-    public function create(string $name, array $abilities = [], ?string $expiresAt = null): string
+    public function create(string $name, array $abilities = [], ?string $expiresAt = null, ?int $roleId = null): string
     {
         $plain = self::PREFIX . bin2hex(random_bytes(20));
 
         $this->db->execute(
-            'INSERT INTO nb_api_tokens (name, token_hash, abilities, expires_at, created_at)
-             VALUES (:n, :h, :a, :e, :c)',
+            'INSERT INTO nb_api_tokens (name, token_hash, abilities, role_id, expires_at, created_at)
+             VALUES (:n, :h, :a, :r, :e, :c)',
             [
                 'n' => $name,
                 'h' => self::hash($plain),
                 'a' => $abilities === [] ? null : json_encode(array_values($abilities), JSON_THROW_ON_ERROR),
+                'r' => $roleId,
                 'e' => $expiresAt,
                 'c' => date('Y-m-d H:i:s'),
             ],
         );
 
         return $plain;
+    }
+
+    /**
+     * Resolve a token to its authorization principal: its explicit abilities
+     * unioned with the **live** capabilities of its bound role (ADR 0011). The
+     * one place role-caps are resolved, shared by the HTTP middleware and the
+     * `nimbus mcp` command — so a role edit reaches every token that uses it, and
+     * a token whose role was deleted (`role_id` NULL) falls back to its explicit
+     * abilities (empty → deny-by-default).
+     */
+    public function principalFor(ApiToken $token): TokenPrincipal
+    {
+        $capabilities = $token->abilities;
+        if ($token->roleId !== null) {
+            $role = (new RoleRepository($this->db))->find($token->roleId);
+            if ($role !== null) {
+                $capabilities = array_values(array_unique([...$capabilities, ...$role->capabilities]));
+            }
+        }
+        return new TokenPrincipal($token->id, $token->name, $capabilities);
     }
 
     /** Resolve a presented plaintext token to its stored record — only if active. */
@@ -148,6 +170,7 @@ final class ApiTokenRepository
             self::nullableString($row['expires_at'] ?? null),
             self::nullableString($row['revoked_at'] ?? null),
             self::nullableString($row['paused_at'] ?? null),
+            isset($row['role_id']) ? (int) $row['role_id'] : null,
         );
     }
 

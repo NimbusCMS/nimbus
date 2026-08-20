@@ -19,7 +19,7 @@ final class ApiCorsTest extends HttpTestCase
     {
         parent::setUp();
         putenv('CORS_ALLOWED_ORIGINS=https://app.example');
-        $this->token = (new ApiTokenRepository($this->db))->create('T');
+        $this->token = (new ApiTokenRepository($this->db))->create('T', ['*:read']);
         $this->makeCollection('posts');
     }
 

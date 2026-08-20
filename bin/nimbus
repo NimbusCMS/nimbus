@@ -141,9 +141,25 @@ try {
                     $scopes[] = $scope;
                 }
             }
-            $plain = (new Nimbus\Api\ApiTokenRepository($db))->create($name, $scopes, $expiresAt);
-            echo "API token created: {$name}"
-                . ($scopes === [] ? ' (read-all)' : ' [' . implode(', ', $scopes) . ']')
+            // Optionally bind the token to a role — its capabilities are then the
+            // role's, resolved live (ADR 0011). The CLI is a trusted operator, so
+            // no subset-only check here; the role just has to exist.
+            $roleId    = null;
+            $roleLabel = '';
+            $roleName  = $opt($argv, 'role');
+            if ($roleName !== null && trim($roleName) !== '') {
+                $role = (new Nimbus\Auth\RoleRepository($db))->findByName(trim($roleName));
+                if ($role === null) {
+                    fwrite(STDERR, "No role named \"{$roleName}\".\n");
+                    exit(1);
+                }
+                $roleId    = $role->id;
+                $roleLabel = " as role \"{$role->name}\"";
+            }
+
+            $plain = (new Nimbus\Api\ApiTokenRepository($db))->create($name, $scopes, $expiresAt, $roleId);
+            echo "API token created: {$name}" . $roleLabel
+                . ($scopes !== [] ? ' [' . implode(', ', $scopes) . ']' : ($roleId === null ? ' (no scopes — denies everything until granted)' : ''))
                 . ($expiresAt !== null ? " (expires {$expiresAt})" : '') . "\n";
             echo "  {$plain}\n";
             echo "This is shown once. Store it now — only its hash is kept.\n";
@@ -187,12 +203,12 @@ try {
                 new Nimbus\Mcp\SchemaToolset($collections, new Nimbus\Content\CollectionService($db, $collections), $app->fieldTypeRegistry(), $app->events()),
                 new Nimbus\Mcp\MediaToolset($mediaRepo, $uploader, new Nimbus\Media\MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $app->events()),
                 new Nimbus\Mcp\UsersToolset(new Nimbus\Auth\UserRepository($db), $app->events()),
-                new Nimbus\Mcp\TokensToolset(new Nimbus\Api\ApiTokenRepository($db), $app->events()),
+                new Nimbus\Mcp\TokensToolset(new Nimbus\Api\ApiTokenRepository($db), new Nimbus\Auth\RoleRepository($db), $app->events()),
                 new Nimbus\Mcp\ContentToolset($collections, $app->fieldTypeRegistry(), $ops),
             );
             $transport = new Nimbus\Mcp\StdioTransport(
                 $server,
-                Nimbus\Api\TokenPrincipal::fromToken($token),
+                $tokens->principalFor($token),
                 new Nimbus\Api\EntryOpContext('stdio', 'mcp'),
             );
             $transport->run(STDIN, STDOUT);
@@ -230,12 +246,19 @@ try {
                 echo "No API tokens.\n";
                 break;
             }
+            // A role-id → name map so a bound token shows its role, not a number.
+            $roleNames = [];
+            foreach ((new Nimbus\Auth\RoleRepository($db))->all() as $role) {
+                $roleNames[$role->id] = $role->name;
+            }
             foreach ($rows as $t) {
+                $role = $t->roleId !== null ? ($roleNames[$t->roleId] ?? "role #{$t->roleId}") : '—';
                 printf(
-                    "#%-3d %-8s %-22s used %-5d last %s%s\n",
+                    "#%-3d %-8s %-22s role %-12s used %-5d last %s%s\n",
                     $t->id,
                     $t->status(),
                     mb_substr($t->name, 0, 22),
+                    mb_substr($role, 0, 12),
                     $t->usedCount,
                     $t->lastUsedAt ?? 'never',
                     $t->expiresAt !== null ? "  expires {$t->expiresAt}" : '',
@@ -273,8 +296,8 @@ try {
               mcp                                              serve MCP over stdio (JSON-RPC); needs NIMBUS_MCP_TOKEN
               install  [--email= --name= --password=]          migrate + create the admin user
               create-user --email=  [--password= --name= --role=]
-              token:create --name="My app" [--expires=90d] [--scopes=posts:read,*:read]
-              token:list                                       show every token + its state
+              token:create --name="My app" [--expires=90d] [--scopes=posts:read,*:read] [--role=editor]
+              token:list                                       show every token + its state (and bound role)
               token:revoke --id=N                              revoke a token (permanent)
               token:pause  --id=N                              temporarily disable a token
               token:resume --id=N                              re-enable a paused token
