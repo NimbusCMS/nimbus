@@ -1,14 +1,19 @@
 <?php
-/** @var array{collections:int,entries:int,media:int,users:int} $stats */
+/**
+ * @var array{collections:int,entries:int,media:int,users:int} $stats
+ * @var bool $canMedia whether to show the media card (it links to a gated page)
+ */
 use Nimbus\View\View;
 
 $e     = static fn (?string $v): string => View::e($v);
 $cards = [
     ['label' => 'Collections', 'count' => $stats['collections'], 'url' => '/admin/collections', 'icon' => '❑'],
     ['label' => 'Entries',     'count' => $stats['entries'],     'url' => '/admin/collections', 'icon' => '✎'],
-    ['label' => 'Media',       'count' => $stats['media'],       'url' => '/admin/media',       'icon' => '❖'],
-    ['label' => 'Users',       'count' => $stats['users'],       'url' => '/admin/users',       'icon' => '☾'],
 ];
+if ($canMedia) {
+    $cards[] = ['label' => 'Media', 'count' => $stats['media'], 'url' => '/admin/media', 'icon' => '❖'];
+}
+$cards[] = ['label' => 'Users', 'count' => $stats['users'], 'url' => '/admin/users', 'icon' => '☾'];
 ?>
 <div class="nb-page-head">
     <h1>Dashboard</h1>

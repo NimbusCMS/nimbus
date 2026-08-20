@@ -134,10 +134,16 @@ abstract class HttpTestCase extends IntegrationTestCase
     {
         $id = $this->createUser($role, $email);
         // Roles (ADR 0011): assign the matching system role so the capability
-        // Gate authorizes this user; base caps are admin -> admin, editor/author
-        // -> *:read (per-collection writes are granted by makeCollection).
+        // Gate authorizes this user; base caps mirror RoleSeeder — admin -> admin,
+        // editor/author -> *:read + media:read/write (per-collection writes are
+        // granted by makeCollection).
         $roles    = new \Nimbus\Auth\RoleRepository($this->db);
-        $base     = ['admin' => ['admin'], 'editor' => ['*:read'], 'author' => ['*:read']];
+        $media    = \Nimbus\Auth\RoleSeeder::CONTENT_MEDIA_CAPS;
+        $base     = [
+            'admin'  => ['admin'],
+            'editor' => array_merge(['*:read'], $media),
+            'author' => array_merge(['*:read'], $media),
+        ];
         $existing = $roles->findByName($role);
         $roleId   = $existing !== null ? $existing->id : $roles->create($role, $base[$role] ?? [], true);
         $roles->assignToUser($id, $roleId);
@@ -203,7 +209,12 @@ abstract class HttpTestCase extends IntegrationTestCase
         // collection's write capability, so a role-based user manages it exactly
         // as the legacy manage-list intended.
         $roles = new \Nimbus\Auth\RoleRepository($this->db);
-        $base  = ['admin' => ['admin'], 'editor' => ['*:read'], 'author' => ['*:read']];
+        $media = \Nimbus\Auth\RoleSeeder::CONTENT_MEDIA_CAPS;
+        $base  = [
+            'admin'  => ['admin'],
+            'editor' => array_merge(['*:read'], $media),
+            'author' => array_merge(['*:read'], $media),
+        ];
         foreach ($options['permissions']['manage'] ?? [] as $roleName) {
             $roleName = (string) $roleName;
             $role     = $roles->findByName($roleName);

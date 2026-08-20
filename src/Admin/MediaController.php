@@ -56,6 +56,8 @@ final class MediaController extends Controller
 
     private function index(Request $req): Response
     {
+        $this->requireCan('media', 'read');
+
         return $this->page('media/index', 'media', [
             'items'    => $this->media->all(),
             'maxLabel' => $this->humanBytes(Config::uploadMaxBytes()),
@@ -67,6 +69,10 @@ final class MediaController extends Controller
 
     private function store(Request $req): Response
     {
+        // Uploading is a media write; gated independently of the read on index so
+        // a read-only media role cannot add files (management caps grant no
+        // read-implies-write, and write no read — both are checked where used).
+        $this->requireCan('media', 'write');
         $this->requireCsrf($req, '/admin/media');
 
         $file = $req->file('file');
@@ -85,6 +91,7 @@ final class MediaController extends Controller
 
     private function destroy(Request $req, int $id): Response
     {
+        $this->requireCan('media', 'write');
         $this->requireCsrf($req, '/admin/media');
 
         // The shared guard refuses to delete a file that content still uses, so

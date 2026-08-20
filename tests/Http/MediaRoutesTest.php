@@ -133,6 +133,69 @@ final class MediaRoutesTest extends HttpTestCase
         self::assertNotNull($this->media->find($id), 'a forged delete must not remove media');
     }
 
+    // ------------------------------------------------ capability gating (Slice 3b)
+
+    public function test_a_media_less_role_is_denied_the_whole_library(): void
+    {
+        // A content-only role (no media caps) reaches the admin but not media.
+        $this->actingWithCapabilities(['posts:read']);
+        $id = $this->seed();
+
+        $this->assertRedirects($this->get('/admin/media'), '/admin', 'listing needs media:read');
+        $this->assertRedirects($this->post('/admin/media'), '/admin', 'uploading needs media:write');
+        $this->assertRedirects($this->post("/admin/media/{$id}/delete"), '/admin', 'deleting needs media:write');
+        self::assertNotNull($this->media->find($id), 'the file survives a denied delete');
+    }
+
+    public function test_a_read_only_media_role_can_list_but_never_write(): void
+    {
+        // The sharp one: media:read must NOT confer media:write (management caps
+        // carry no read↔write implication), and each write is gated on its own.
+        $this->actingWithCapabilities(['media:read']);
+        $id = $this->seed();
+
+        self::assertSame(200, $this->get('/admin/media')->status, 'media:read lists the library');
+
+        // A denied write aborts to /admin (requireCan) — never reaching CSRF or
+        // the no-file handler, which would redirect to /admin/media instead.
+        $this->assertRedirects($this->post('/admin/media'), '/admin', 'upload is denied to a read-only role');
+        $this->assertRedirects($this->post("/admin/media/{$id}/delete"), '/admin', 'delete is denied to a read-only role');
+        self::assertNotNull($this->media->find($id), 'nothing was deleted');
+    }
+
+    public function test_editor_and_author_retain_media_access(): void
+    {
+        foreach (['editor', 'author'] as $role) {
+            $this->actingAs($role, "{$role}@media.test");
+            $id = $this->seed();
+
+            self::assertSame(200, $this->get('/admin/media')->status, "{$role} lists media");
+            // The write gate passes: an empty upload reaches the no-file handler
+            // (redirects to /admin/media?err=), not the authz abort to /admin.
+            $this->assertRedirectsTo($this->post('/admin/media'), '/admin/media?err=');
+            $this->assertRedirects($this->post("/admin/media/{$id}/delete"), '/admin/media?msg=deleted', "{$role} may delete");
+            self::assertNull($this->media->find($id), "{$role}'s delete removed the row");
+        }
+    }
+
+    public function test_media_caps_do_not_leak_into_other_management(): void
+    {
+        // Granting media:write is behavior-preserving, not an escalation: it
+        // satisfies no other management gate.
+        $this->actingWithCapabilities(['media:read', 'media:write']);
+
+        $this->assertRedirects($this->get('/admin/users'), '/admin', 'media does not grant users');
+        $this->assertRedirects($this->get('/admin/roles'), '/admin', 'nor roles');
+        $this->assertRedirects($this->get('/admin/tokens'), '/admin', 'nor tokens');
+    }
+
+    public function test_the_media_nav_link_hides_without_media_read(): void
+    {
+        $this->actingWithCapabilities(['posts:read']);
+
+        self::assertStringNotContainsString('/admin/media', $this->get('/admin')->body, 'no dead media link for a media-less user');
+    }
+
     // --------------------------------------------------------------- escaping
 
     public function test_filenames_are_html_escaped(): void

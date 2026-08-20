@@ -120,6 +120,9 @@ final class AdminController extends Controller
                 'media'       => $this->count('nb_media'),
                 'users'       => $this->count('nb_users'),
             ],
+            // The media card links to a now-gated page; hide it for a user without
+            // media:read so it is not a dead link (Slice 3b, ADR 0011).
+            'canMedia' => $this->gate->can('media', 'read'),
         ]);
     }
 
