@@ -130,6 +130,39 @@ final class TokenAdminTest extends HttpTestCase
         self::assertSame(['posts:read'], $this->tokens->all()[0]->abilities);
     }
 
+    public function test_a_token_manager_cannot_grant_read_all_it_does_not_hold(): void
+    {
+        // A custom role granting only `tokens:write` reaches this form (Slice 3
+        // made management caps grantable to non-admins) — but it must not be able
+        // to mint a read-all token it could never read with itself. Fails on the
+        // pre-subset-only form.
+        $this->actingWithCapabilities(['tokens:write']);
+
+        $this->post('/admin/tokens', ['name' => 'Overreach', 'scope_all' => '1', '_nonce' => FormNonce::issue()]);
+
+        self::assertSame([], $this->tokens->all(), 'a token-manager without *:read cannot mint a read-all token');
+    }
+
+    public function test_a_token_manager_cannot_grant_a_collection_it_cannot_read(): void
+    {
+        $this->actingWithCapabilities(['tokens:write']);
+        $this->makeCollection('posts');
+
+        $this->post('/admin/tokens', ['name' => 'Overreach', 'scopes' => ['posts'], '_nonce' => FormNonce::issue()]);
+
+        self::assertSame([], $this->tokens->all(), 'granting posts:read requires holding it');
+    }
+
+    public function test_a_token_manager_may_grant_reads_it_holds(): void
+    {
+        $this->makeCollection('posts');
+        $this->actingWithCapabilities(['tokens:write', 'posts:read']);
+
+        $this->post('/admin/tokens', ['name' => 'Within reach', 'scopes' => ['posts'], '_nonce' => FormNonce::issue()]);
+
+        self::assertSame(['posts:read'], $this->tokens->all()[0]->abilities, 'a scope the actor holds is grantable');
+    }
+
     public function test_choosing_no_access_is_rejected(): void
     {
         $this->actingAs('admin');

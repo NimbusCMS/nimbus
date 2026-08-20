@@ -92,6 +92,17 @@ final class TokensController extends Controller
             return $this->redirect('/admin/tokens?err=' . rawurlencode('Choose "All collections", or at least one collection.'));
         }
 
+        // Subset-only escalation guard (ADR 0011): you can only grant a token
+        // access you hold yourself. `tokens:write` reaches this form, but a
+        // custom-role holder without `*:read` must not be able to mint a
+        // read-all token — the CLI and MCP mint paths already enforce this; the
+        // web form must too (its read-only construction was never an authz
+        // control, only a limitation).
+        $ungrantable = $this->firstUngrantable($scopes);
+        if ($ungrantable !== null) {
+            return $this->redirect('/admin/tokens?err=' . rawurlencode("You cannot grant access you do not hold: \"{$ungrantable}\"."));
+        }
+
         // Single-use nonce, checked only once the input is otherwise valid: a
         // reload re-POSTs a spent nonce, so it mints nothing (the mint renders
         // its secret rather than redirecting, so it cannot use Post/Redirect/Get
@@ -128,6 +139,26 @@ final class TokensController extends Controller
         $valid   = array_values(array_intersect(array_map('strval', $chosen), $handles));
 
         return array_map(static fn (string $handle): string => "{$handle}:read", $valid);
+    }
+
+    /**
+     * The first capability the current actor does not itself hold, or null if it
+     * holds them all. The subset-only guard (ADR 0011): you can only grant — into
+     * a token — access you have. Shares its shape with
+     * {@see RolesController::firstUnheld()} and {@see UsersController}. When the
+     * role dropdown lands (Slice 4b), its role capabilities join the set checked
+     * here, so binding a role is no way around the guard.
+     *
+     * @param string[] $capabilities
+     */
+    private function firstUngrantable(array $capabilities): ?string
+    {
+        foreach ($capabilities as $capability) {
+            if (!$this->gate->holds($capability)) {
+                return $capability;
+            }
+        }
+        return null;
     }
 
     private function lifecycle(Request $req, int $id, string $action): Response
