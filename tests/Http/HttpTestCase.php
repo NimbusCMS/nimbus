@@ -133,6 +133,45 @@ abstract class HttpTestCase extends IntegrationTestCase
     protected function actingAs(string $role = 'admin', string $email = 'admin@test.local'): int
     {
         $id = $this->createUser($role, $email);
+        // Roles (ADR 0011): assign the matching system role so the capability
+        // Gate authorizes this user; base caps are admin -> admin, editor/author
+        // -> *:read (per-collection writes are granted by makeCollection).
+        $roles    = new \Nimbus\Auth\RoleRepository($this->db);
+        $base     = ['admin' => ['admin'], 'editor' => ['*:read'], 'author' => ['*:read']];
+        $existing = $roles->findByName($role);
+        $roleId   = $existing !== null ? $existing->id : $roles->create($role, $base[$role] ?? [], true);
+        $roles->assignToUser($id, $roleId);
+
+        $_SESSION['nimbus_uid'] = $id;
+        $this->auth = new Auth($this->db);
+        $this->rebuildRouter();
+        return $id;
+    }
+
+    /**
+     * Sign in as a user whose single custom role grants exactly $capabilities —
+     * for exercising capability enforcement with a precise, non-admin actor.
+     *
+     * @param list<string> $capabilities
+     */
+    protected function actingWithCapabilities(array $capabilities, ?string $email = null): int
+    {
+        $email ??= 'scoped-' . bin2hex(random_bytes(4)) . '@test.local';
+        $id     = $this->createUser('author', $email);
+        $roles  = new \Nimbus\Auth\RoleRepository($this->db);
+        $roleId = $roles->create('Scoped ' . bin2hex(random_bytes(3)), $capabilities, false);
+        $roles->assignToUser($id, $roleId);
+
+        $_SESSION['nimbus_uid'] = $id;
+        $this->auth = new Auth($this->db);
+        $this->rebuildRouter();
+        return $id;
+    }
+
+    /** Sign in with a legacy role string and NO role assignment (for the un-seeded fallback). */
+    protected function actingAsLegacy(string $role): int
+    {
+        $id = $this->createUser($role, $role . '@legacy.test');
         $_SESSION['nimbus_uid'] = $id;
         $this->auth = new Auth($this->db);
         $this->rebuildRouter();
@@ -157,14 +196,26 @@ abstract class HttpTestCase extends IntegrationTestCase
     protected function makeCollection(string $handle, array $fields = [], array $options = []): Collection
     {
         $repo = new CollectionRepository($this->db);
-        $id   = (new CollectionService($this->db, $repo))->create(
-            $handle,
-            ucfirst($handle),
-            '#',
-            '',
-            $options ?: ['kind' => 'collection', 'permissions' => ['manage' => ['editor']]],
-            $fields,
-        );
+        $options = $options ?: ['kind' => 'collection', 'permissions' => ['manage' => ['editor']]];
+        $id      = (new CollectionService($this->db, $repo))->create($handle, ucfirst($handle), '#', '', $options, $fields);
+
+        // Roles (ADR 0011): mirror the shortcut — grant each manage-role this
+        // collection's write capability, so a role-based user manages it exactly
+        // as the legacy manage-list intended.
+        $roles = new \Nimbus\Auth\RoleRepository($this->db);
+        $base  = ['admin' => ['admin'], 'editor' => ['*:read'], 'author' => ['*:read']];
+        foreach ($options['permissions']['manage'] ?? [] as $roleName) {
+            $roleName = (string) $roleName;
+            $role     = $roles->findByName($roleName);
+            if ($role !== null) {
+                $rid     = $role->id;
+                $current = $role->capabilities;
+            } else {
+                $current = $base[$roleName] ?? [];
+                $rid     = $roles->create($roleName, $current, true);
+            }
+            $roles->setCapabilities($rid, array_values(array_unique([...$current, $handle . ':write'])));
+        }
         return $repo->find($id);
     }
 

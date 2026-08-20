@@ -244,3 +244,34 @@ Template for an accepted risk:
   *under*-grants (a role assigned in the UI isn't yet effective), never over-grants.
 - **Evidence:** `tests/Http/RolesAdminTest.php`, `tests/Http/UsersAdminTest.php`
   (9 tests) + visual verification of both pages.
+
+### 2026-08-19 · Enforcement flip to capabilities (Roles Slice 3) — reviewed pre-build, controls landed
+- **Status:** fixed/verified — the authorization core; two High escalation paths closed by design + tests
+- **Surface:** `src/Auth/Gate.php`, admin controllers (requireAdmin→requireCan), `src/Admin/{Roles,Users}Controller.php` (subset-only) — catalog #1 (IDOR/authz) + #2 (privilege escalation)
+- **Findings the pre-build review surfaced, and their controls:**
+  - **A2 (High) — escalation by role *assignment*:** a `users:write` non-admin
+    posting `roles[]=<admin role>` to `/admin/users/{self}` would grant itself
+    admin. My design had only *mused* about this. **Control:** `UsersController`
+    now rejects assigning (or editing a user who already holds) any role whose
+    capabilities exceed the actor's — `firstUngrantableRole` via `Gate::holds`
+    (admin holds all). Test: `RolesEnforcementTest::test_a_user_manager_cannot_assign_a_role_beyond_itself`.
+  - **A1 (High) — escalation by role *capabilities*:** a `roles:write` non-admin
+    minting a role with `admin`/`schema:write`. **Control:** `RolesController`
+    rejects granting (create) or editing a role holding any capability the actor
+    lacks. Test: `test_a_role_manager_cannot_grant_a_capability_it_lacks`.
+  - **A4 (High if missed) — a missed gate on a flipped endpoint.** **Control:** an
+    authorization-matrix test asserts deny-without / allow-with for schema/tokens/
+    users/roles + per-collection entry management.
+  - **A5 (Medium) — media stays auth-only** (any signed-in user uploads/deletes),
+    which under-serves a future read-only role. **Accepted-with-tracking:** the
+    admin media page is not capability-gated this slice (gating it would tighten
+    editor/author and needs a seed refresh). Fast-follow tracked in ROADMAP.
+  - **A6 — force the legacy fallback by emptying `nb_roles`:** not reachable —
+    system roles are undeletable and roles have no MCP surface; the fallback only
+    fires pre-seed. The system-role-undeletable test is now load-bearing for authz.
+- **Correctness:** the Gate resolves the user *lazily* via `Auth` (matches the old
+  live-read; a construction-time capture broke `SharedRegistryTest`). Un-seeded →
+  legacy `Permissions` verbatim (tested: identical authorization; nothing seeds
+  behind our back).
+- **Evidence:** `tests/Http/RolesEnforcementTest.php` (matrix + A1 + A2 + fallback);
+  full suite (538) green — behavior preserved.

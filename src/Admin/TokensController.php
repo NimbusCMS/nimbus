@@ -61,7 +61,7 @@ final class TokensController extends Controller
     /** The list + create form. `$justCreated` is a freshly-minted plaintext to show once. */
     private function index(Request $req, ?string $justCreated = null): Response
     {
-        $this->requireAdmin();
+        $this->requireCan('tokens', 'write');
 
         return $this->page('tokens/index', 'tokens', [
             'tokens'      => $this->tokens->all(),
@@ -77,7 +77,7 @@ final class TokensController extends Controller
 
     private function store(Request $req): Response
     {
-        $this->requireAdmin();
+        $this->requireCan('tokens', 'write');
         $this->requireCsrf($req, '/admin/tokens');
 
         $name = trim((string) $req->input('name'));
@@ -132,7 +132,7 @@ final class TokensController extends Controller
 
     private function lifecycle(Request $req, int $id, string $action): Response
     {
-        $this->requireAdmin();
+        $this->requireCan('tokens', 'write');
         $this->requireCsrf($req, '/admin/tokens');
 
         match ($action) {

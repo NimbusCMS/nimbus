@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Nimbus\Admin;
 
 use Nimbus\Auth\Auth;
-use Nimbus\Content\Permissions;
+use Nimbus\Auth\Gate;
+use Nimbus\Auth\RoleRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\HttpException;
@@ -20,6 +21,7 @@ abstract class Controller
 {
     protected View $view;
     protected AuthMiddleware $authMw;
+    protected Gate $gate;
 
     public function __construct(
         protected Connection $db,
@@ -31,25 +33,33 @@ abstract class Controller
             'appName' => Config::appName(),
         ]);
         $this->authMw = new AuthMiddleware($auth);
+        $this->gate   = new Gate(new RoleRepository($db), $auth);
     }
 
     /** @return array<int,array<string,mixed>> */
     protected function nav(string $active): array
     {
+        // Content sections are visible to any signed-in user (the pages enforce
+        // per-collection write). Administration sections appear only to holders of
+        // the capability that gates them (ADR 0011), so there are no dead links.
         $items = [
             ['key' => 'dashboard',   'label' => 'Dashboard',   'url' => '/admin',             'icon' => '✦'],
             ['key' => 'collections', 'label' => 'Collections', 'url' => '/admin/collections', 'icon' => '❑'],
             ['key' => 'media',       'label' => 'Media',       'url' => '/admin/media',       'icon' => '❖'],
-            ['key' => 'users',       'label' => 'Users',       'url' => '/admin/users',       'icon' => '☾'],
-            ['key' => 'plugins',     'label' => 'Plugins',     'url' => '/admin/plugins',     'icon' => '⚡'],
-            ['key' => 'settings',    'label' => 'Settings',    'url' => '/admin/settings',    'icon' => '⚙'],
         ];
-        // Roles + API tokens are administrator concerns — only admins manage
-        // them, so only admins see the entry points.
-        if (Permissions::isAdmin($this->auth->user())) {
-            $items[] = ['key' => 'roles',  'label' => 'Roles',      'url' => '/admin/roles',  'icon' => '⛨'];
+        if ($this->gate->can('users', 'write')) {
+            $items[] = ['key' => 'users', 'label' => 'Users', 'url' => '/admin/users', 'icon' => '☾'];
+        }
+        if ($this->gate->can('roles', 'write')) {
+            $items[] = ['key' => 'roles', 'label' => 'Roles', 'url' => '/admin/roles', 'icon' => '⛨'];
+        }
+        if ($this->gate->can('tokens', 'write')) {
             $items[] = ['key' => 'tokens', 'label' => 'API tokens', 'url' => '/admin/tokens', 'icon' => '⚿'];
         }
+        if ($this->gate->holds('admin')) {
+            $items[] = ['key' => 'plugins', 'label' => 'Plugins', 'url' => '/admin/plugins', 'icon' => '⚡'];
+        }
+        $items[] = ['key' => 'settings', 'label' => 'Settings', 'url' => '/admin/settings', 'icon' => '⚙'];
         // Plugin-registered pages sit below the core sections.
         foreach ($this->adminPages?->all() ?? [] as $page) {
             $items[] = ['key' => $page['slug'], 'label' => $page['label'], 'url' => '/admin/' . $page['slug'], 'icon' => $page['icon']];
@@ -115,10 +125,18 @@ abstract class Controller
         }
     }
 
-    /** Restrict an action to administrators, redirecting everyone else. */
+    /** Restrict an action to holders of the `admin` super-grant, redirecting everyone else. */
     protected function requireAdmin(string $abortTo = '/admin'): void
     {
-        if (!Permissions::isAdmin($this->auth->user())) {
+        if (!$this->gate->holds('admin')) {
+            $this->abortTo($abortTo);
+        }
+    }
+
+    /** Restrict an action to holders of a specific capability (ADR 0011). */
+    protected function requireCan(string $resource, string $action, string $abortTo = '/admin'): void
+    {
+        if (!$this->gate->can($resource, $action)) {
             $this->abortTo($abortTo);
         }
     }

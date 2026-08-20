@@ -26,6 +26,16 @@ final class RoleRepository
         );
     }
 
+    /**
+     * Has the roles system been seeded? While it hasn't (a freshly-migrated
+     * install before `roles:seed`), authorization falls back to the legacy path
+     * so no one is locked out (ADR 0011).
+     */
+    public function hasAny(): bool
+    {
+        return $this->db->selectOne('SELECT 1 FROM nb_roles LIMIT 1') !== null;
+    }
+
     public function find(int $id): ?Role
     {
         $row = $this->db->selectOne('SELECT * FROM nb_roles WHERE id = :id', ['id' => $id]);

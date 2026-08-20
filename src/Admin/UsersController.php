@@ -43,7 +43,7 @@ final class UsersController extends Controller
 
     private function index(Request $req): Response
     {
-        $this->requireAdmin();
+        $this->requireCan('users', 'write');
 
         $editId  = $req->query('edit');
         $editing = $editId !== null && ctype_digit($editId) ? $this->users->find((int) $editId) : null;
@@ -66,7 +66,7 @@ final class UsersController extends Controller
 
     private function store(Request $req): Response
     {
-        $this->requireAdmin();
+        $this->requireCan('users', 'write');
         $this->requireCsrf($req, '/admin/users');
 
         $email = strtolower(trim((string) $req->input('email')));
@@ -85,18 +85,24 @@ final class UsersController extends Controller
             $name = ucfirst(explode('@', $email)[0]);
         }
 
+        $roleIds     = $this->roleIdsFrom($req);
+        $ungrantable = $this->firstUngrantableRole($roleIds);
+        if ($ungrantable !== null) {
+            return $this->redirect('/admin/users?err=' . rawurlencode("You cannot assign the \"{$ungrantable}\" role — it grants more than you hold."));
+        }
+
         // `users.role` keeps a legacy primary role for compatibility until
         // enforcement moves fully to capabilities; the roles below are the source
         // of authority.
         $id = $this->users->create($name, $email, Password::hash($password), 'author');
-        $this->roles->syncUserRoles($id, $this->roleIdsFrom($req));
+        $this->roles->syncUserRoles($id, $roleIds);
 
         return $this->redirect('/admin/users?msg=created');
     }
 
     private function update(Request $req, int $id): Response
     {
-        $this->requireAdmin();
+        $this->requireCan('users', 'write');
         $this->requireCsrf($req, '/admin/users');
 
         $user = $this->users->find($id);
@@ -105,6 +111,16 @@ final class UsersController extends Controller
         }
 
         $roleIds = $this->roleIdsFrom($req);
+
+        // Subset-only (both directions): you cannot assign a role that grants more
+        // than you hold, nor edit a user who already holds one — so a users:write
+        // user can never escalate themselves or a peer to admin, and can't strip a
+        // superior of a role they can't see.
+        $ungrantable = $this->firstUngrantableRole($roleIds)
+            ?? $this->firstUngrantableRole(array_map(static fn ($r): int => $r->id, $this->roles->rolesForUser($id)));
+        if ($ungrantable !== null) {
+            return $this->redirect('/admin/users?err=' . rawurlencode("You cannot grant or change the \"{$ungrantable}\" role — it grants more than you hold."));
+        }
 
         // Never let the last admin be stripped of the admin role.
         $adminRole = $this->roles->findByName('admin');
@@ -122,6 +138,30 @@ final class UsersController extends Controller
         $this->roles->syncUserRoles($id, $roleIds);
 
         return $this->redirect('/admin/users?msg=updated');
+    }
+
+    /**
+     * The name of the first role the acting user may not grant — one whose
+     * capabilities include something the actor does not hold — or null. This is
+     * the assignment half of subset-only: an admin holds everything, so may
+     * assign any role; a lesser manager may assign only roles at or below itself.
+     *
+     * @param list<int> $roleIds
+     */
+    private function firstUngrantableRole(array $roleIds): ?string
+    {
+        foreach ($roleIds as $roleId) {
+            $role = $this->roles->find($roleId);
+            if ($role === null) {
+                continue;
+            }
+            foreach ($role->capabilities as $capability) {
+                if (!$this->gate->holds($capability)) {
+                    return $role->name;
+                }
+            }
+        }
+        return null;
     }
 
     /** @return list<int> the role ids checked in the form */

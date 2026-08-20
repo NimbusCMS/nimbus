@@ -11,7 +11,6 @@ use Nimbus\Content\CollectionService;
 use Nimbus\Content\DuplicateHandle;
 use Nimbus\Content\Field;
 use Nimbus\Content\FieldTypeRegistry;
-use Nimbus\Content\Permissions;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
@@ -64,14 +63,14 @@ final class CollectionsController extends Controller
         }
         return $this->page('collections/index', 'collections', [
             'rows'    => $rows,
-            'isAdmin' => Permissions::isAdmin($this->auth->user()),
+            'isAdmin' => $this->gate->can('schema', 'write'),
             'flash'   => $req->query('msg'),
         ]);
     }
 
     private function form(?int $id): Response
     {
-        $this->requireAdmin('/admin/collections');
+        $this->requireCan('schema', 'write', '/admin/collections');
         $collection = $id !== null ? $this->collections->find($id) : null;
         if ($id !== null && $collection === null) {
             return $this->redirect('/admin/collections');
@@ -81,7 +80,7 @@ final class CollectionsController extends Controller
 
     private function store(Request $req): Response
     {
-        $this->requireAdmin('/admin/collections');
+        $this->requireCan('schema', 'write', '/admin/collections');
         $this->requireCsrf($req);
 
         $draft  = $this->draftFromRequest($req);
@@ -108,7 +107,7 @@ final class CollectionsController extends Controller
 
     private function update(Request $req, int $id): Response
     {
-        $this->requireAdmin('/admin/collections');
+        $this->requireCan('schema', 'write', '/admin/collections');
         $this->requireCsrf($req);
 
         $collection = $this->collections->find($id);
@@ -144,7 +143,6 @@ final class CollectionsController extends Controller
             'choiceTypes'       => $this->choiceTypes(),
             'relationTypes'     => ['relation'],
             'collectionOptions' => $collectionOptions,
-            'roles'             => Permissions::ROLES,
             'csrf'              => Csrf::token(),
         ]);
     }
@@ -161,7 +159,7 @@ final class CollectionsController extends Controller
             'icon'        => $c->icon,
             'description' => $c->description,
             'kind'        => $c->isSingle() ? 'single' : 'collection',
-            'roles'       => $c->managerRoles(),
+            'roles'       => [],
             'fields'      => $c->fields,
         ];
     }
@@ -178,7 +176,7 @@ final class CollectionsController extends Controller
             'icon'        => $this->icon($req),
             'description' => (string) $req->input('description'),
             'kind'        => $options['kind'],
-            'roles'       => $options['permissions']['manage'],
+            'roles'       => [],
             // Field defs are already normalized; wrap them so the builder can
             // re-render the rows exactly as they were submitted.
             'fields'      => array_map(
@@ -206,7 +204,7 @@ final class CollectionsController extends Controller
 
     private function destroy(Request $req, int $id): Response
     {
-        $this->requireAdmin('/admin/collections');
+        $this->requireCan('schema', 'write', '/admin/collections');
         $this->requireCsrf($req);
         $this->collectionService->delete($id);
         return $this->redirect('/admin/collections?msg=deleted');
@@ -256,13 +254,18 @@ final class CollectionsController extends Controller
         return $defs;
     }
 
-    /** @return array<string,mixed> collection options (kind + permissions) */
+    /**
+     * Collection options (kind). The legacy per-collection manage-list is no
+     * longer written — which roles may manage a collection is now a capability
+     * on the role (ADR 0011), granted from the Roles page. `manage` stays as an
+     * empty array for shape compatibility with older rows.
+     *
+     * @return array<string,mixed>
+     */
     private function options(Request $req): array
     {
-        $roles = $req->all()['roles'] ?? [];
-        $roles = is_array($roles) ? array_values(array_intersect(Permissions::ROLES, $roles)) : [];
-        $kind  = $req->input('kind') === 'single' ? 'single' : 'collection';
-        return ['kind' => $kind, 'permissions' => ['manage' => $roles]];
+        $kind = $req->input('kind') === 'single' ? 'single' : 'collection';
+        return ['kind' => $kind, 'permissions' => ['manage' => []]];
     }
 
     private function icon(Request $req): string

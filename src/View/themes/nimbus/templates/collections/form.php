@@ -5,7 +5,6 @@
  * @var array<string,string>            $errors      field handle => message
  * @var array<string,string>            $typeChoices
  * @var string[]                        $choiceTypes
- * @var string[]                        $roles
  * @var string                          $csrf
  */
 use Nimbus\View\View;
@@ -13,7 +12,6 @@ use Nimbus\View\View;
 $e           = static fn (?string $v): string => View::e($v);
 $editing     = $collection !== null;
 $action      = $editing ? '/admin/collections/' . $collection->id : '/admin/collections';
-$manageRoles = $draft['roles'] ?? [];
 $draftFields = $draft['fields'] ?? [];
 $isSingle    = ($draft['kind'] ?? 'collection') === 'single';
 $lockHandles = $editing;
@@ -62,13 +60,8 @@ $err         = static fn (string $k): string => isset($errors[$k])
     </div>
 
     <div class="nb-field">
-        <label>Managed by <small class="nb-muted">— which roles may add/edit entries (admins always can)</small></label>
-        <div class="nb-checks">
-            <?php foreach ($roles as $role): ?>
-                <?php if ($role === 'admin') { continue; } ?>
-                <label class="nb-check"><input type="checkbox" name="roles[]" value="<?= $e($role) ?>" <?= in_array($role, $manageRoles, true) ? 'checked' : '' ?>> <?= $e(ucfirst($role)) ?></label>
-            <?php endforeach; ?>
-        </div>
+        <label>Managed by</label>
+        <p class="nb-muted">Grant a role permission to manage this collection from the <a href="/admin/roles">Roles</a> page (admins always can).</p>
     </div>
 
     <h2 class="nb-section-title">Fields</h2>

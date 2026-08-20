@@ -7,9 +7,12 @@ namespace Nimbus\Content;
 use Nimbus\Auth\User;
 
 /**
- * Per-collection authorization. Admins can do everything; other roles can view
- * (in the admin) but may only manage entries if the collection grants their
- * role. This is the enforcement point the granular RBAC UI will build on.
+ * The **legacy** per-collection authorization (three fixed roles + a collection's
+ * manage-list). Superseded by capability-based roles (ADR 0011): the admin now
+ * authorizes through {@see \Nimbus\Auth\Gate}. This remains only as the Gate's
+ * fallback while an install is un-seeded, and holds the `ROLES` constant the
+ * seeder uses — so admins can do everything and other roles manage only the
+ * collections that granted them, exactly as before, until `roles:seed` runs.
  */
 final class Permissions
 {
@@ -19,11 +22,6 @@ final class Permissions
     public static function isAdmin(?User $user): bool
     {
         return $user !== null && $user->role === 'admin';
-    }
-
-    public static function canView(?User $user, Collection $collection): bool
-    {
-        return $user !== null; // any signed-in admin user can browse content
     }
 
     public static function canManage(?User $user, Collection $collection): bool
