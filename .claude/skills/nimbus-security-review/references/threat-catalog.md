@@ -47,6 +47,19 @@ capability. Directly relevant to the incoming `ApiToken.abilities` work
   test (actor × scope × object × action) that forces every new scope to declare
   its answers.
 
+- **Standing check — escalation at MINT (promoted after two hits: Slice 4 MCP
+  `mint_token`, Slice 4b `/admin/tokens`).** Any surface that mints/grants a
+  token or assigns a role must apply **subset-only over the *entire* granted set**
+  — every explicit scope **and** every capability of any bound role — checked
+  against what the *minter* holds (`Gate::holds` / `TokenPrincipal::can`), and
+  reject on the first ungrantable one, **before** the write. Two traps this class
+  keeps springing: (a) guarding the *new* field (the role) while leaving an
+  *existing* field (the scopes) unchecked — check the union, not the delta; (b)
+  mistaking a surface's *limitation* for a *control* ("the form only offers read")
+  — a limitation is not an authz boundary. A client-side filtered dropdown is
+  never the gate; the server re-resolves and re-checks. Reuse one helper
+  (`firstUnheld`/`firstUngrantable`), never a per-surface reimplementation.
+
 ## 3. SQL injection
 
 - **Surfaces:** `Database/Connection.php` (PDO facade), every `*Repository.php`,

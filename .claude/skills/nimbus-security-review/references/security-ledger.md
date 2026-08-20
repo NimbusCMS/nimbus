@@ -306,3 +306,26 @@ Template for an accepted risk:
   on the old read-all grant now deny — noted in `docs/COMPATIBILITY.md`; the four
   pre-scope tests that leaned on it were given explicit `*:read`.
 - **Evidence:** full suite (548) green; PHPStan level 6 clean.
+
+### 2026-08-20 · Admin token form had no subset-only (Slice 4b-security) — High, fixed
+- **Status:** fixed/verified (commit 698df9e, PR #98). Found by the pre-build 4b review, which the *design* had framed away ("read-only by construction").
+- **Surface:** `src/Admin/TokensController::store()` — the `/admin/tokens` web mint. Catalog #2 (privilege escalation) + management-surface mint.
+- **Finding (A2, High):** the form applied NO subset-only check. Slice 3 made
+  `tokens:write` grantable to non-admins via custom roles; such an actor reaches
+  the form (`requireCan('tokens','write')`) and could POST `scope_all=1` (or a
+  collection) to mint a `*:read`/`{handle}:read` token it does **not** itself
+  hold — a read-all escalation. The read-only construction (`scopesFrom()` only
+  emits `:read`) was a *limitation*, never an authz control; the CLI/MCP mint
+  paths already enforced subset-only, the web form did not.
+- **Control:** `TokensController::firstUngrantable()` (mirrors
+  `RolesController::firstUnheld`; `Gate::holds` = `admin` super-grant + split
+  `resource:action`→`can()`), rejecting any ungrantable scope **before** the
+  nonce is consumed (preserves "invalid retry keeps its nonce; mint renders, no
+  PRG"). When Slice 4b-UI adds the role dropdown, role caps join the same checked
+  set — binding a role is no bypass.
+- **Regression tests** (`tests/Http/TokenAdminTest.php`, through the kernel, red
+  on the pre-fix form): `test_a_token_manager_cannot_grant_read_all_it_does_not_hold`,
+  `test_a_token_manager_cannot_grant_a_collection_it_cannot_read`,
+  `test_a_token_manager_may_grant_reads_it_holds` (positive).
+- **Note:** the *role-binding* half of A1 lands with Slice 4b-UI (no role field on
+  the form yet); the shared `firstUngrantable` set already covers it by design.
