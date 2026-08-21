@@ -1,8 +1,9 @@
 /* NimbusCMS — "Nimbus" admin theme: night-sky sidebar, gold accents. A theme is
    only a re-declaration of this :root token block (docs/design/admin-experience.md,
-   §2). Budget: base ≈19 KB (the token layer; ~3 KB over today's 16 KB), total
-   inlined incl. the four theme blocks ≤ 24 KB — the binding ceiling. No webfonts,
-   no images, no framework. AA notes + rationale live in the design doc. */
+   §2). Budget: ≤ 24 KB total inlined — the binding ceiling (now ~23.3 KB with the
+   token layer + signatures + mobile; the three theme blocks land under the §1.6.7
+   recovery ledger). No webfonts, no images, no framework. State `wc -c` on every
+   CSS PR. AA notes + rationale live in the design doc. */
 :root {
   color-scheme: light;
 
@@ -31,8 +32,8 @@
   --nb-sky-active-rg: rgba(240,194,75,.35);
   --nb-star-a: #ffffff; --nb-star-b: var(--nb-gold-soft); --nb-star-opacity: .8;
   --nb-sky-foot: rgba(205,203,232,.5);
-  --nb-sky-glow: rgba(109,94,252,.18);           /* horizon glow at the sidebar foot */
-  --nb-const: #c9c4ee; --nb-const-line: rgba(109,94,252,.10); /* empty-state constellation */
+  --nb-sky-glow: rgba(109,94,252,.18);
+  --nb-const: #c9c4ee; --nb-const-line: rgba(109,94,252,.10);
 
   /* Elevation */
   --nb-shadow-1: 0 1px 2px rgba(28,24,64,.05), 0 10px 30px rgba(28,24,64,.07);
@@ -51,9 +52,6 @@
 
   /* Focus: input halo (as today) + keyboard :focus-visible ring */
   --nb-focus: 0 0 0 3px var(--nb-brand-tint); --nb-focus-ring: 2px solid var(--nb-brand);
-
-  /* Back-compat aliases (one release; prefer the names above) */
-  --nb-night: var(--nb-sky); --nb-shadow: var(--nb-shadow-1);
 }
 * { box-sizing: border-box; }
 body.nb {
@@ -77,7 +75,7 @@ body.nb {
   display: flex; flex-direction: column; padding: 20px 14px; gap: 4px;
   background: var(--nb-sky);
 }
-.nb-side::before { /* stars */
+.nb-side::before {
   content: ""; position: absolute; inset: 0; pointer-events: none; opacity: var(--nb-star-opacity);
   background-image:
     radial-gradient(1.4px 1.4px at 22% 14%, var(--nb-star-a), transparent),
@@ -87,9 +85,9 @@ body.nb {
     radial-gradient(1px 1px at 30% 68%, rgba(255,255,255,.7), transparent),
     radial-gradient(1.2px 1.2px at 60% 84%, var(--nb-star-a), transparent),
     radial-gradient(1px 1px at 12% 88%, rgba(255,255,255,.6), transparent);
-  animation: nb-twinkle 7s ease-in-out infinite;  /* one gentle pulse; dead under reduced-motion */
+  animation: nb-twinkle 7s ease-in-out infinite;
 }
-.nb-side::after {  /* horizon glow — content glowing below the night sky */
+.nb-side::after {
   content: ""; position: absolute; inset: auto 0 0 0; height: 180px; pointer-events: none;
   background: linear-gradient(0deg, var(--nb-sky-glow), transparent);
 }
@@ -110,7 +108,7 @@ body.nb {
 .nb-nav a.active .nb-ic { color: var(--nb-gold); }
 .nb-ic { width: 18px; text-align: center; font-size: 15px; opacity: .95; }
 .nb-side-foot { margin-top: auto; padding: 12px 8px 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--nb-sky-foot); }
-.nb-summon { color: var(--nb-gold-soft); }  /* the Whisper: "summoned in N ms" */
+.nb-summon { color: var(--nb-gold-soft); }
 
 /* ---- main column ---- */
 .nb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -132,7 +130,7 @@ body.nb {
 
 .nb-page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .nb-page-head h1 { font-size: 24px; position: relative; padding-bottom: 6px; }
-.nb-page-head h1::after {  /* the Charm Line — a wand-flick of gold, the only gold on a working screen */
+.nb-page-head h1::after {
   content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: 44px; border-radius: 999px;
   background: linear-gradient(90deg, var(--nb-gold), var(--nb-gold-soft) 70%, transparent);
 }
@@ -157,7 +155,7 @@ body.nb {
 .nb-panel h2 { font-size: 18px; margin-bottom: 6px; }
 .nb-panel p { color: var(--nb-muted); margin: 0; }
 .nb-empty-panel { text-align: center; padding: 60px 24px; background: var(--nb-surface); border: 1px dashed var(--nb-line); border-radius: var(--nb-radius); position: relative; overflow: hidden; }
-.nb-empty-panel::before {  /* its own patch of sky: a faint constellation + one connecting line */
+.nb-empty-panel::before {
   content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
   background-image:
     radial-gradient(2px 2px at 18% 26%, var(--nb-const), transparent),
@@ -280,19 +278,38 @@ body.nb-night::before {
 .nb-field.has-error input:not([type=checkbox]), .nb-field.has-error select, .nb-field.has-error textarea { border-color: var(--nb-danger); }
 .nb-field.has-error input:focus, .nb-field.has-error select:focus, .nb-field.has-error textarea:focus { box-shadow: 0 0 0 3px var(--nb-danger-bg); }
 
+/* ---- nav drawer machinery (mobile only; hidden on desktop) ---- */
+.nb-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.nb-nav-toggle, .nb-scrim, .nb-menu, .nb-top-brand { display: none; }
+
 /* ---- responsive (mobile is a first-class user; design §1.6) ---- */
 @media (max-width: 1024px) {
-  .nb-content { padding: 20px; }              /* cozy: step the page gutter down */
+  .nb-content { padding: 20px; }
 }
 @media (max-width: 760px) {
-  /* Legacy nav rail (replaced by the drawer in M3). */
   body.nb { flex-direction: column; }
-  .nb-side { width: auto; flex-direction: row; align-items: center; overflow-x: auto; padding: 10px; }
-  .nb-brand { padding: 6px 8px; }
-  .nb-nav { flex-direction: row; }
-  .nb-side-foot { display: none; }
 
-  /* Spacing & shell — reclaim width on a phone. */
+  .nb-nav-toggle { display: block; position: fixed; width: 1px; height: 1px; opacity: 0; }
+  .nb-top-l { display: flex; align-items: center; gap: 8px; }
+  .nb-menu { display: inline-flex; align-items: center; justify-content: center;
+             width: 44px; height: 44px; margin-left: -10px; font-size: 20px;
+             color: var(--nb-ink); border-radius: var(--nb-radius-m); cursor: pointer; }
+  .nb-top-brand { display: inline-flex; color: var(--nb-gold); }
+
+  .nb-side { position: fixed; inset: 0 auto 0 0; z-index: 30; width: min(300px, 84vw);
+             transform: translateX(-100%); visibility: hidden;
+             transition: transform var(--nb-t-base) var(--nb-ease), visibility 0s var(--nb-t-base); }
+  .nb-nav-toggle:checked ~ .nb-side { transform: none; visibility: visible;
+             transition-delay: 0s; box-shadow: var(--nb-shadow-pop); }
+  .nb-nav a { padding: 12px; }
+
+  .nb-scrim { display: block; position: fixed; inset: 0; z-index: 20;
+              background: rgba(10, 6, 40, .45); opacity: 0; pointer-events: none;
+              transition: opacity var(--nb-t-base) var(--nb-ease); }
+  .nb-nav-toggle:checked ~ .nb-scrim { opacity: 1; pointer-events: auto; }
+
+  .nb-nav-toggle:focus-visible ~ .nb-main .nb-menu { outline: var(--nb-focus-ring); outline-offset: 2px; }
+
   .nb-content { padding: 16px 12px; }
   .nb-panel, .nb-form-card, .nb-media-upload { padding: 16px; }
   .nb-empty-panel { padding: 40px 16px; }
@@ -301,17 +318,14 @@ body.nb-night::before {
   .nb-uname { max-width: 26vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .nb-page-head, .nb-head-actions { flex-wrap: wrap; }
 
-  /* Forms — grids collapse (audit #2); 16px inputs stop iOS focus-zoom. */
   .nb-grid-2, .nb-fr-opts { grid-template-columns: 1fr; }
   .nb input:not([type=checkbox]):not([type=radio]), .nb select, .nb textarea { font-size: 16px; }
 
-  /* Field-builder row wraps: label (full) / handle + type (half) / req + remove. */
   .nb-field-row-main { flex-wrap: wrap; }
   .nb-fr-label { flex: 1 1 100%; }
   .nb-fr-handle, .nb-fr-type { flex: 1 1 40%; }
   .nb-fr-remove { width: 44px; height: 44px; }
 
-  /* Touch targets ≥ 44px via padding on the small text controls. */
   .nb-check { padding: 8px 0; }
   .nb-row-actions { gap: 4px; }
   .nb-row-actions a, .nb-row-actions .nb-link, .nb-row-actions .nb-link-danger,
@@ -368,7 +382,7 @@ body.nb-night::before {
     position: relative;
     overflow: hidden;
 }
-.nb-token-secret::after {  /* one gold shimmer as the secret materialises, then done */
+.nb-token-secret::after {
     content: ""; position: absolute; inset: 0; transform: translateX(-100%); pointer-events: none;
     background: linear-gradient(105deg, transparent 40%, rgba(240,194,75,.35) 50%, transparent 60%);
     animation: nb-shimmer .9s var(--nb-ease) .15s 1 forwards;

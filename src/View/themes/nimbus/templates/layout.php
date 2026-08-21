@@ -15,6 +15,7 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
     <style><?= file_get_contents(dirname(__DIR__) . '/theme.css') ?></style>
 </head>
 <body class="nb">
+<input type="checkbox" id="nb-nav-toggle" class="nb-nav-toggle" aria-label="Menu">
 <aside class="nb-side">
     <a class="nb-brand" href="/admin"><?= $logo ?> <span><?= $e($appName) ?></span></a>
     <nav class="nb-nav">
@@ -32,10 +33,14 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
         <?php endif; ?>
     </div>
 </aside>
+<label class="nb-scrim" for="nb-nav-toggle" aria-hidden="true"></label>
 
 <div class="nb-main">
     <header class="nb-top">
-        <div class="nb-top-l"></div>
+        <div class="nb-top-l">
+            <label class="nb-menu" for="nb-nav-toggle"><span aria-hidden="true">☰</span><span class="nb-sr">Menu</span></label>
+            <a class="nb-top-brand" href="/admin" aria-label="Dashboard"><?= $logo ?></a>
+        </div>
         <div class="nb-user">
             <span class="nb-avatar"><?= $e($user?->initial()) ?></span>
             <span class="nb-uname"><?= $e($user?->name) ?><small><?= $e($user?->role) ?></small></span>
@@ -47,5 +52,11 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
     </header>
     <main class="nb-content"><?= $__content ?></main>
 </div>
+<script>
+document.addEventListener('keydown', function (e) {
+    var t = document.getElementById('nb-nav-toggle');
+    if (e.key === 'Escape' && t && t.checked) { t.checked = false; t.focus(); }
+});
+</script>
 </body>
 </html>
