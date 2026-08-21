@@ -414,7 +414,7 @@ fixed roles. One capability vocabulary, one `can()`, role-centric. Design in
 Each slice: CI-green + a `nimbus-security-review` pass (authorization is the core
 of the product).
 
-## 🎨 Initiative: Admin Experience — a uniquely-Nimbus admin + themes (design phase)
+## 🎨 Initiative: Admin Experience — a uniquely-Nimbus admin + themes (building)
 
 **Resume point.** Give the admin UI an identity that is unmistakably *Nimbus*
 (leaning into the existing magical / night-sky / gold-broom brand) instead of
@@ -425,9 +425,12 @@ lives in **[`docs/design/admin-experience.md`](docs/design/admin-experience.md)*
 server-rendered theme-switch mechanism). This is captured now so the creative work
 is not lost.
 
-- [ ] **Design** — the spec at `docs/design/admin-experience.md` (Fable). Design only; non-destructive.
-- [ ] **Drift-guard gate** — run `nimbus-review-loop` on the spec **before building**: classify how much is Core vs. a theme capability, keep it lightweight (no framework, no asset pipeline, token-only theme swaps), stage as small PRs.
-- [ ] **Build** — the design language (token layer + component re-skin over the existing `.nb-` classes) then the theme picker, in increments. **Slice 4b-UI (the token-form role dropdown) rides this** so it's built once in the new language.
+- [x] **Design** — the spec at `docs/design/admin-experience.md` (Fable). Design only; non-destructive.
+- [x] **Drift-guard gate** — `nimbus-review-loop` on the spec: classified (token refactor=Tooling, signatures/themes=Theme, theme-system+picker=small Core), passes the Platform Drift Guard (themeable admin is a general good, opt-out-able, admin-only), token-only rule holds the weight budget. Staged as 4 increments.
+- [x] **Increment 1 — token layer under the same paint** (PR #104): `theme.css` refactored onto the `--nb-*` token set with no *unintended* visual change; four confirmed defects fixed (undefined `--nb-border`, duplicate `.nb-check`, undefined `.nb-link`, phantom Inter/Sora fonts); a11y (`:focus-visible`, `prefers-reduced-motion`, `aria-current`). Zero security surface. Verified live.
+- [ ] **Increment 2 — the signatures** (Charm Line, sidebar horizon glow + twinkle, constellation empty states, the token Reveal, the "summoned in N ms" Whisper). Pure CSS; no security surface.
+- [ ] **Increment 3 — the theme system + Nocturne** (`data-theme` wiring, the Settings picker → `POST /admin/settings/theme`, allowlist + CSRF, `nb_users.theme` write, the Nocturne token block). **Gated behind `nimbus-security-review`** (the write path). **Slice 4b-UI (the token-form role dropdown) rides this** so it's built once in the new language.
+- [ ] **Increment 4 — Daybreak + Grimoire** (+ the 8-line preview JS, swatch chips).
 
 Constraints (from the charter): server-rendered PHP templates, inlined vanilla
 CSS, at most small vanilla JS, WCAG-AA, and the "fast/lightweight" promise — a
