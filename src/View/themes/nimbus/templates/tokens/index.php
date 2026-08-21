@@ -100,7 +100,7 @@ $access = static function (array $abilities): string {
            content through the API.</p>
     </div>
 <?php else: ?>
-    <div class="nb-table-wrap">
+    <div class="nb-table-wrap nb-stack">
     <table class="nb-table">
         <thead>
             <tr>
@@ -111,17 +111,17 @@ $access = static function (array $abilities): string {
             <?php foreach ($tokens as $t): $status = $t->status(); ?>
                 <tr>
                     <td><?= $e($t->name) ?></td>
-                    <td><span class="nb-muted"><?= $e($access($t->abilities)) ?></span></td>
-                    <td><span class="nb-badge <?= $badge($status) ?>"><?= $e($status) ?></span></td>
-                    <td><?= $t->expiresAt !== null ? $e($t->expiresAt) : '<span class="nb-muted">never</span>' ?></td>
-                    <td>
+                    <td data-label="Access"><span class="nb-muted"><?= $e($access($t->abilities)) ?></span></td>
+                    <td data-label="Status"><span class="nb-badge <?= $badge($status) ?>"><?= $e($status) ?></span></td>
+                    <td data-label="Expires"><?= $t->expiresAt !== null ? $e($t->expiresAt) : '<span class="nb-muted">never</span>' ?></td>
+                    <td data-label="Last used">
                         <?php if ($t->lastUsedAt !== null): ?>
                             <?= $e($t->lastUsedAt) ?><?php if ($t->lastUsedIp !== null): ?> <span class="nb-muted">· <?= $e($t->lastUsedIp) ?></span><?php endif; ?>
                         <?php else: ?>
                             <span class="nb-muted">never</span>
                         <?php endif; ?>
                     </td>
-                    <td><?= (int) $t->usedCount ?></td>
+                    <td data-label="Uses"><?= (int) $t->usedCount ?></td>
                     <td class="nb-row-actions">
                         <?php if ($t->isActive()): ?>
                             <form method="post" action="/admin/tokens/<?= (int) $t->id ?>/pause">

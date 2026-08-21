@@ -33,7 +33,7 @@ $h          = $e($collection->handle);
         <p>Create the first entry in <?= $e($collection->name) ?>.</p>
     </div>
 <?php else: ?>
-    <div class="nb-table-wrap">
+    <div class="nb-table-wrap nb-stack">
         <table class="nb-table">
             <thead><tr>
                 <th>Title</th>
@@ -48,16 +48,16 @@ $h          = $e($collection->handle);
                         <br><code class="nb-slug"><?= $e($row['slug']) ?></code>
                     </td>
                     <?php foreach ($listFields as $lf): ?>
-                        <td><?= $types->forDisplay($lf->type)->renderCell($lf, $row['data'][$lf->handle] ?? null) ?></td>
+                        <td data-label="<?= $e($lf->label) ?>"><?= $types->forDisplay($lf->type)->renderCell($lf, $row['data'][$lf->handle] ?? null) ?></td>
                     <?php endforeach; ?>
                     <?php $state = Publication::state((string) $row['status'], $row['published_at'] ?? null); ?>
-                    <td>
+                    <td data-label="Status">
                         <span class="nb-badge nb-badge-state-<?= $e($state) ?>"><?= $e(Publication::label($state)) ?></span>
                         <?php if ($state === 'scheduled'): ?>
                             <div class="nb-muted nb-sched-at"><?= $e(date('M j, Y · g:ia', strtotime((string) $row['published_at']))) ?></div>
                         <?php endif; ?>
                     </td>
-                    <td class="nb-muted"><?= $e(date('M j, Y', strtotime((string) $row['updated_at']))) ?></td>
+                    <td class="nb-muted" data-label="Updated"><?= $e(date('M j, Y', strtotime((string) $row['updated_at']))) ?></td>
                     <td class="nb-row-actions">
                         <?php if ($canManage): ?>
                             <a href="/admin/collections/<?= $h ?>/entries/<?= (int) $row['id'] ?>/edit">Edit</a>
