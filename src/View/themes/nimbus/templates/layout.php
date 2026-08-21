@@ -24,7 +24,13 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
             </a>
         <?php endforeach; ?>
     </nav>
-    <div class="nb-side-foot">Nimbus ✦ CMS</div>
+    <div class="nb-side-foot">
+        <?php if (defined('NB_START')): ?>
+            Nimbus ✦ summoned in <span class="nb-summon"><?= (int) round((microtime(true) - NB_START) * 1000) ?> ms</span>
+        <?php else: ?>
+            Nimbus ✦ CMS
+        <?php endif; ?>
+    </div>
 </aside>
 
 <div class="nb-main">
