@@ -19,7 +19,7 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
     <a class="nb-brand" href="/admin"><?= $logo ?> <span><?= $e($appName) ?></span></a>
     <nav class="nb-nav">
         <?php foreach (($nav ?? []) as $item): ?>
-            <a class="<?= !empty($item['active']) ? 'active' : '' ?>" href="<?= $e($item['url']) ?>">
+            <a class="<?= !empty($item['active']) ? 'active' : '' ?>" href="<?= $e($item['url']) ?>"<?= !empty($item['active']) ? ' aria-current="page"' : '' ?>>
                 <span class="nb-ic"><?= $e($item['icon']) ?></span> <?= $e($item['label']) ?>
             </a>
         <?php endforeach; ?>
