@@ -331,6 +331,19 @@ body.nb-night::before {
   .nb-row-actions a, .nb-row-actions .nb-link, .nb-row-actions .nb-link-danger,
   .nb-fr-more summary { padding: 12px 8px; }
   .nb-signout { padding: 12px 6px; }
+
+  /* Stacked cards (opt-in via .nb-stack): each row becomes a label→value card. */
+  .nb-stack thead { display: none; }
+  .nb-stack table, .nb-stack tbody, .nb-stack tr, .nb-stack td { display: block; }
+  .nb-stack tr { padding: 8px 0 10px; border-bottom: 1px solid var(--nb-line); }
+  .nb-stack tr:last-child { border-bottom: 0; }
+  .nb-stack td { border: 0; padding: 4px 16px; }
+  .nb-stack td[data-label] { display: flex; gap: 12px; align-items: baseline; }
+  .nb-stack td[data-label]::before {
+    content: attr(data-label); flex: 0 0 84px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--nb-muted);
+  }
+  .nb-stack .nb-row-actions { white-space: normal; flex-wrap: wrap; padding-top: 6px; }
 }
 
 /* ---- unavailable field type (provider plugin missing) ---- */
