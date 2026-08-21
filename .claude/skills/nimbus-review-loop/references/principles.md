@@ -81,3 +81,21 @@ Nimbus must not bend toward any one thing:
 Validation projects (Restaurant, Food Store, Packkit) are **acceptance tests**.
 They may reveal a limitation; they do not own the roadmap, and they stay
 standalone repositories.
+
+## First-class surfaces (mobile + MCP)
+
+Two users are first-class on every capability, and neither is an afterthought:
+
+- **Mobile is a first-class user.** Most web traffic is mobile; the admin (and any
+  UI) must be genuinely usable on a phone, designed for ~375px from the start —
+  not desktop-first with a patch. No page-level horizontal scroll; tables wrap or
+  reflow; layouts collapse; touch targets ≥ 44px; no hover-only affordance. Verify
+  **live at a phone width**, not just desktop.
+- **The agent is a first-class operator** (MCP-native, [ADR 0009](../../../docs/adr/0009-mcp-control-surface.md)).
+  An agent can run the whole CMS over MCP; the admin UI is optional. A new back-end
+  capability is reachable over MCP (a tool gated by the same capability,
+  non-enumerating, audited) or its deferral is recorded — the human UI never
+  silently becomes the only way to do something.
+
+These are enforced by the [Standing surface checks](review-checklist.md) and the
+definition-of-done gate.

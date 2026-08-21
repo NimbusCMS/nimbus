@@ -112,6 +112,24 @@ And confirm the change does **not**:
 - turn optional functionality into mandatory core behavior;
 - introduce an "application framework" abstraction without broad evidence.
 
+### 4b. Standing surface checks (mandatory — mobile + MCP)
+
+Nimbus serves **two first-class users** on every capability: a person on a
+**phone** and an **agent over MCP**. As binding as the Drift Guard; the full
+questions live in [`references/review-checklist.md`](references/review-checklist.md).
+
+- **📱 Mobile is a first-class user.** Design and review every UI slice for a
+  phone from the start and **verify live at ~375px** — no page-level horizontal
+  scroll, tables wrapped or reflowed (never overflowing), multi-column layouts
+  collapse, touch targets ≥ 44px, no hover-only affordance. A desktop-only view
+  is incomplete, not "polished later".
+- **🤖 The agent is a first-class operator** (MCP-native, ADR 0009). A new
+  back-end capability must be reachable **over MCP** — a management action gets an
+  MCP tool gated by the same capability, non-enumerating, audited — or its
+  deferral is a recorded decision. Don't let the admin UI silently become the only
+  way to do something. Pure-presentation work is exempt from the MCP check, not
+  the mobile one.
+
 ### 5. Recommend the smallest broadly-reusable solution
 
 - Refuse speculative extension APIs with no concrete reusable consumer.
