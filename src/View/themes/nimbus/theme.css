@@ -280,12 +280,43 @@ body.nb-night::before {
 .nb-field.has-error input:not([type=checkbox]), .nb-field.has-error select, .nb-field.has-error textarea { border-color: var(--nb-danger); }
 .nb-field.has-error input:focus, .nb-field.has-error select:focus, .nb-field.has-error textarea:focus { box-shadow: 0 0 0 3px var(--nb-danger-bg); }
 
+/* ---- responsive (mobile is a first-class user; design §1.6) ---- */
+@media (max-width: 1024px) {
+  .nb-content { padding: 20px; }              /* cozy: step the page gutter down */
+}
 @media (max-width: 760px) {
+  /* Legacy nav rail (replaced by the drawer in M3). */
   body.nb { flex-direction: column; }
   .nb-side { width: auto; flex-direction: row; align-items: center; overflow-x: auto; padding: 10px; }
   .nb-brand { padding: 6px 8px; }
   .nb-nav { flex-direction: row; }
   .nb-side-foot { display: none; }
+
+  /* Spacing & shell — reclaim width on a phone. */
+  .nb-content { padding: 16px 12px; }
+  .nb-panel, .nb-form-card, .nb-media-upload { padding: 16px; }
+  .nb-empty-panel { padding: 40px 16px; }
+  .nb-top { height: 56px; padding: 0 12px; }
+  .nb-uname small { display: none; }
+  .nb-uname { max-width: 26vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nb-page-head, .nb-head-actions { flex-wrap: wrap; }
+
+  /* Forms — grids collapse (audit #2); 16px inputs stop iOS focus-zoom. */
+  .nb-grid-2, .nb-fr-opts { grid-template-columns: 1fr; }
+  .nb input:not([type=checkbox]):not([type=radio]), .nb select, .nb textarea { font-size: 16px; }
+
+  /* Field-builder row wraps: label (full) / handle + type (half) / req + remove. */
+  .nb-field-row-main { flex-wrap: wrap; }
+  .nb-fr-label { flex: 1 1 100%; }
+  .nb-fr-handle, .nb-fr-type { flex: 1 1 40%; }
+  .nb-fr-remove { width: 44px; height: 44px; }
+
+  /* Touch targets ≥ 44px via padding on the small text controls. */
+  .nb-check { padding: 8px 0; }
+  .nb-row-actions { gap: 4px; }
+  .nb-row-actions a, .nb-row-actions .nb-link, .nb-row-actions .nb-link-danger,
+  .nb-fr-more summary { padding: 12px 8px; }
+  .nb-signout { padding: 12px 6px; }
 }
 
 /* ---- unavailable field type (provider plugin missing) ---- */
