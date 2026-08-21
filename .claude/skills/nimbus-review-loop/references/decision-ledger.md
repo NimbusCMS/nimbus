@@ -911,3 +911,36 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
   Noted a pre-existing minor issue out of scope: the dashboard **Users** card is a
   dead link for a non-`users:write` user (same class as the media card, not fixed
   here).
+
+### 2026-08-20 · Roles milestone CLOSED (Slice 5) [Docs + closer]
+- **Classification:** Tooling/Docs (secondary: a trivial Core dashboard fix). PR
+  #102 (9b291e1). Milestone marked done in ROADMAP.
+- **Delivered:** `docs/ROLES.md` (guide + authorization matrix pointing at the
+  tests as source of truth), README + COMPATIBILITY roles notes, ADR 0011 →
+  Implemented, a final holistic security sweep (no open High), the
+  management-boundary test extended to `roles`, and the dashboard Users-card
+  dead-link fix. 563 tests green.
+- **Stability call (Q1):** promise the **model and guarantees** (deny-by-default,
+  the management boundary, subset-only, undeletable system roles) but mark the
+  capability **names + role schema evolving until 1.0** — same framing as the MCP
+  tool set. A closer documents; it does not freeze.
+- **Matrix as docs (Q3):** the tests ARE the authorization matrix; the doc is a
+  readable VIEW that links them. No generated-doc mechanism, no second asserter —
+  seeded-cap claims are already guarded by RoleSeederTest, enforcement by
+  RolesEnforcementTest. Reusable rule: a doc that restates a security guarantee
+  must cite the test that enforces it.
+- **Milestone retrospective (evidence-linked):**
+  - The **one shared `Authorizer`** (Slice 1) paid off across every later slice —
+    users, tokens, admin, MCP, CLI all judge by it; the management short-circuit
+    is the single invariant that keeps content-only actors out of management.
+  - **Subset-only** generalized cleanly from one mint control (ADR 0009) to five
+    surfaces via one predicate shape (`firstUnheld`/`holds`) — the escalation-at-
+    mint threat-catalog entry (promoted after Slice 4/4b) is now standing.
+  - Recurring cost, seen 3× (Slices 3, 3b, and the 4b security fix): a
+    behavior-preserving enforcement flip must migrate the **test helpers** in
+    lockstep. Mitigation adopted: shared constants (`CONTENT_MEDIA_CAPS`) + parity
+    tests + the un-seeded legacy fallback that let the suite pass mid-migration.
+  - The **first data migration** (012) established a safe pattern: additive,
+    idempotent, scoped, once-only.
+- **Deferred/carried:** Slice 4b-UI → Admin Experience initiative; future
+  `settings:write` gate; plugin admin-page self-gating (Low, plugin boundary).
