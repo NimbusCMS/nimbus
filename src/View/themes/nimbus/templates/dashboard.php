@@ -2,6 +2,7 @@
 /**
  * @var array{collections:int,entries:int,media:int,users:int} $stats
  * @var bool $canMedia whether to show the media card (it links to a gated page)
+ * @var bool $canUsers whether to show the users card (it links to a gated page)
  */
 use Nimbus\View\View;
 
@@ -13,7 +14,9 @@ $cards = [
 if ($canMedia) {
     $cards[] = ['label' => 'Media', 'count' => $stats['media'], 'url' => '/admin/media', 'icon' => '❖'];
 }
-$cards[] = ['label' => 'Users', 'count' => $stats['users'], 'url' => '/admin/users', 'icon' => '☾'];
+if ($canUsers) {
+    $cards[] = ['label' => 'Users', 'count' => $stats['users'], 'url' => '/admin/users', 'icon' => '☾'];
+}
 ?>
 <div class="nb-page-head">
     <h1>Dashboard</h1>

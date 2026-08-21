@@ -1,8 +1,12 @@
 # 11. Roles — capability bundles for users and tokens
 
-- **Status:** Proposed (design; slices refine each area). Supersedes the fixed
-  three-role model once Slice 1 lands.
-- **Date:** 2026-08-18
+- **Status:** Implemented (2026-08-20). Slices 1–4 + 3b + 4b-security merged:
+  the shared `Authorizer`, `nb_roles`/`nb_user_roles`, the per-request `Gate`
+  enforcement flip, subset-only granting across admin + CLI + MCP, roles-for-tokens
+  (live binding), and the admin media gating. The admin token-form **role
+  dropdown** (4b-UI) is deferred to the admin-experience redesign. Supersedes the
+  fixed three-role model. User guide: [docs/ROLES.md](../ROLES.md).
+- **Date:** 2026-08-18 (implemented 2026-08-20)
 - **Related:** [ADR 0006](0006-non-human-authentication.md) (token scopes),
   [ADR 0009](0009-mcp-control-surface.md) (the capability vocabulary — designed
   as the atoms of *this*), `src/Content/Permissions.php` (today's enforcement

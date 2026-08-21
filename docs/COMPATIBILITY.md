@@ -103,6 +103,29 @@ change the wire shape are not breaking.
 Not yet part of the contract, and may appear without a version bump until they
 do: filtering/sorting params, sparse fieldsets, ETags.
 
+## Roles & capabilities
+
+Authorization for users and tokens is one `resource:action` capability vocabulary
+([ADR 0011](adr/0011-roles.md), [docs/ROLES.md](ROLES.md)). What is promised — the
+**model and its guarantees**, not the exact strings:
+
+- **Deny-by-default.** No capability, no access — for people and machines alike.
+- **The management boundary.** `schema`, `media`, `users`, `tokens`, `settings`,
+  `roles` are grantable only exactly (or by `admin`); the content wildcard
+  `*:action` **never** confers a management capability.
+- **Content implication.** `handle:write` implies `handle:read`; management caps
+  carry no such implication (each is explicit).
+- **Subset-only granting.** No surface (admin UI, MCP) lets an actor grant, into a
+  role or a token, a capability it does not itself hold. (The CLI is a trusted
+  local operator and is exempt by design.)
+- **Roles are admin-composed**; the three **system roles** (`admin`/`editor`/
+  `author`) are seeded and **undeletable**.
+
+Like the MCP tool set, the specific capability **names** and the role **schema**
+are **evolving until `1.0`** — treat them as unfrozen. One behaviour change
+already shipped in `0.x`: a token with no scopes now denies (the legacy
+empty→read-all grant was removed).
+
 ## The theme contract
 
 A theme is a directory under `themes/{name}/` — a `theme.json` and plain-PHP

@@ -47,6 +47,23 @@ final class RolesEnforcementTest extends HttpTestCase
         self::assertSame(200, $this->get('/admin/tokens')->status, 'tokens:write → allowed');
     }
 
+    public function test_the_dashboard_shows_no_dead_links_to_gated_sections(): void
+    {
+        // A content-only user's dashboard must not link to media or users — the
+        // handlers already gate them, so a visible card would be a dead link.
+        $this->actingWithCapabilities(['posts:write']);
+        $body = $this->get('/admin')->body;
+
+        self::assertStringNotContainsString('/admin/media', $body, 'no media card without media:read');
+        self::assertStringNotContainsString('/admin/users', $body, 'no users card without users:write');
+
+        // An admin sees both.
+        $this->actingAs('admin');
+        $adminBody = $this->get('/admin')->body;
+        self::assertStringContainsString('/admin/media', $adminBody);
+        self::assertStringContainsString('/admin/users', $adminBody);
+    }
+
     public function test_content_write_gates_entry_management(): void
     {
         $this->makeCollection('posts');
