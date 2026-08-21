@@ -51,7 +51,7 @@ $access = static function (array $abilities): string {
 
 <?php if ($justCreated !== null): ?>
     <div class="nb-alert nb-alert-ok">
-        <strong>Token created.</strong> Copy it now — for security it will never be shown again.
+        <strong>Token created.</strong> Copy it now — it will never be shown again. ✦
         <code class="nb-token-secret"><?= $e($justCreated) ?></code>
     </div>
 <?php endif; ?>

@@ -31,6 +31,8 @@
   --nb-sky-active-rg: rgba(240,194,75,.35);
   --nb-star-a: #ffffff; --nb-star-b: var(--nb-gold-soft); --nb-star-opacity: .8;
   --nb-sky-foot: rgba(205,203,232,.5);
+  --nb-sky-glow: rgba(109,94,252,.18);           /* horizon glow at the sidebar foot */
+  --nb-const: #c9c4ee; --nb-const-line: rgba(109,94,252,.10); /* empty-state constellation */
 
   /* Elevation */
   --nb-shadow-1: 0 1px 2px rgba(28,24,64,.05), 0 10px 30px rgba(28,24,64,.07);
@@ -85,8 +87,14 @@ body.nb {
     radial-gradient(1px 1px at 30% 68%, rgba(255,255,255,.7), transparent),
     radial-gradient(1.2px 1.2px at 60% 84%, var(--nb-star-a), transparent),
     radial-gradient(1px 1px at 12% 88%, rgba(255,255,255,.6), transparent);
+  animation: nb-twinkle 7s ease-in-out infinite;  /* one gentle pulse; dead under reduced-motion */
+}
+.nb-side::after {  /* horizon glow — content glowing below the night sky */
+  content: ""; position: absolute; inset: auto 0 0 0; height: 180px; pointer-events: none;
+  background: linear-gradient(0deg, var(--nb-sky-glow), transparent);
 }
 .nb-side > * { position: relative; z-index: 1; }
+@keyframes nb-twinkle { 0%, 92%, 100% { opacity: var(--nb-star-opacity); } 96% { opacity: .45; } }
 .nb-brand {
   display: flex; align-items: center; gap: 10px; color: var(--nb-sky-text-hi) !important; text-decoration: none !important;
   font-family: var(--nb-display); font-weight: 800; font-size: 18px; padding: 6px 8px 18px; letter-spacing: -.01em;
@@ -102,6 +110,7 @@ body.nb {
 .nb-nav a.active .nb-ic { color: var(--nb-gold); }
 .nb-ic { width: 18px; text-align: center; font-size: 15px; opacity: .95; }
 .nb-side-foot { margin-top: auto; padding: 12px 8px 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--nb-sky-foot); }
+.nb-summon { color: var(--nb-gold-soft); }  /* the Whisper: "summoned in N ms" */
 
 /* ---- main column ---- */
 .nb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -122,7 +131,11 @@ body.nb {
 .nb-content { padding: 28px; max-width: 1200px; width: 100%; }
 
 .nb-page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
-.nb-page-head h1 { font-size: 24px; }
+.nb-page-head h1 { font-size: 24px; position: relative; padding-bottom: 6px; }
+.nb-page-head h1::after {  /* the Charm Line — a wand-flick of gold, the only gold on a working screen */
+  content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: 44px; border-radius: 999px;
+  background: linear-gradient(90deg, var(--nb-gold), var(--nb-gold-soft) 70%, transparent);
+}
 
 /* ---- dashboard cards ---- */
 .nb-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; margin-bottom: 22px; }
@@ -143,7 +156,17 @@ body.nb {
 .nb-panel { background: var(--nb-surface); border: 1px solid var(--nb-line); border-radius: var(--nb-radius); box-shadow: var(--nb-shadow-1); padding: 24px; }
 .nb-panel h2 { font-size: 18px; margin-bottom: 6px; }
 .nb-panel p { color: var(--nb-muted); margin: 0; }
-.nb-empty-panel { text-align: center; padding: 60px 24px; background: var(--nb-surface); border: 1px dashed var(--nb-line); border-radius: var(--nb-radius); }
+.nb-empty-panel { text-align: center; padding: 60px 24px; background: var(--nb-surface); border: 1px dashed var(--nb-line); border-radius: var(--nb-radius); position: relative; overflow: hidden; }
+.nb-empty-panel::before {  /* its own patch of sky: a faint constellation + one connecting line */
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background-image:
+    radial-gradient(2px 2px at 18% 26%, var(--nb-const), transparent),
+    radial-gradient(1.5px 1.5px at 30% 18%, var(--nb-const), transparent),
+    radial-gradient(2px 2px at 76% 30%, var(--nb-const), transparent),
+    radial-gradient(1.5px 1.5px at 86% 62%, var(--nb-const), transparent),
+    linear-gradient(24deg, transparent 49.7%, var(--nb-const-line) 50%, transparent 50.3%);
+}
+.nb-empty-panel > * { position: relative; }
 .nb-empty-ic { font-size: 34px; color: var(--nb-gold); display: block; margin-bottom: 10px; }
 .nb-empty-panel h2 { font-size: 20px; margin-bottom: 6px; }
 .nb-empty-panel p { color: var(--nb-muted); margin: 0; }
@@ -301,15 +324,25 @@ body.nb-night::before {
 .nb-token-secret {
     display: block;
     margin-top: 10px;
-    padding: 10px 12px;
+    padding: 12px 14px;
     font-family: var(--nb-mono);
     font-size: 14px;
     word-break: break-all;
     user-select: all;
-    background: var(--nb-surface);
+    color: var(--nb-ink);
+    background: var(--nb-gold-tint);
     border: 1px solid var(--nb-line);
+    border-left: 3px solid var(--nb-gold);
     border-radius: var(--nb-radius-s);
+    position: relative;
+    overflow: hidden;
 }
+.nb-token-secret::after {  /* one gold shimmer as the secret materialises, then done */
+    content: ""; position: absolute; inset: 0; transform: translateX(-100%); pointer-events: none;
+    background: linear-gradient(105deg, transparent 40%, rgba(240,194,75,.35) 50%, transparent 60%);
+    animation: nb-shimmer .9s var(--nb-ease) .15s 1 forwards;
+}
+@keyframes nb-shimmer { to { transform: translateX(100%); } }
 
 /* Token scope picker + access column. */
 .nb-scope-list { margin: 6px 0 4px 20px; padding-left: 10px; border-left: 2px solid var(--nb-line); }
