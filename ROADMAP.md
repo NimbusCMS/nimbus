@@ -437,7 +437,7 @@ is not lost.
 - [x] **M1 — wrap the bare tables** (PR #109): `roles`/`users`/`tokens` tables wrapped in `.nb-table-wrap` → no more page-level horizontal scroll on phones (audit #1). Templates only, byte-identical CSS. Verified live at 375px + 320px.
 - [x] **M2 — forms, touch targets, spacing** (PR #111): grid collapse (audit #2), 16px inputs (no iOS focus-zoom), ≥44px touch targets, stepped padding, page-head wrap. Pure CSS. Verified live at 375+320px.
 - [x] **M3 — the nav drawer** (PR #112): CSS-only off-canvas drawer — `.nb-side` slides in via a checkbox-hack hamburger + scrim, the Sky/Whisper riding along intact; 6-line Escape/focus-return JS; legacy rail deleted. Ships the checkbox default (JS `button aria-expanded` fallback documented). Verified live: open/close, no ghost tab stops, no overflow. **Budget recovery started** — dropped the unused `--nb-night`/`--nb-shadow` aliases + a comment diet → `theme.css` 23,347 B.
-- [ ] **M4 — stacked-card tables** (§1.6.4 Tier 2): `entries` + `tokens` reflow to label-per-cell cards below 760px. Cuttable — the designated byte-budget release valve.
+- [x] **M4 — stacked-card tables** (PR #114): `entries` + `tokens` reflow to label→value cards below 760px (`.nb-stack` + `data-label`, `$e()`-escaped); the other four keep scroll-wrap. Verified live. **Mobile M-track ✅ COMPLETE — the admin is phone-native.**
 
 **Byte budget (§1.6.7):** base 21.4 KB + mobile ~1.9 + 3 theme blocks ~3.6 overshoots the 24 KB ceiling. Recovery order: **cheap zero-loss cuts first** (comment diet, drop `--nb-night`/`--nb-shadow` aliases once Increment 3 repoints them), then raise the ceiling a hair (still ~5 KB gzipped) **before** cutting M4. Every CSS PR states the new `wc -c`.
 
