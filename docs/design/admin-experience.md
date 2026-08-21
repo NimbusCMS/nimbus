@@ -2,10 +2,14 @@
 
 *Design specification for the NimbusCMS admin — design language, theme system, and build plan.*
 
-**Status:** proposed · **Audience:** the engineer implementing it · **Scope:** `src/View/themes/nimbus/*` (theme.css, layout.php, templates), `src/Admin/Controller.php` wiring, one small settings/profile write path. No public-site changes.
+**Status:** increments 1–2 shipped (token layer + signatures); increments 3–4
+(themes) and M1–M4 (responsive, §1.6) proposed · **Audience:** the engineer
+implementing it · **Scope:** `src/View/themes/nimbus/*` (theme.css, layout.php,
+templates), `src/Admin/Controller.php` wiring, one small settings/profile write
+path. No public-site changes.
 
 This spec is grounded in the shipped admin: the `nb-` component vocabulary in
-`src/View/themes/nimbus/theme.css` (~16 KB, inlined via `file_get_contents` in
+`src/View/themes/nimbus/theme.css` (~21.4 KB as shipped, inlined via `file_get_contents` in
 `layout.php`/`login.php`), the shell assembly in `src/Admin/Controller.php`
 (`nav()` / `shell()` / `page()`), and the real templates (dashboard, tokens,
 collections, entries form, users, media, login, stub). Everything below is a
@@ -35,6 +39,13 @@ three rules that keep it tasteful:
 3. **Fast is part of the brand.** The whole admin is one inlined CSS file, zero
    webfont downloads, zero hydration. The speed signal ("summoned in N ms ✦")
    is worn like a badge.
+4. **The pocket is a first-class desk.** Most internet traffic is a phone, and
+   a CMS's moments of urgency — publish the post, pause the leaked token, fix
+   the typo — happen away from the desk. Every admin task must be genuinely
+   comfortable one-handed at 375px wide: no page-level horizontal scroll,
+   ever; touch targets ≥ 44×44px; nothing revealed only on hover. "Works on
+   mobile" is a launch requirement of every screen, not a follow-up. The full
+   responsive design is §1.6.
 
 Voice: spell-flavored microcopy, lightly. "Nothing conjured yet", "is being
 conjured", "✦". One wink per screen, maximum. Trademark-safe: sky, brooms,
@@ -290,15 +301,15 @@ means restyling happens purely by the variables in §1.2.
 
 | Component | Treatment | Maps to | Work |
 |---|---|---|---|
-| **Sidebar** | The Sky (S1): `--nb-sky` gradient, star layer, horizon glow, twinkle. 236px fixed. | `.nb-side`, `::before/::after` | token-only + ~10 lines |
+| **Sidebar** | The Sky (S1): `--nb-sky` gradient, star layer, horizon glow, twinkle. 236px fixed on desktop; at ≤760px it becomes the off-canvas **drawer** (§1.6.3) — same element, same sky. | `.nb-side`, `::before/::after` | token-only + ~10 lines |
 | **Brand** | Gold broom `logo.svg` + app name, weight 800. Unchanged. | `.nb-brand` | none |
 | **Nav item** | Rest: `--nb-sky-text`. Hover: `--nb-sky-hover` bg, text → `--nb-sky-text-hi`. Active: `--nb-sky-active` bg + inset 1px `--nb-sky-active-rg` ring, icon → `--nb-gold` (today's treatment, tokenized). **New:** `:focus-visible` gets `outline: var(--nb-focus-ring); outline-offset: 2px` — currently keyboard users get nothing. | `.nb-nav a`, `.active`, `.nb-ic` | token-only + focus rule |
-| **Top bar** | 64px, `--nb-surface`, hairline bottom. `.nb-top-l` (empty today) gains a muted breadcrumb slot later — reserved, not built now. Avatar keeps `--nb-brand-bright` gradient. | `.nb-top`, `.nb-user`, `.nb-avatar` | token-only |
+| **Top bar** | 64px, `--nb-surface`, hairline bottom. `.nb-top-l` (empty today) hosts the mobile hamburger + compact brand at ≤760px (§1.6.3) and may gain a muted breadcrumb slot on desktop later — reserved, not built now. Avatar keeps `--nb-brand-bright` gradient. Mobile: 56px, role line hidden (§1.6.2). | `.nb-top`, `.nb-user`, `.nb-avatar` | token-only + §1.6 rules |
 | **Page head** | h1 at `--nb-fs-xl` + Charm Line (S2). Actions right-aligned as today. | `.nb-page-head`, `.nb-head-actions` | +6 lines CSS |
 | **Cards** | Surface, `--nb-radius`, `--nb-shadow-1`; hover = broom lift. Count in display type. | `.nb-cards`, `.nb-card`, `.nb-card-ic/-count/-label` | token-only |
 | **Panels** | Surface + `--nb-shadow-1`. | `.nb-panel` | token-only |
-| **Tables** | Wrap in `.nb-table-wrap` (rounded, shadowed, `overflow:auto`). Header row: `--nb-surface-2` bg, `--nb-fs-s` uppercase `--nb-muted`. Row hover: `--nb-surface-2`. Row borders `--nb-line`. **Fix:** `tokens/index.php` renders `.nb-table` bare — wrap it in `.nb-table-wrap` like collections does. | `.nb-table`, `.nb-table-wrap`, `.nb-actions-col`, `.nb-row-actions` | token-only + 1 template line |
-| **Forms/fields** | Label 600 @ 13px; input 11×13px padding, `--nb-radius-m`, focus = brand border + `--nb-focus` halo (today's pattern, tokenized). Help text `--nb-help` in `--nb-muted`. | `.nb-field`, `.nb-help`, `.nb-form-card`, `.nb-grid-2`, `.nb-section-title` | token-only |
+| **Tables** | Wrap in `.nb-table-wrap` (rounded, shadowed, `overflow:auto`) — **mandatory, no exceptions**: a bare `.nb-table` breaks the no-page-scroll rule on phones. **Fix:** `tokens/index.php`, `roles/index.php`, and `users/index.php` all render `.nb-table` bare — wrap them (§1.6.4, increment M1). Header row: `--nb-surface-2` bg, `--nb-fs-s` uppercase `--nb-muted`. Row hover: `--nb-surface-2`. Row borders `--nb-line`. Entries + tokens additionally reflow to stacked cards on mobile via `.nb-stack` (§1.6.4). | `.nb-table`, `.nb-table-wrap`, `.nb-stack`, `.nb-actions-col`, `.nb-row-actions` | token-only + 6 template lines |
+| **Forms/fields** | Label 600 @ 13px; input 11×13px padding, `--nb-radius-m`, focus = brand border + `--nb-focus` halo (today's pattern, tokenized). Help text `--nb-help` in `--nb-muted`. Mobile: all multi-column grids (`.nb-grid-2`, `.nb-fr-opts`) collapse to one column, inputs go to 16px type to defeat iOS focus-zoom, field-builder rows wrap (§1.6.5). | `.nb-field`, `.nb-help`, `.nb-form-card`, `.nb-grid-2`, `.nb-section-title` | token-only + §1.6 rules |
 | **Validation** | `.nb-field.has-error`: input border `--nb-danger`, focus halo `--nb-danger-bg`; message `.nb-field-error` in `--nb-danger-text`, 600 @ 12px. Page-level `.nb-alert-error` summary stays ("Please fix the highlighted fields."). | existing classes | token-only |
 | **Buttons** | Secondary (default `.nb-btn`): surface + `--nb-line`, hover `--nb-line-strong`/`--nb-surface-2`. Primary: `--nb-brand` fill, `--nb-on-brand` text, hover `--nb-brand-dark`. **New `.nb-btn-danger`**: `--nb-danger` fill, white text — for destructive *form submits* that deserve weight (collection delete). Link-style danger (`.nb-link-danger`) stays for inline row actions. All buttons: `:focus-visible` ring. | `.nb-btn`, `.nb-btn-primary`, `.nb-btn-block`, new `.nb-btn-danger` | token-only + 4 lines |
 | **Badges** | Pill, 600 @ 12px. Variants map to semantic pairs: `-ok` → ok-bg/ok-text, `-danger` → danger pair, `-muted` → `--nb-surface-2`/`--nb-muted`, `-official` → brand-tint/brand-dark. Publication states: published=ok pair, scheduled=warn pair, draft=muted, archived=brand-tint/`#6b4bd6`→`--nb-brand-dark`. | `.nb-badge*`, `.nb-badge-state-*` | token-only |
@@ -322,11 +333,11 @@ means restyling happens purely by the variables in §1.2.
   explicitly *not* in scope (YAGNI; charter says small core). If it ever
   lands, it's a `.nb-compact` class that only shrinks paddings — the token
   architecture already permits it.
-- **Responsive.** Keep the single existing breakpoint at 760px (sidebar becomes
-  a horizontal scrollable rail, footer hidden). Add one tablet nicety at
-  1024px: content padding drops to `--nb-sp-5`, `.nb-grid-2` collapses to one
-  column. Tables rely on `.nb-table-wrap`'s `overflow:auto` — which is why the
-  bare table on the tokens page must be wrapped.
+- **Responsive.** Two breakpoints — 1024px (cozy) and 760px (mobile) — with
+  the full design in §1.6, a first-class section of this spec. The shipped
+  horizontal-rail hack at 760px (nav items clipping to "Colle…", sideways
+  swiping) is **superseded** by the drawer in §1.6.3 and its CSS block is
+  deleted when M3 lands.
 - **Accessibility (all mandatory):**
   - Every interactive element gets `:focus-visible { outline: var(--nb-focus-ring); outline-offset: 2px; }`
     — a single grouped rule for `a, button, [tabindex]` inside `.nb`. Inputs
@@ -340,6 +351,413 @@ means restyling happens purely by the variables in §1.2.
   - Semantic HTML stays: real `<table>`, `<label for>`, `<button>` in forms
     (the codebase is already good here). `aria-current="page"` should be added
     to the active nav link in `layout.php` (one attribute).
+  - **Touch targets ≥ 44×44px** on every interactive element at the mobile
+    breakpoint (nav items, hamburger, row-action links, checkbox rows —
+    mechanics in §1.6.5). Desktop keeps today's comfortable-but-tighter
+    metrics.
+  - **No hover-only affordances.** Touch has no hover. Audit result: the admin
+    already passes — every action is a visible link/button; hover effects
+    (broom lift, row tint, underlines) are decorative echoes of visible
+    controls. This is now a rule, not a coincidence: nothing may *appear* on
+    `:hover` that has no always-visible path.
+
+### 1.6 Responsive & mobile — the admin in your pocket
+
+This section makes principle #4 concrete. It is written against the shipped
+`theme.css` (21,442 bytes) and templates; every selector named exists today
+unless marked **new**.
+
+#### 1.6.1 Strategy & breakpoints
+
+**Mental model: mobile is a first-class rendering of the same document, not a
+degraded desktop.** Mechanically, though, we do *not* rewrite the shipped CSS
+into literal mobile-first (`min-width`) form: the base file is live, merged,
+and desktop-default; inverting 350 lines of working CSS for ideological purity
+would churn the whole file inside a 24 KB budget for zero user-visible gain.
+The honest architecture is **desktop-default component CSS + two `max-width`
+override blocks**, with the *design* of every screen validated phone-first
+before merge.
+
+Breakpoints (plain values — custom properties don't work in media queries):
+
+| Query | Name | What changes |
+|---|---|---|
+| `@media (max-width: 1024px)` | **cozy** | Content padding steps down to `--nb-sp-5`. Nothing else — the 236px sidebar + fluid main still work fine at tablet widths. |
+| `@media (max-width: 760px)` | **mobile** | The full transformation: drawer nav (§1.6.3), one-column forms (§1.6.5), stacked cards on opted-in tables (§1.6.4), compact shell (§1.6.2). |
+
+Why 760px: it is already the shipped breakpoint (smallest diff), it equals
+`.nb-form-card`'s max-width (a form that has stopped growing is the natural
+moment to change shape), and it cleanly separates "sidebar fits" from "sidebar
+can't". Two breakpoints, not four — every additional query costs bytes and
+test surface.
+
+**Design targets:** primary 375×667 (small iPhone); everything must also
+survive 320px with no page-level horizontal scroll (content may get snug).
+Verify each increment at 375 and 320 in devtools before merge.
+`<meta name="viewport" content="width=device-width, initial-scale=1">` is
+already in `layout.php`/`login.php` — keep it; never add
+`maximum-scale`/`user-scalable=no` (WCAG 1.4.4).
+
+**The one invariant:** the *page* never scrolls horizontally. Wide things
+scroll inside their own container (`.nb-table-wrap`) or reflow. Any screen
+that violates this on a 320px viewport is a release blocker, same severity as
+a contrast failure.
+
+#### 1.6.2 The mobile shell — spacing, top bar, page head
+
+Flat 28px padding is a fifth of a 375px screen once doubled. Padding steps
+down with the viewport; everything stays on the `--nb-sp-*` scale:
+
+```css
+@media (max-width: 1024px) {
+  .nb-content { padding: var(--nb-sp-5); }              /* 28 → 20 */
+}
+@media (max-width: 760px) {
+  .nb-content { padding: var(--nb-sp-4) var(--nb-sp-3); } /* 20 → 16/12 */
+  .nb-panel, .nb-form-card, .nb-media-upload { padding: var(--nb-sp-4); }
+  .nb-empty-panel { padding: 40px var(--nb-sp-4); }
+
+  .nb-top { height: 56px; padding: 0 var(--nb-sp-3); }
+  .nb-uname small { display: none; }              /* role line: drawer-only info */
+  .nb-uname { max-width: 26vw; overflow: hidden;
+              text-overflow: ellipsis; white-space: nowrap; }
+
+  .nb-page-head { flex-wrap: wrap; }   /* actions drop below a long h1 */
+  .nb-head-actions { flex-wrap: wrap; }
+}
+```
+
+Top bar contents at mobile, left to right: **hamburger** (44×44, §1.6.3),
+**compact brand** (the gold broom `logo.svg` alone — the wordmark lives in the
+drawer; on a 375px bar the glyph is the identity), then the existing
+`.nb-user` cluster right-aligned: avatar, ellipsized name, Sign out. The
+avatar stays 34px *visual* but its row is 56px tall, so the Sign out button's
+tap area is padded to ≥44px (`.nb-signout { padding: 12px 6px; }` at mobile).
+
+#### 1.6.3 The navigation drawer — the centerpiece
+
+**Decision: an off-canvas left drawer, opened by a hamburger in the top bar.
+The drawer *is* `.nb-side` — the same element, the same Sky, slid off-screen.**
+
+Alternatives weighed and rejected:
+
+- **Bottom tab bar** — best thumb ergonomics, but `Controller::nav()` emits up
+  to **8 capability-gated items** (Dashboard, Collections, Media, Users,
+  Roles, API tokens, Plugins, Settings). A tab bar honestly holds 5, so this
+  forces a "More…" overflow sheet — a second nav pattern to build, and which
+  items surface would vary per user's capabilities. It also collides with the
+  iOS home indicator and floating browser chrome, and it evicts the brand and
+  the Whisper entirely. Wrong shape for this nav.
+- **Wrapping/collapsible icon rail** — cheapest CSS, but either drops labels
+  (eight near-abstract glyphs like ⚿ and ❖ are not self-explanatory) or wraps
+  to 2–3 rows that tax every single page with dead vertical space. The current
+  horizontal scroller is this pattern's failure mode already ("Colle…").
+- **Off-canvas drawer** — holds any number of items at full label width, costs
+  zero vertical space when closed, is the pattern every phone user already
+  knows, and — decisive for Nimbus — it preserves the Sky *intact*: gradient,
+  stars, gold active ring, horizon glow, footer Whisper. Opening the menu
+  *summons the night sky over the page*. The signature survives mobile
+  untouched.
+
+**Mechanism: CSS-only (checkbox + labels), with a 6-line keyboard
+enhancement.** No JS is required to open or close; the admin's
+server-rendered nature gives us close-on-navigate for free (every nav tap is
+a full page load, and the next page renders with the drawer closed).
+
+Markup change to `layout.php` — three additions, nothing moved:
+
+```html
+<body class="nb">
+<input type="checkbox" id="nb-nav-toggle" class="nb-nav-toggle">      <!-- new -->
+<aside class="nb-side"> …unchanged: brand, nav, foot… </aside>
+<label class="nb-scrim" for="nb-nav-toggle" aria-hidden="true"></label><!-- new -->
+<div class="nb-main">
+  <header class="nb-top">
+    <div class="nb-top-l">                                             <!-- was empty -->
+      <label class="nb-menu" for="nb-nav-toggle">
+        <span aria-hidden="true">☰</span><span class="nb-sr">Menu</span>
+      </label>
+      <a class="nb-top-brand" href="/admin" aria-label="Dashboard"><?= $logo ?></a>
+    </div>
+    …existing .nb-user…
+```
+
+The CSS (**new** selectors: `.nb-nav-toggle`, `.nb-scrim`, `.nb-menu`,
+`.nb-top-brand`, `.nb-sr`):
+
+```css
+/* Visually-hidden utility (also names the checkbox via its labels). */
+.nb-sr { position: absolute; width: 1px; height: 1px; overflow: hidden;
+         clip-path: inset(50%); white-space: nowrap; }
+
+/* Desktop: drawer machinery doesn't exist. */
+.nb-nav-toggle, .nb-scrim, .nb-menu, .nb-top-brand { display: none; }
+
+@media (max-width: 760px) {
+  body.nb { flex-direction: column; }        /* .nb-side is fixed; .nb-main flows */
+
+  .nb-nav-toggle { display: block; position: fixed; width: 1px; height: 1px;
+                   opacity: 0; }             /* focusable, invisible */
+
+  .nb-top-l { display: flex; align-items: center; gap: 8px; }
+  .nb-menu { display: inline-flex; align-items: center; justify-content: center;
+             width: 44px; height: 44px; margin-left: -10px; font-size: 20px;
+             color: var(--nb-ink); border-radius: var(--nb-radius-m); cursor: pointer; }
+  .nb-top-brand { display: inline-flex; color: var(--nb-gold); }
+
+  /* The drawer: the sidebar itself, off-canvas. Sky untouched. */
+  .nb-side { position: fixed; inset: 0 auto 0 0; z-index: 30;
+             width: min(300px, 84vw);
+             transform: translateX(-100%); visibility: hidden;
+             transition: transform var(--nb-t-base) var(--nb-ease),
+                         visibility 0s var(--nb-t-base); }
+  .nb-nav-toggle:checked ~ .nb-side { transform: none; visibility: visible;
+             transition-delay: 0s; box-shadow: var(--nb-shadow-pop); }
+  .nb-nav a { padding: 12px; }                       /* ≈47px rows: ≥44 target */
+
+  /* Scrim: tap anywhere outside to close (it's a <label> for the checkbox). */
+  .nb-scrim { display: block; position: fixed; inset: 0; z-index: 20;
+              background: rgba(10, 6, 40, .45); opacity: 0; pointer-events: none;
+              transition: opacity var(--nb-t-base) var(--nb-ease); }
+  .nb-nav-toggle:checked ~ .nb-scrim { opacity: 1; pointer-events: auto; }
+
+  /* Keyboard focus on the invisible checkbox renders on its visible proxy. */
+  .nb-nav-toggle:focus-visible ~ .nb-main .nb-menu {
+    outline: var(--nb-focus-ring); outline-offset: 2px; }
+}
+```
+
+**Open/close & keyboard behaviour, spelled out:**
+
+- **Open:** tap the hamburger (a `<label>`), or focus the checkbox (it is the
+  page's first tab stop — conventional for a menu button; its focus ring draws
+  on the hamburger via the sibling selector) and press Space.
+- **Close:** tap the scrim (a second label for the same checkbox), press
+  Space on the checkbox again, press **Escape** (enhancement below), or
+  navigate — the next server-rendered page arrives closed.
+- **Tab order** is naturally correct with zero focus-trap code: checkbox →
+  drawer links (the aside is next in source) → page. When closed,
+  `visibility: hidden` removes the off-canvas links from the tab order — no
+  ghost tab stops. A modal focus *trap* is deliberately omitted: the scrim
+  makes stray pointer input close the drawer, Tab past the last nav link
+  lands in the page (mildly imperfect, fully recoverable), and a trap means
+  real JS. Accepted trade.
+- **Escape + focus return** — the one enhancement worth its bytes (6 lines,
+  in `layout.php` next to the shell; degrades to nothing):
+
+```html
+<script>
+document.addEventListener('keydown', function (e) {
+  var t = document.getElementById('nb-nav-toggle');
+  if (e.key === 'Escape' && t && t.checked) { t.checked = false; t.focus(); }
+});
+</script>
+```
+
+- **Screen readers** announce the toggle as "Menu, checkbox" rather than a
+  `button` with `aria-expanded`. That is the honest cost of CSS-only; the
+  checkbox's checked state does convey open/closed. If review judges this
+  unacceptable, the fallback is a real `<button aria-expanded>` + ~12 lines
+  of JS — the CSS above survives that swap by keying on a `data-nav-open`
+  attribute instead of `:checked`. Default: ship the checkbox.
+- **Reduced motion:** the slide and fade are `transition`s, already killed by
+  the shipped global reduced-motion block — the drawer then simply appears.
+- **Scroll behind the drawer** is not locked (CSS cannot reach `body` from a
+  sibling checkbox). The scrim hides the consequence; accepted trade, noted
+  so nobody "fixes" it with 30 lines of JS.
+- **Identity:** active item keeps the gold ring + gold icon; the drawer keeps
+  the star field, horizon glow, and twinkle; and the footer Whisper —
+  suppressed by the old rail hack (`display:none`) — **comes back** on
+  mobile, riding the drawer. Delete the `.nb-side-foot { display: none }`
+  rule with the rest of the rail block.
+
+#### 1.6.4 Tables on mobile — the load-bearing fix
+
+Two tiers.
+
+**Tier 1 — the baseline, mandatory: every `.nb-table` lives inside
+`.nb-table-wrap`.** The wrapper's `overflow: auto` confines a wide table to
+in-panel horizontal scroll; a bare table pushes the whole page sideways (the
+tokens table is ~671px of fixed content — nearly two screens of page-scroll
+on a 375px phone). Currently **`roles/index.php`, `users/index.php`, and
+`tokens/index.php` render bare tables** (collections/entries/plugins are
+wrapped). Fix: two template lines each — `<div class="nb-table-wrap">` /
+`</div>` around the existing `<table class="nb-table">`. This is increment
+M1: six lines, zero CSS, zero risk, and the whole audit finding #1 is dead.
+Review rule from now on: *a bare `.nb-table` in a template is a bug.*
+(No `-webkit-overflow-scrolling` needed — it's obsolete; momentum scroll is
+the default in every current engine.)
+
+**Tier 2 — stacked cards for the tables people actually work from a phone.**
+In-panel scroll is *survivable*, not *good*: on a 375px screen a 7-column
+token row means blind sideways digging to find "Revoke". Where the phone use
+case is real, rows reflow into label-per-cell cards below 760px.
+
+Decision: **entries and tokens get cards; collections, users, roles, and
+plugins stay scroll-wrap.** Rationale: entries is *the* mobile job
+("publish that post from the train") and tokens is the widest table and holds
+the urgent action ("pause the leaked token"). The other four are narrow
+(3–5 short columns — they barely scroll at 375px once wrapped) and are
+admin-at-a-desk chores; card-ifying them buys little and costs template churn
+in four more files. Revisit per-table if usage says otherwise.
+
+Mechanics — one generic, opt-in pattern. The template opts in with a modifier
+class on the wrapper and a `data-label` attribute per labelled cell:
+
+```html
+<div class="nb-table-wrap nb-stack">
+  <table class="nb-table">
+    …
+    <td data-label="Status"><span class="nb-badge …">active</span></td>
+```
+
+```css
+@media (max-width: 760px) {
+  .nb-stack thead { display: none; }
+  .nb-stack table, .nb-stack tbody, .nb-stack tr, .nb-stack td { display: block; }
+  .nb-stack tr { padding: 8px 0 10px; border-bottom: 1px solid var(--nb-line); }
+  .nb-stack tr:last-child { border-bottom: 0; }
+  .nb-stack td { border: 0; padding: 4px var(--nb-sp-4); }
+  .nb-stack td[data-label] { display: flex; gap: 12px; align-items: baseline; }
+  .nb-stack td[data-label]::before {
+    content: attr(data-label); flex: 0 0 84px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--nb-muted);
+  }
+  .nb-stack .nb-row-actions { white-space: normal; flex-wrap: wrap;
+                              padding-top: 6px; }
+}
+```
+
+Conventions: the **first cell carries no `data-label`** — it renders
+full-width as the card's title (entries: title + slug; tokens: name). The
+**actions cell carries no `data-label`** — it becomes a plain wrapping button
+row at the card's foot, where §1.6.5's padded tap targets apply. Labels come
+from the same strings as the `<th>`s — for entries' dynamic field columns
+that's `data-label="<?= $e($lf->label) ?>"`, already escaped like the header.
+
+Honest weighing, since this is the one place mobile costs real bytes:
+
+- **Bytes:** ~0.55 KB of CSS for the generic pattern (shared by both tables
+  and any future opt-in), plus `data-label` attrs in two templates (server
+  bytes, not CSS-budget bytes). Within the §1.6.7 envelope — and this block
+  is the **designated first cut** if increment 4's theme blocks squeeze the
+  ceiling, because Tier 1 already guarantees a usable floor.
+- **Template churn:** entries/index.php (~5 cells) and tokens/index.php
+  (~5 cells). Contained.
+- **Accessibility:** `display: block` on table elements strips table
+  semantics at the mobile breakpoint. That is acceptable *here* because each
+  row becomes a linear label→value list — exactly how a phone screen-reader
+  user wants a record read — and `::before` label text is announced by
+  current screen readers. Desktop keeps genuine `<table>` semantics
+  untouched. Do not "fix" with `role="table"` re-plumbing; the linear reading
+  is the feature.
+
+#### 1.6.5 Forms & touch targets
+
+All rules live in the 760px block:
+
+```css
+@media (max-width: 760px) {
+  /* Grids collapse: audit finding #2. */
+  .nb-grid-2, .nb-fr-opts { grid-template-columns: 1fr; }
+
+  /* 16px input text: below 16px, iOS Safari zooms the page on focus. */
+  .nb input:not([type=checkbox]):not([type=radio]), .nb select, .nb textarea {
+    font-size: 16px;
+  }
+
+  /* Field builder: the flex row wraps into three comfortable lines —
+     label (full width) / handle + type (half each) / Req. + remove. */
+  .nb-field-row-main { flex-wrap: wrap; }
+  .nb-fr-label { flex: 1 1 100%; }
+  .nb-fr-handle, .nb-fr-type { flex: 1 1 40%; }
+  .nb-fr-remove { width: 44px; height: 44px; }
+
+  /* Tap targets: checkbox rows and row-action links reach 44px via padding. */
+  .nb-check { padding: 8px 0; }
+  .nb-row-actions { gap: 4px; }
+  .nb-row-actions a, .nb-row-actions .nb-link, .nb-row-actions .nb-link-danger,
+  .nb-fr-more summary { padding: 12px 8px; }
+  .nb-signout { padding: 12px 6px; }
+}
+```
+
+Notes:
+
+- Inputs already clear 44px height at 16px type (11px padding ×2 + ~25px
+  line ≈ 47px). Buttons (`.nb-btn`) land at ~44px the same way — no rule
+  needed.
+- `.nb-grid-2` collapsing means Name/Handle/Icon/Description stack in source
+  order — which is also the sensible completion order, so nothing to re-order
+  in the template. `.nb-fr-opts`' textarea and relation row already span
+  `1 / -1`, so they're unaffected by the collapse.
+- The three-line field-builder row is a deliberate shape: label first
+  (what humans think of first, and it drives the auto-slug JS), the two
+  identifier-ish controls paired, then the toggles. The `✕` remove button
+  grows from 34 to 44px.
+- `.nb-checks` (checkbox grids) and `.nb-scope-list` need nothing: they wrap
+  already, and `.nb-check`'s added padding gives each row its target height.
+- Form action rows (`.nb-form-actions`) keep buttons side-by-side — two
+  buttons fit 375px; they wrap naturally if a third appears (`flex-wrap:
+  wrap` costs 16 bytes if ever needed; not added now).
+
+#### 1.6.6 The signatures on mobile
+
+- **S1 The Sky** — *strengthened*: no longer flattened into a starless 40px
+  rail; the full sky rides the drawer (§1.6.3). Stars, horizon glow, and the
+  7s twinkle all function untouched; the glow's 180px height reads correctly
+  against a full-height drawer.
+- **S2 Charm Line** — unchanged. It hangs off `h1` and is 44px wide; every h1
+  fits at 320px (with `.nb-page-head` wrap, §1.6.2).
+- **S3 Constellations** — unchanged mechanics; the percentage-positioned
+  stars compress fine. Padding drops to 40px (§1.6.2) so empty states don't
+  own half a phone screen.
+- **S4 The Reveal** — unchanged. `word-break: break-all` already wraps the
+  secret at any width; `user-select: all` is *more* valuable on mobile (tap =
+  whole secret selected). Shimmer is `transform`-only and reduced-motion-safe.
+- **S5 The Whisper** — returns on mobile (drawer footer, §1.6.3). Nothing is
+  added to the top bar: on a 375px bar the Whisper would fight the user
+  cluster, and one wink per screen is the law. Summoning the drawer to see
+  the summon-time is the right amount of ceremony.
+- **The broom lift** stays as-is: on touch it simply never fires (or flashes
+  briefly on tap-navigate) — decorative, never informational, per §1.5.
+
+#### 1.6.7 Byte budget & the trade-off ledger
+
+Measured base: **21,442 B**. Ceiling (§4.4): **24 KB total inlined**. Mobile
+must be economical; estimated deltas for the increments in §4.2:
+
+| Change | Δ bytes (est.) |
+|---|---|
+| M1 table wraps | 0 (templates only) |
+| M2 forms / touch / spacing block | +450 |
+| M3 drawer + mobile shell CSS | +1,150 |
+| M3 deletes the legacy 760px rail block | −230 |
+| M4 stacked-card pattern | +550 |
+| **Net mobile** | **≈ +1.9 KB → ≈ 23.4 KB** |
+
+That fits — but increment 3–4's three theme blocks (~+3.6 KB) then overshoot
+the 24 KB ceiling by ~2.9 KB. The base landed ~2.4 KB over its §4.4 estimate,
+and mobile inherits the squeeze. Recovery levers, pulled **in this order**
+until under ceiling:
+
+1. **Comment diet** in `theme.css` — the shipped file carries ~1.2 KB of
+   prose comments; tighten to terse one-liners (the design doc is the prose
+   home). Est. −0.9 KB.
+2. **Drop the back-compat aliases** (`--nb-night`, `--nb-shadow`) — they were
+   promised for one release. Est. −0.1 KB.
+3. **Trim theme blocks** to genuinely-changed tokens only (the §3 blocks
+   re-state some inherited values for readability). Est. −0.5 KB.
+4. **Cut M4 (stacked cards)** — Tier 1 scroll-wrap remains the guaranteed
+   floor. −0.55 KB.
+5. Only then, and by explicit decision recorded here: raise the ceiling to
+   26 KB (the file is inlined and rides the page's gzip; the wire delta of
+   the whole mobile layer is ≈ 0.4 KB compressed). Not to be done by drift.
+
+Rules of engagement: mobile CSS lands ≤ 2.0 KB net or gets trimmed before
+merge; every mobile PR states the new `wc -c` of `theme.css` in its
+description.
 
 ---
 
@@ -634,18 +1052,23 @@ not specced.)*
   values); the auth screen retheming.
 - **Small CSS additions (still cheap, no templates):** Charm Line, horizon
   glow, twinkle, constellation empty states, Reveal shimmer, `:focus-visible`
-  rules, reduced-motion block, `.nb-btn-danger`, `.nb-link`, `.nb-alert-warn`.
+  rules, reduced-motion block, `.nb-btn-danger`, `.nb-link`, `.nb-alert-warn`;
+  the M2 responsive block (forms/touch/spacing, §1.6.5) and the `.nb-stack`
+  card pattern (§1.6.4).
 - **Small template tweaks:** `layout.php` — `data-theme` from shared data,
-  `aria-current` on active nav, Whisper in `.nb-side-foot`;
-  `tokens/index.php` — wrap the table in `.nb-table-wrap`; `stub.php` →
-  real `settings.php` with the theme picker; `public/index.php` — `NB_START`
-  constant (if absent).
+  `aria-current` on active nav, Whisper in `.nb-side-foot`, and the drawer
+  trio (checkbox, scrim, hamburger — §1.6.3); `tokens/index.php`,
+  `roles/index.php`, `users/index.php` — wrap the tables in `.nb-table-wrap`
+  (M1); `entries/index.php` + `tokens/index.php` — `data-label` attrs (M4);
+  `stub.php` → real `settings.php` with the theme picker; `public/index.php`
+  — `NB_START` constant (if absent).
 - **PHP wiring (small):** one shared-data line in `Admin\Controller::__construct`,
   one `POST /admin/settings/theme` action + route (allowlist + CSRF + one
   UPDATE), `UserRepository` already hydrates `theme`.
-- **Vanilla JS (optional, ~8 lines):** the picker's instant preview (§2.3).
-  Nothing else in this spec needs JS. The theme choice itself round-trips
-  server-side and needs **no** JS to persist or apply.
+- **Vanilla JS (optional, ~14 lines total):** the picker's instant preview
+  (§2.3, ~8) and the drawer's Escape/focus-return (§1.6.3, ~6). Both are
+  enhancements over fully-working no-JS paths: the theme choice round-trips
+  server-side, and the drawer opens/closes via its checkbox.
 
 ### 4.2 Increments (each an independently shippable PR)
 
@@ -664,6 +1087,29 @@ not specced.)*
    on the picker, the 8-line instant-preview enhancement. Marketing
    screenshots come from this PR.
 
+The responsive work (§1.6) ships as four further increments, safest first.
+M1 and M2 are independent of everything; M3/M4 build on nothing but the
+shipped shell, so the M-track can run in parallel with increments 3–4:
+
+5. **M1 — wrap the bare tables.** `roles/index.php`, `users/index.php`,
+   `tokens/index.php`: two lines each around the existing `<table>`. Pure
+   templates, zero CSS, zero JS, no security surface. Kills page-level
+   horizontal scroll everywhere (audit #1).
+6. **M2 — forms, touch targets, spacing.** The §1.6.5 + §1.6.2 CSS blocks
+   (grid collapse, 16px inputs, 44px targets, stepped padding, page-head
+   wrap). Pure CSS, no templates, no JS. The legacy rail nav stays functional
+   until M3.
+7. **M3 — the drawer.** `layout.php` markup (checkbox, scrim, hamburger,
+   top-bar brand — §1.6.3), drawer/shell CSS, deletion of the legacy 760px
+   rail block, the 6-line Escape script. The only mobile increment touching
+   markup + JS; review focus: the new labels/checkbox contain no user data
+   and the script takes no input, so the security surface is nil, but eyes on
+   it anyway.
+8. **M4 — stacked cards.** `.nb-stack` CSS + `data-label` attrs in
+   `entries/index.php` and `tokens/index.php` (§1.6.4). Attribute values pass
+   through the existing `$e()` escaper. Cuttable if the byte ceiling bites
+   (§1.6.7).
+
 ### 4.3 Existing defects to fix in passing (increment 1)
 
 - `var(--nb-border)` is referenced in `.nb-token-secret`,
@@ -675,23 +1121,32 @@ not specced.)*
   layout with `inline-flex` content alignment) and delete the duplicate.
 - `.nb-link` is used by `tokens/index.php` (Pause/Resume) but has no CSS —
   currently renders as a default browser button. Define it (§1.4).
-- `.nb-table` on the tokens page is missing its `.nb-table-wrap` (no rounded
-  panel, no overflow protection).
+- `.nb-table` renders **bare** (no `.nb-table-wrap`: no rounded panel, no
+  overflow protection → page-level horizontal scroll on phones) on **three**
+  pages: tokens, roles, users. Still true post-increment-2; fixed as M1
+  (§1.6.4, §4.2).
 - CSS declares `"Inter"`/`"Sora"` that never load — replace with the honest
   system stack (§1.2).
 
 ### 4.4 Weight budget & performance guardrails
 
-- **Budget:** base component layer ≤ 18 KB raw (today: 16.2 KB — the token
-  refactor is roughly weight-neutral; signatures add ~1.5 KB), each theme
-  block ≤ 1.3 KB, **total inlined CSS ≤ 24 KB raw** (≈ 5 KB over the wire if
-  the server gzips; it's inlined into HTML so it rides the page's encoding).
-  A comment at the top of `theme.css` states the budget; PR review enforces it.
+- **Budget:** **total inlined CSS ≤ 24 KB raw** — the binding ceiling (≈ 5 KB
+  over the wire if the server gzips; it's inlined into HTML so it rides the
+  page's encoding). Shipped base after increments 1–2: 21,442 B — ~2.4 KB
+  over the original ≤ 19 KB base estimate, which is why the ledger and
+  recovery levers in §1.6.7 now govern: mobile ≤ 2.0 KB net, each theme block
+  ≤ 1.3 KB, and the ordered cuts (comment diet → aliases → theme-block trim →
+  M4) apply until the total is under ceiling. A comment at the top of
+  `theme.css` states the budget; PR review enforces it, and every CSS PR
+  states the new `wc -c`.
 - **No webfonts, no images, no external requests.** Every visual in this spec
   is gradients, borders, shadows, and unicode glyphs. The logo stays an
   inlined SVG.
 - **No hydration, no framework, no build step.** Total JS added by this spec:
-  8 optional lines on one settings page.
+  8 optional lines on one settings page (theme preview, §2.3) + 6 lines in
+  the shell (drawer Escape/focus-return, §1.6.3) — both progressive
+  enhancements; nothing breaks with JS off (the drawer opens and closes via
+  its checkbox regardless).
 - **Animation discipline:** exactly two ambient animations (twinkle: one
   `opacity` keyframe; shimmer: one `transform` keyframe, plays once), both
   compositor-friendly, both dead under reduced-motion. No `filter`, no

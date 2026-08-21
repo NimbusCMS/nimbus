@@ -66,6 +66,7 @@ $checked    = static fn (int $roleId): string => in_array($roleId, $editingRoles
     <?php if ($editing !== null): ?><a class="nb-link" href="/admin/users">Cancel</a><?php endif; ?>
 </form>
 
+<div class="nb-table-wrap">
 <table class="nb-table">
     <thead><tr><th>Name</th><th>Email</th><th>Roles</th><th></th></tr></thead>
     <tbody>
@@ -85,3 +86,4 @@ $checked    = static fn (int $roleId): string => in_array($roleId, $editingRoles
         <?php endforeach; ?>
     </tbody>
 </table>
+</div>

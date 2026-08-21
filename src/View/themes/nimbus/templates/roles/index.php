@@ -86,6 +86,7 @@ $summary = static function (array $caps) use ($e): string {
     <?php if ($editing !== null): ?><a class="nb-link" href="/admin/roles">Cancel</a><?php endif; ?>
 </form>
 
+<div class="nb-table-wrap">
 <table class="nb-table">
     <thead><tr><th>Role</th><th>Capabilities</th><th>Users</th><th></th></tr></thead>
     <tbody>
@@ -107,3 +108,4 @@ $summary = static function (array $caps) use ($e): string {
         <?php endforeach; ?>
     </tbody>
 </table>
+</div>

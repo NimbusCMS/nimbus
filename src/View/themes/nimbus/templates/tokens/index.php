@@ -100,6 +100,7 @@ $access = static function (array $abilities): string {
            content through the API.</p>
     </div>
 <?php else: ?>
+    <div class="nb-table-wrap">
     <table class="nb-table">
         <thead>
             <tr>
@@ -144,4 +145,5 @@ $access = static function (array $abilities): string {
             <?php endforeach; ?>
         </tbody>
     </table>
+    </div>
 <?php endif; ?>
