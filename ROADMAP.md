@@ -432,6 +432,15 @@ is not lost.
 - [ ] **Increment 3 — the theme system + Nocturne** (`data-theme` wiring, the Settings picker → `POST /admin/settings/theme`, allowlist + CSRF, `nb_users.theme` write, the Nocturne token block). **Gated behind `nimbus-security-review`** (the write path). **Slice 4b-UI (the token-form role dropdown) rides this** so it's built once in the new language.
 - [ ] **Increment 4 — Daybreak + Grimoire** (+ the 8-line preview JS, swatch chips).
 
+**Mobile-hardening M-track** (design §1.6, added after a mobile audit; **mobile is a first-class user** — codified in the review loop, PR #108). Desktop-default CSS + two `max-width` blocks (1024px cozy, 760px full transform); invariant = the page never scrolls horizontally at 320px. Can interleave with the theme increments.
+
+- [x] **M1 — wrap the bare tables** (PR #109): `roles`/`users`/`tokens` tables wrapped in `.nb-table-wrap` → no more page-level horizontal scroll on phones (audit #1). Templates only, byte-identical CSS. Verified live at 375px + 320px.
+- [ ] **M2 — forms, touch targets, spacing** (§1.6.5/§1.6.2 CSS: grid collapse, 16px inputs, ≥44px targets, stepped padding, page-head wrap). Pure CSS.
+- [ ] **M3 — the nav drawer** (§1.6.3): CSS-only off-canvas drawer (`.nb-side` slid off-canvas via a checkbox-hack hamburger + scrim) preserving the Sky identity; a 6-line Escape/focus-return JS enhancement; deletes the legacy 760px rail block. Ships the checkbox default; the `<button aria-expanded>`+JS fallback stays documented as the escalation.
+- [ ] **M4 — stacked-card tables** (§1.6.4 Tier 2): `entries` + `tokens` reflow to label-per-cell cards below 760px. Cuttable — the designated byte-budget release valve.
+
+**Byte budget (§1.6.7):** base 21.4 KB + mobile ~1.9 + 3 theme blocks ~3.6 overshoots the 24 KB ceiling. Recovery order: **cheap zero-loss cuts first** (comment diet, drop `--nb-night`/`--nb-shadow` aliases once Increment 3 repoints them), then raise the ceiling a hair (still ~5 KB gzipped) **before** cutting M4. Every CSS PR states the new `wc -c`.
+
 Constraints (from the charter): server-rendered PHP templates, inlined vanilla
 CSS, at most small vanilla JS, WCAG-AA, and the "fast/lightweight" promise — a
 theme is a set of CSS custom-property values, never a template fork.
