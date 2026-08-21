@@ -63,6 +63,42 @@ Packkit/React/Node for Nimbus or all themes; assume all installs are headless or
 all render PHP themes; make optional behavior mandatory; add an "application
 framework" without broad evidence.
 
+## Standing surface checks (mandatory — mobile + MCP)
+
+Nimbus serves **two first-class users** on every capability: a **person on a
+phone** and an **agent over MCP**. A change is not done until both are considered,
+not just the desktop admin. These are as binding as the Drift Guard.
+
+### 📱 Mobile-friendly — *mobile is a first-class user*
+
+Design and review for a phone from the start; verify **live at ~375px**, never
+desktop-only.
+
+- Does every affected view work at ~375px with **no page-level horizontal
+  scroll**?
+- **Tables:** wrapped (`.nb-table-wrap` → scrolls in-panel) or reflowed to stacked
+  cards — a bare `.nb-table` that overflows the page is a defect, not a detail.
+- Multi-column layouts (`.nb-grid-2`, field-builder grids) collapse to one column;
+  **touch targets ≥ 44px**; no **hover-only** affordance (touch has no hover).
+- Content padding/spacing adapt; nothing is clipped or unreachable.
+
+### 🤖 MCP-friendly — *the agent is a first-class operator* ([ADR 0009](../../../docs/adr/0009-mcp-control-surface.md))
+
+Nimbus is MCP-native: an agent runs the whole CMS, the admin UI is optional. A new
+capability that only the human UI can reach quietly breaks that promise.
+
+- Is this action reachable by an agent **over MCP**, or does it silently make the
+  admin UI the only way to do it? A new management action should get an MCP tool,
+  gated by the **same capability**, non-enumerating, and audited — the way
+  schema/media/users/tokens already are.
+- Does the content/permission shape stay **legible to an agent** — typed inputs,
+  deny-by-default, no human-only side effects hidden in a controller?
+- If MCP exposure is **deferred**, is that a deliberate, recorded decision (ledger
+  / roadmap) — not an oversight?
+
+Pure-presentation work (a theme, a CSS signature) is exempt from the MCP check but
+**not** from the mobile one. Back-end capability work is subject to both.
+
 ## Review output template
 
 ```
@@ -95,12 +131,15 @@ Definition of done:
 - [ ] integrated into the real runtime
 - [ ] verified by tests / smoke
 - [ ] documented accurately
+- [ ] mobile: works at ~375px (verified live); MCP: agent-reachable or deferral recorded
 ```
 
 ## Definition-of-done gate
 
 Do not call anything done until: implemented **and** integrated into the runtime
-**and** verified by relevant tests or smoke tests **and** documented accurately.
-`composer check` (PHPStan level 6 + full suite) green, plus `tests/smoke.sh` /
-`tests/Integration/package-boundary.sh` where the change touches install or the
-plugin boundary.
+**and** verified by relevant tests or smoke tests **and** documented accurately
+**and** the standing surface checks are satisfied — mobile-friendly (verified live
+at a phone width) and, for back-end capability work, MCP-reachable (or the deferral
+recorded). `composer check` (PHPStan level 6 + full suite) green, plus
+`tests/smoke.sh` / `tests/Integration/package-boundary.sh` where the change touches
+install or the plugin boundary.
