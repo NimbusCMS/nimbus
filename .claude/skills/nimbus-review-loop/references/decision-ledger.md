@@ -962,3 +962,16 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
 - **Guard that held:** both new animations are compositor-only and dead under `prefers-reduced-motion` via Increment 1's global guard — no per-animation reduced-motion code needed.
 - **Budget watch:** base CSS now 21.4 KB (< 24 KB ceiling). The three additional theme blocks (Nocturne/Daybreak/Grimoire; Nimbus is the base :root, not a block) must stay tight (~1.1 KB each) to hold 24 KB — will trim base comments in Increment 3 if the real total needs it.
 - **Next:** Increment 3 (theme system + Nocturne + the Settings picker) — the first security-gated increment (the `nb_users.theme` write), and it carries Slice 4b-UI.
+
+### 2026-08-20 · Admin Experience — mobile-first revision + M1 [Theme]
+- **Trigger:** a mid-build mobile audit (Dan asked before starting the theme system) found the admin was desktop-first with one breakpoint; three list tables (roles/users/tokens) rendered bare → page-level horizontal scroll on phones. Dan's call: **mobile is a first-class user** — now a codified standing check (PR #108).
+- **Design:** Fable revised `docs/design/admin-experience.md` in place (new §1.6 Responsive: strategy, the nav-drawer centerpiece, the two-tier table fix, forms/touch, signatures on mobile, a byte-budget ledger, staged M1–M4). Drift-reviewed and blessed with corrections.
+- **Review calls that held (evidence for future mobile work):**
+  - **Desktop-default CSS + two `max-width` blocks**, not a min-width rewrite of 350 live lines — the honest architecture; mobile-first is the *design doctrine*, not a mechanical mandate.
+  - **CSS-only checkbox-hack drawer** (the sidebar slid off-canvas, Sky intact) is the right default over a JS `button+aria-expanded`; the "Menu, checkbox" SR announcement + no-focus-trap + no-scroll-lock are acceptable lightweight trades, with the JS fallback kept documented as a one-step escalation — don't gold-plate a hypothetical.
+  - **Byte ceiling is a guardrail, not a religion:** do zero-loss cuts first (comment diet, drop back-compat aliases), and **raise the 24 KB ceiling a hair (still ~5 KB gzipped) before cutting M4** (a real UX win). Reordered Fable's ledger accordingly.
+  - **Tier-1 (wrap all) is the mandatory floor; Tier-2 stacked cards (M4) is cuttable** — ship the floor first, don't block on the upgrade.
+  - **MCP standing check = N/A** for the M-track (pure admin-chrome presentation, no new back-end capability); the **mobile** check is the one in force and this design satisfies it. Security-review N/A for M1–M4 (no auth/write/SQL/untrusted input; the drawer JS takes no input; `data-label` is `$e()`-escaped) — but Increment 3's theme picker (`nb_users.theme` write) still needs it.
+- **M1 delivered** (PR #109, commit bcaaa7a): wrapped roles/users/tokens tables. Templates only, byte-identical CSS, no security surface. **Verified live at 375px AND 320px** — `overflowByPx = 0`, table scrolls in-panel. Shipped ahead of the theme system (highest value-to-risk in the initiative).
+- **New standing rule (from §1.6.4):** a bare `.nb-table` in a template is a bug.
+- **Next:** M2 (forms/touch/spacing CSS), M3 (drawer), M4 (stacked cards) — interleave with theme Increments 3–4.
