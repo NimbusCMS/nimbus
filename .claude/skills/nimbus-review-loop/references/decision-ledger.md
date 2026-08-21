@@ -944,3 +944,13 @@ From the Restaurant **Menu** acceptance test (Menu itself needed zero core chang
     idempotent, scoped, once-only.
 - **Deferred/carried:** Slice 4b-UI → Admin Experience initiative; future
   `settings:write` gate; plugin admin-page self-gating (Low, plugin boundary).
+
+### 2026-08-20 · Admin Experience — drift-guard + Increment 1 [Tooling / Theme]
+- **Initiative:** turn Fable's `docs/design/admin-experience.md` into a uniquely-Nimbus, themeable admin. Drift-guard passed: a themeable admin + per-user theme preference is a general-CMS good (every install benefits), opt-out-able via the token layer, admin-only, no framework/asset-pipeline. Classification per part: token refactor = **Tooling**; signatures + the four themes = **Theme**; the theme-system mechanism + picker = small **Core** (+ a security surface at the picker's write).
+- **Increment 1 delivered** (PR #104, commit ad09d14): `theme.css` refactored onto the `--nb-*` token set (each default = the current literal → no *unintended* visual change), the substrate the theme system needs. Four confirmed defects fixed (undefined `var(--nb-border)` with no fallback; duplicate conflicting `.nb-check`; used-but-undefined `.nb-link`; phantom Inter/Sora font vars) + a11y (`:focus-visible`, `prefers-reduced-motion`, `aria-current`). Zero security surface. 563 tests green; verified live across login/dashboard/tokens/collections.
+- **Review calls that held:**
+  - "Zero visual change" was corrected to "no *unintended* change + N named, verified deltas" — the honest framing that makes a screenshot-diff a real gate, not a rubber stamp. Standing lesson for re-skin work.
+  - Sequencing: pure-CSS increments 1–2 carry no security surface; the picker's `nb_users.theme` write (Increment 3) is gated behind `nimbus-security-review`. Don't security-review a CSS refactor; do review the write path.
+  - Budget honesty: Fable's "weight-neutral ≤18 KB base" estimate was optimistic — the expanded token set lands the base at ~19 KB. Kept the substrate tokens and corrected the budget comment; total-with-themes still ≤24 KB (the binding ceiling). Lesson: verify a design's stated weight against the actual bytes, don't inherit the estimate.
+- **Live-DB gotcha recurred:** the dev DB on :8080 was two migrations behind (011/012 unrun) → a `role_id` PDOException on the tokens page that looked like a regression but wasn't. `nimbus migrate` on the live dev DB before smoke-testing, every time a slice adds a column.
+- **Next:** Increment 2 (signatures, pure CSS), then Increment 3 (theme system + picker, security-gated) which also lands Slice 4b-UI.
