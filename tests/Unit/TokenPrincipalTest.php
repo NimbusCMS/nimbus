@@ -60,6 +60,7 @@ final class TokenPrincipalTest extends TestCase
         self::assertTrue($p->can('anything', 'read'));
         self::assertFalse($p->can('users', 'write'), 'the content wildcard must not grant user management');
         self::assertFalse($p->can('tokens', 'write'), 'nor token minting');
+        self::assertFalse($p->can('roles', 'write'), 'nor defining roles');
         self::assertFalse($p->can('settings', 'write'), 'nor settings');
         self::assertFalse($p->can('schema', 'write'), 'nor schema changes');
         self::assertFalse($p->can('media', 'read'), 'management reads are explicit too');

@@ -26,7 +26,7 @@ Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a smal
 - 🧩 **Nine field types** — text, textarea, number, boolean, select, date, email, URL, relation — behind a registry that plugins extend
 - 🔗 **Relations** between collections, with referential cascade
 - 📄 **Singletons** — single-entry collections for things like Site Settings
-- 👤 **Roles** — per-collection manage permissions with an admin override
+- 👤 **Roles & capabilities** — admin-composed roles from one `resource:action` capability vocabulary shared by users **and** API tokens; users hold the union of their roles, tokens carry scopes and/or a live-bound role, deny-by-default with subset-only granting ([docs/ROLES.md](docs/ROLES.md))
 - 🔒 **Auth & hardening** — argon2id hashing, CSRF-guarded writes, session rotation on login, progressive login throttling, CSP + security headers on every response, configurable trusted proxies
 - 🎨 **"Nimbus" admin theme** — night-sky admin skin, recolourable via CSS variables
 - 🗓️ **Publishing lifecycle** — draft / published / scheduled / archived with cron-free scheduling; the API serves exactly the live set
@@ -145,8 +145,9 @@ field never means an `ALTER TABLE`.
 - [x] **Theme capabilities** — partials, per-collection template specialization, themed 404, static assets (`/theme/assets`), navigation menus, reusable blocks
 - [x] **Public-site polish** — config-driven URL redirects (applied before routing) and opt-in page caching (`PAGE_CACHE_TTL`, flushed on every content write)
 - [x] **SEO foundations** — per-page meta + canonical + Open Graph, `sitemap.xml`, `robots.txt`
+- [x] **Roles & capabilities** — one `resource:action` vocabulary for users **and** tokens; admin-composed roles (union per user, live-bound to tokens), deny-by-default, subset-only granting across admin + CLI + MCP ([docs/ROLES.md](docs/ROLES.md))
 - [ ] Rich-text / Markdown editor
-- [ ] RBAC + revisions + activity log
+- [ ] Revisions + activity log
 - [ ] `plugin-seo`: JSON-LD, social-card images, RSS/Atom, meta-editing UI
 
 The full, continuously audited plan lives in [ROADMAP.md](ROADMAP.md), where

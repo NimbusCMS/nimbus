@@ -391,7 +391,7 @@ scope-filtered. Every management action is audited.
 Each slice: CI-green + a `nimbus-security-review` pass (this is the highest-
 privilege surface in the product).
 
-## 🔐 Milestone: Roles — capability bundles for users + tokens (design)
+## 🔐 Milestone: Roles — capability bundles for users + tokens ✅ DONE (2026-08-20)
 
 The payoff the MCP capability model was the substrate for: an admin defines
 **named roles** (bundles of granular capabilities) and assigns them to **both**
@@ -407,7 +407,9 @@ fixed roles. One capability vocabulary, one `can()`, role-centric. Design in
 - [x] **Slice 4** — roles for tokens (mint bound to a role → **live** capabilities via one resolution point `ApiTokenRepository::principalFor`; migration 011 `role_id` FK ON DELETE SET NULL; legacy empty→read-all grant removed for fail-safe deletes; subset-only at mint on CLI + MCP; `token:create --role`, MCP `mint_token` role param, role shown in listings)
 - [x] **Slice 4b-security** — subset-only on the **admin token form** (`TokensController::firstUngrantable`): a `tokens:write` non-admin can no longer mint a token granting read it does not itself hold (a pre-existing escalation the read-only form masked). Both reviews flagged it as the load-bearing control before the role dropdown lands.
 - [ ] **Slice 4b-UI** — the admin token-form **role dropdown** (mint a role-bound token from the web form; subset-only already in place over the granted set). **Deferred to build in the new admin design language** (see the Admin Experience initiative) so it's built once, not re-skinned.
-- [ ] **Slice 5** — security review (authorization matrix) + `docs/ROLES.md`
+- [x] **Slice 5 (closer)** — [`docs/ROLES.md`](docs/ROLES.md) (capability vocabulary + guarantees, system roles, custom roles, users=union, tokens=scopes and/or live-bound role, subset-only, the surfaces, upgrade note) + a documented authorization matrix pointing at the tests as source of truth; README + `COMPATIBILITY.md` roles note (model promised, **names/schema evolving until 1.0**); **ADR 0011 → Implemented**; final holistic `nimbus-security-review` (no open High — management boundary, subset-only uniformity, live-binding, un-seeded fallback, and the two migrations all traced to controls); management-boundary test now denies `roles`; dashboard Users-card dead-link fixed.
+
+**Milestone done** — 4b-UI (admin token-form role dropdown) carried into the **Admin Experience** initiative (built once in the new design language). Follow-ups tracked: the future `settings:write` gate (when a settings write lands), and plugin admin-page self-gating (plugin-boundary, pre-existing).
 
 Each slice: CI-green + a `nimbus-security-review` pass (authorization is the core
 of the product).
