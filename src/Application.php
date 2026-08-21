@@ -11,6 +11,7 @@ use Nimbus\Admin\EntriesController;
 use Nimbus\Admin\MediaController;
 use Nimbus\Admin\PluginPagesController;
 use Nimbus\Admin\RolesController;
+use Nimbus\Admin\SettingsController;
 use Nimbus\Admin\TokensController;
 use Nimbus\Admin\UsersController;
 use Nimbus\Api\ApiAuthContext;
@@ -283,6 +284,7 @@ final class Application
         (new UsersController($this->db, $this->auth, $this->adminPages))->routes($router);
         (new RolesController($this->db, $this->auth, $this->adminPages))->routes($router);
         (new TokensController($this->db, $this->auth, $this->adminPages))->routes($router);
+        (new SettingsController($this->db, $this->auth, $this->adminPages))->routes($router);
         // Plugin admin pages, after the core admin controllers so a plugin slug
         // can never shadow a core /admin route.
         (new PluginPagesController($this->db, $this->auth, $this->adminPages))->routes($router);

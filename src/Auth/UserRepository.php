@@ -66,6 +66,15 @@ final class UserRepository
         );
     }
 
+    /** Set a user's admin theme preference. The caller allow-lists the slug (AdminTheme). */
+    public function setTheme(int $id, string $theme): void
+    {
+        $this->db->execute(
+            'UPDATE nb_users SET theme = :t, updated_at = :u WHERE id = :id',
+            ['t' => $theme, 'u' => date('Y-m-d H:i:s'), 'id' => $id],
+        );
+    }
+
     public function setName(int $id, string $name): void
     {
         $this->db->execute(

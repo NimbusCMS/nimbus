@@ -2,12 +2,13 @@
 /** Admin shell: night-sky sidebar nav + top bar + content. */
 use Nimbus\View\View;
 
-$e    = static fn (?string $v): string => View::e($v);
-$user = $auth->user();
-$logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
+$e     = static fn (?string $v): string => View::e($v);
+$user  = $auth->user();
+$logo  = file_get_contents(dirname(__DIR__) . '/logo.svg');
+$theme = \Nimbus\View\AdminTheme::sanitize($user?->theme);  // allow-listed at render, then escaped
 ?>
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="<?= $e($theme) ?>">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

@@ -14,9 +14,9 @@ use Nimbus\Http\Router;
 use Nimbus\Plugin\PluginStatus;
 
 /**
- * Authentication + dashboard + the not-yet-built section stubs. The admin shell
- * (nav, view) lives in the base Controller; content sections have their own
- * controllers.
+ * Authentication, the dashboard, and the read-only plugins page. The admin shell
+ * (nav, view) lives in the base Controller; every content and settings section
+ * has its own controller.
  */
 final class AdminController extends Controller
 {
@@ -41,11 +41,6 @@ final class AdminController extends Controller
             $g->get('', fn (Request $req, array $p): Response => $this->dashboardPage())->name('admin.dashboard');
             $g->get('/dashboard', fn (Request $req, array $p): Response => $this->dashboardPage());
             $g->get('/plugins', fn (Request $req, array $p): Response => $this->pluginsPage())->name('admin.plugins');
-
-            // `users` is now a real controller; `settings` is still a stub.
-            foreach (['settings'] as $section) {
-                $g->get("/{$section}", fn (Request $req, array $p): Response => $this->page('stub', $section, ['title' => ucfirst($section)]))->name("admin.{$section}");
-            }
         });
     }
 
