@@ -1,9 +1,10 @@
 /* NimbusCMS — "Nimbus" admin theme: night-sky sidebar, gold accents. A theme is
    only a re-declaration of this :root token block (docs/design/admin-experience.md,
-   §2). Budget: ≤ 24 KB total inlined — the binding ceiling (now ~23.3 KB with the
-   token layer + signatures + mobile; the three theme blocks land under the §1.6.7
-   recovery ledger). No webfonts, no images, no framework. State `wc -c` on every
-   CSS PR. AA notes + rationale live in the design doc. */
+   §2). Budget: ≤ 28 KB total inlined — the binding ceiling (raised from 24 KB once
+   the ~60-token layer made the original estimate obsolete; four full themes need
+   the bytes, and inlined CSS gzips to ~5.5 KB with zero extra requests, so the
+   "fast/lightweight" promise holds). No webfonts, no images, no framework. State
+   `wc -c` on every CSS PR. AA notes + rationale live in the design doc. */
 :root {
   color-scheme: light;
 
@@ -52,6 +53,32 @@
 
   /* Focus: input halo (as today) + keyboard :focus-visible ring */
   --nb-focus: 0 0 0 3px var(--nb-brand-tint); --nb-focus-ring: 2px solid var(--nb-brand);
+}
+
+/* ---- theme: Nocturne (dark) — a token-only override; component CSS unchanged.
+   Dark-mode inversions live in the token pairs: primary buttons flip to a light
+   fill with dark ink (--nb-on-brand), hover *lightens*, semantic chips go
+   deep-bg/bright-text. ---- */
+[data-theme="nocturne"] {
+  color-scheme: dark;
+  --nb-brand: #8b7dff; --nb-brand-dark: #a99dff; --nb-brand-bright: #8b7dff;
+  --nb-brand-tint: rgba(139,125,255,.16); --nb-on-brand: #17133a; --nb-link-color: #b3a8ff;
+  --nb-gold: #f0c24b; --nb-gold-soft: #f6d888; --nb-gold-ink: #f0c24b; --nb-gold-tint: rgba(240,194,75,.10);
+  --nb-bg: #13102b; --nb-surface: #1c1840; --nb-surface-2: #241f4e;
+  --nb-line: #2e2960; --nb-line-strong: #3d3778;
+  --nb-ink: #ecebf8; --nb-muted: #a8a5cd; --nb-faint: #7d79a8;
+  --nb-ok: #4cc98d; --nb-ok-bg: #14382a; --nb-ok-text: #7ee2ae;
+  --nb-warn: #e6b566; --nb-warn-bg: #3a2c10; --nb-warn-text: #f2c76e;
+  --nb-danger: #ff7b80; --nb-danger-bg: #40181c; --nb-danger-text: #ff9a9e; --nb-on-danger: #2b0d0f;
+  --nb-sky: linear-gradient(180deg, #0b0920 0%, #140f38 60%, #1b1547 100%);
+  --nb-sky-text: #b6b3dd; --nb-sky-text-hi: #ffffff;
+  --nb-sky-hover: rgba(255,255,255,.06); --nb-sky-active: rgba(240,194,75,.14); --nb-sky-active-rg: rgba(240,194,75,.35);
+  --nb-star-a: #ffffff; --nb-star-b: var(--nb-gold-soft); --nb-star-opacity: 1;
+  --nb-sky-foot: rgba(182,179,221,.45); --nb-sky-glow: rgba(139,125,255,.14);
+  --nb-const: #4f4890; --nb-const-line: rgba(139,125,255,.14);
+  --nb-shadow-1: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  --nb-shadow-2: 0 8px 26px rgba(0,0,0,.5); --nb-shadow-pop: 0 24px 60px rgba(0,0,0,.7);
+  --nb-focus: 0 0 0 3px rgba(139,125,255,.30);
 }
 * { box-sizing: border-box; }
 body.nb {
@@ -345,6 +372,17 @@ body.nb-night::before {
   }
   .nb-stack .nb-row-actions { white-space: normal; flex-wrap: wrap; padding-top: 6px; }
 }
+
+/* ---- settings: theme picker ---- */
+.nb-theme-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 4px 0; }
+.nb-theme-card { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--nb-line); border-radius: var(--nb-radius-m); background: var(--nb-surface); cursor: pointer; }
+.nb-theme-card:hover { border-color: var(--nb-line-strong); }
+.nb-theme-card input { position: absolute; width: 1px; height: 1px; opacity: 0; }  /* hidden, still focusable */
+.nb-theme-card:has(input:checked) { border-color: var(--nb-brand); box-shadow: var(--nb-focus); }
+.nb-theme-card:has(input:focus-visible) { outline: var(--nb-focus-ring); outline-offset: 2px; }
+.nb-swatch { width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.nb-theme-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nb-theme-meta small { color: var(--nb-muted); }
 
 /* ---- unavailable field type (provider plugin missing) ---- */
 .nb-missing-type { border: 1px dashed var(--nb-danger); border-radius: var(--nb-radius-m); padding: 12px 14px; background: #fff8f8; }
