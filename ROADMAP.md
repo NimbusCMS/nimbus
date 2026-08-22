@@ -416,6 +416,8 @@ of the product).
 
 ## 🎨 Initiative: Admin Experience — a uniquely-Nimbus admin + themes ✅ COMPLETE (2026-08-20)
 
+**Post-completion follow-ups (2026-08-22):** the deferred small items shipped — plugin admin-page **capability gating** (PR #123), the **Auto** (match-device) + **Owl** (high-contrast) themes (PR #124, six themes total, byte ceiling 32 KB), and an outward-facing **README alpha-stage announcement** (PR #122).
+
 **Resume point.** Give the admin UI an identity that is unmistakably *Nimbus*
 (leaning into the existing magical / night-sky / gold-broom brand) instead of
 generic CMS chrome, and make the admin **themeable** — multiple selectable themes
