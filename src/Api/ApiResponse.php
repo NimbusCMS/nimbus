@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nimbus\Api;
 
+use Nimbus\Content\FieldError;
 use Nimbus\Http\Response;
 
 /**
@@ -52,14 +53,23 @@ final class ApiResponse
     }
 
     /**
-     * A 422 with per-field validation messages — the error envelope plus a
-     * `fields` map so a client can show the errors against the right inputs.
+     * A 422 with structured per-field errors — the envelope's top-level machine
+     * `code` (`invalid` or `missing_provider`) plus a `fields` map of
+     * `{code, message}` so a client (human or agent) can branch on the code and
+     * show the message against the right input.
      *
-     * @param array<string,string> $fields
+     * @param array<string,FieldError> $errors
      */
-    public static function invalid(array $fields, string $message = 'The entry could not be saved.'): Response
+    public static function invalid(array $errors, string $code = 'invalid', string $message = 'The entry could not be saved.'): Response
     {
-        return Response::json(['error' => ['status' => 422, 'code' => 'invalid', 'message' => $message, 'fields' => $fields]], 422);
+        $fields = array_map(static fn (FieldError $e): array => $e->toArray(), $errors);
+
+        return Response::json(['error' => [
+            'status'  => 422,
+            'code'    => $code !== '' ? $code : 'invalid',
+            'message' => $message !== '' ? $message : 'The entry could not be saved.',
+            'fields'  => $fields === [] ? new \stdClass() : $fields,
+        ]], 422);
     }
 
     /** 204 No Content — a successful delete, no body. */

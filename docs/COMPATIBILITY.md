@@ -51,10 +51,21 @@ response shapes, not on any PHP class. What is promised:
 - **Envelope** — success is `{ "data": …, "meta": { page, per_page, total,
   total_pages } }` (meta on collections); error is
   `{ "error": { "status", "code", "message" } }`, plus a `fields` map on
-  validation. The `code` is a stable machine-readable slug — branch on it, not
-  the `message`: `unauthorized` (401), `forbidden` (403), `not_found` (404),
-  `invalid` (422), `precondition_required` (428), `precondition_failed` (412),
-  `rate_limited` (429).
+  validation. The top-level `code` is a stable machine-readable slug — branch on
+  it, not the `message`: `unauthorized` (401), `forbidden` (403), `not_found`
+  (404), `invalid` (422), `missing_provider` (422), `precondition_required`
+  (428), `precondition_failed` (412), `rate_limited` (429).
+- **Structured validation errors** — a `422` carries `fields`, a map of the
+  submitted input name (a collection field handle, or `title`/`slug`) to a
+  `{ code, message }` object, so a client — human or agent — branches on the
+  per-field `code` and shows the `message`. Per-field codes: `required`,
+  `invalid` (a type/format/choice failure). A `missing_provider` failure (a field
+  type whose plugin is unavailable) is **top-level** (`error.code`), not a field
+  entry, and its `fields` map is empty. The code vocabulary is **additive-only**:
+  new codes may appear over time (a general `invalid` may become more specific),
+  existing codes are never repurposed, and **a client must treat an unknown code
+  as `invalid`**. The MCP surface returns the same `{ code, message }` per-field
+  shape.
 - **Auth** — a bearer token (`Authorization: Bearer …`), with per-collection
   `read`/`write` scopes: an out-of-scope collection answers `403` `forbidden`,
   and cannot be told apart from one that does not exist. A token's authority is

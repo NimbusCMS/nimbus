@@ -2,7 +2,8 @@
 /**
  * @var \Nimbus\Content\Collection        $collection
  * @var array{id:?int,title:string,slug:string,status:string,values:array} $model
- * @var array<string,string>              $errors
+ * @var array<string,string>              $errors   per-field messages, keyed by input name
+ * @var string                            $topError a non-field failure (missing provider), or ''
  * @var \Nimbus\Content\FieldTypeRegistry  $types
  * @var string                            $csrf
  */
@@ -24,8 +25,8 @@ $heading = $single ? $e($collection->name) : ($editing ? 'Edit' : 'New') . ' · 
 </div>
 
 <?php if (!empty($flash)): ?><div class="nb-alert nb-alert-ok"><?= $e(ucfirst($flash)) ?>.</div><?php endif; ?>
-<?php if (isset($errors['__types'])): ?>
-    <div class="nb-alert nb-alert-error"><?= $e($errors['__types']) ?></div>
+<?php if ($topError !== ''): ?>
+    <div class="nb-alert nb-alert-error"><?= $e($topError) ?></div>
 <?php elseif ($errors !== []): ?>
     <div class="nb-alert nb-alert-error">Please fix the highlighted fields.</div>
 <?php endif; ?>
@@ -35,10 +36,10 @@ $heading = $single ? $e($collection->name) : ($editing ? 'Edit' : 'New') . ' · 
 
     <?php if (!$single): ?>
         <div class="nb-grid-2">
-            <div class="nb-field <?= isset($errors['__title']) ? 'has-error' : '' ?>">
+            <div class="nb-field <?= isset($errors['title']) ? 'has-error' : '' ?>">
                 <label>Title <span class="nb-req">*</span></label>
                 <input name="title" value="<?= $e($model['title']) ?>" required>
-                <?php if (isset($errors['__title'])): ?><span class="nb-field-error"><?= $e($errors['__title']) ?></span><?php endif; ?>
+                <?php if (isset($errors['title'])): ?><span class="nb-field-error"><?= $e($errors['title']) ?></span><?php endif; ?>
             </div>
             <div class="nb-field">
                 <label>Slug <small class="nb-muted">(auto from title)</small></label>

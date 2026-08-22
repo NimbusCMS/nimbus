@@ -196,9 +196,22 @@ final class OpenApiGenerator
                 'type'       => 'object',
                 'properties' => ['error' => ['type' => 'object', 'properties' => [
                     'status'  => ['type' => 'integer'],
-                    'code'    => ['type' => 'string'],
+                    'code'    => ['type' => 'string', 'description' => 'Machine code: not_found, forbidden, invalid, missing_provider, precondition_required, precondition_failed. Treat an unknown code as a generic failure.'],
                     'message' => ['type' => 'string'],
-                    'fields'  => ['type' => 'object', 'additionalProperties' => ['type' => 'string'], 'nullable' => true],
+                    // Per-field validation errors (422): input name => { code, message }.
+                    // `code` is one of: required, invalid. Additive-only; treat unknown as invalid.
+                    'fields'  => [
+                        'type'                 => 'object',
+                        'additionalProperties' => [
+                            'type'       => 'object',
+                            'properties' => [
+                                'code'    => ['type' => 'string'],
+                                'message' => ['type' => 'string'],
+                            ],
+                            'required'   => ['code', 'message'],
+                        ],
+                        'nullable' => true,
+                    ],
                 ]]],
             ],
             'EntryMeta' => [

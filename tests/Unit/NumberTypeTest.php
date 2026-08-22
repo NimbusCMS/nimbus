@@ -43,7 +43,7 @@ final class NumberTypeTest extends TestCase
     /**
      * Mirror the controller: normalize the raw submission, then validate.
      *
-     * @return array<string,string>
+     * @return array<string,\Nimbus\Content\FieldError>
      */
     private function submit(mixed $raw, bool $required = false): array
     {
@@ -108,7 +108,8 @@ final class NumberTypeTest extends TestCase
         $errors = $this->submit('abc', required: false);
 
         self::assertArrayHasKey('qty', $errors);
-        self::assertStringContainsString('valid number', $errors['qty']);
+        self::assertSame('invalid', $errors['qty']->code);
+        self::assertStringContainsString('valid number', $errors['qty']->message);
     }
 
     public function test_required_blank_number_fails(): void
@@ -116,7 +117,8 @@ final class NumberTypeTest extends TestCase
         $errors = $this->submit('', required: true);
 
         self::assertArrayHasKey('qty', $errors);
-        self::assertStringContainsString('required', $errors['qty']);
+        self::assertSame('required', $errors['qty']->code);
+        self::assertStringContainsString('required', $errors['qty']->message);
     }
 
     public function test_required_valid_number_passes(): void

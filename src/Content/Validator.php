@@ -18,7 +18,7 @@ final class Validator
 
     /**
      * @param array<string,mixed> $values normalized field values keyed by handle
-     * @return array<string,string> handle => error message (empty = valid)
+     * @return array<string,FieldError> handle => structured error (empty = valid)
      */
     public function validate(Collection $collection, array $values): array
     {
@@ -28,14 +28,18 @@ final class Validator
 
             if ($this->isEmpty($value)) {
                 if ($field->required) {
-                    $errors[$field->handle] = $field->label . ' is required.';
+                    $errors[$field->handle] = FieldError::required($field->label . ' is required.');
                 }
                 continue;
             }
 
+            // A field type's validate() returns a human string; core owns the
+            // code, wrapping any failure as the generic `invalid` (the plugin
+            // string never becomes a code). More specific codes are an additive
+            // refinement for later — see FieldError.
             $error = $this->types->get($field->type)->validate($field, $value);
             if ($error !== null) {
-                $errors[$field->handle] = $error;
+                $errors[$field->handle] = FieldError::invalid($error);
             }
         }
         return $errors;

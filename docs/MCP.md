@@ -65,6 +65,14 @@ Generated from each collection's fields, so tool inputs match the model:
 `get_*` returns the current `version`; a write that presents a stale one is
 refused, so two clients cannot silently clobber each other.
 
+A write that fails validation returns a tool error (`isError: true`) whose
+`error` carries a machine `code` and a **`fields`** map of `{ code, message }`
+per input — so an agent can branch on the code and self-correct (`required` →
+supply the field; `invalid` → fix the value) rather than parsing prose. A
+`missing_provider` error is top-level with no `fields`. The vocabulary is the
+same additive-only set as the HTTP API (see
+[COMPATIBILITY.md](COMPATIBILITY.md)); treat an unknown code as `invalid`.
+
 > **Reserved handles.** Management tool names win a name clash, so a collection
 > whose handle is `collections`, `media`, `users`, `tokens`, `collection` or
 > `field(s)` has some of its content tools shadowed by the management/media tools.
