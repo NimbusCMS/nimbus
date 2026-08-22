@@ -10,8 +10,8 @@
 
 ---
 
-> ⚠️ **Status: in active development — not production-ready.**
-> Content management, a media library, a scoped headless JSON API (read **and** write), and now basic server-rendered public pages work end to end today: define collections and fields; create, schedule and publish entries; upload media; read and write content over the API with scoped, expirable tokens (per-collection scopes, ETag/If-Match concurrency, rate limiting); and render a collection's live entries and a single entry through a plain-PHP theme, with a configurable home page at the site root. **Public theming is an early slice** — richer theme capabilities are still to come. There is no upgrade path between versions, no password reset, and no release has been tagged. See [What works today](#what-works-today).
+> ⚠️ **Status: alpha (`0.x`) — feature-rich and in active development, approaching a first `0.1` release. Not production-ready.**
+> A lot works end to end today: define collections and fields; create, schedule and publish entries; upload media; compose **capability-based roles** for people *and* machines; drive the whole CMS over a scoped **headless JSON API** (read + write, ETag/If-Match, OpenAPI) **and over MCP** (agents are first-class operators); and render a public site through plain-PHP themes. The **admin is themeable** — four built-in themes incl. dark mode, plus a per-user picker — and **mobile-native** (an off-canvas nav, responsive tables and forms). Still alpha, honestly: **no release is tagged**, there is **no upgrade path** between versions, and **password reset isn't built** yet. Public theming and richer capabilities are still growing. See [What works today](#what-works-today) and [ROADMAP.md](ROADMAP.md).
 
 ## Why NimbusCMS?
 
@@ -28,7 +28,7 @@ Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a smal
 - 📄 **Singletons** — single-entry collections for things like Site Settings
 - 👤 **Roles & capabilities** — admin-composed roles from one `resource:action` capability vocabulary shared by users **and** API tokens; users hold the union of their roles, tokens carry scopes and/or a live-bound role, deny-by-default with subset-only granting ([docs/ROLES.md](docs/ROLES.md))
 - 🔒 **Auth & hardening** — argon2id hashing, CSRF-guarded writes, session rotation on login, progressive login throttling, CSP + security headers on every response, configurable trusted proxies
-- 🎨 **"Nimbus" admin theme** — night-sky admin skin, recolourable via CSS variables
+- 🎨 **Themeable, mobile-native admin** — four built-in themes (Nimbus night-sky, **Nocturne** dark, **Daybreak**, **Grimoire**) with a per-user picker, all token-driven; a phone-native shell (off-canvas nav drawer, responsive tables/forms), WCAG-AA, one inlined vanilla-CSS file — no framework, no build ([docs/design/admin-experience.md](docs/design/admin-experience.md))
 - 🗓️ **Publishing lifecycle** — draft / published / scheduled / archived with cron-free scheduling; the API serves exactly the live set
 - 🖼️ **Media library** — upload (content-validated, safe names), a library, and a `media` field the API expands to `{ url, alt, … }`
 - 🔌 **Headless JSON API** — read + write `/api/v1`, scoped bearer tokens (expiry/pause/revoke), ETag/If-Match concurrency, rate limiting + CORS, `toApi()` serialization; self-describing via generated **OpenAPI** (`GET /api/v1/openapi.json`)
@@ -146,6 +146,8 @@ field never means an `ALTER TABLE`.
 - [x] **Public-site polish** — config-driven URL redirects (applied before routing) and opt-in page caching (`PAGE_CACHE_TTL`, flushed on every content write)
 - [x] **SEO foundations** — per-page meta + canonical + Open Graph, `sitemap.xml`, `robots.txt`
 - [x] **Roles & capabilities** — one `resource:action` vocabulary for users **and** tokens; admin-composed roles (union per user, live-bound to tokens), deny-by-default, subset-only granting across admin + CLI + MCP ([docs/ROLES.md](docs/ROLES.md))
+- [x] **MCP control surface** — the full CMS over MCP (HTTP + stdio): content, schema, media, users, tokens — scope-checked, non-enumerating, audited, through the same services the admin uses ([docs/MCP.md](docs/MCP.md))
+- [x] **Themeable, mobile-native admin** — four token-driven themes + per-user picker, an off-canvas mobile nav and responsive tables/forms, one inlined vanilla-CSS file ([docs/design/admin-experience.md](docs/design/admin-experience.md))
 - [ ] Rich-text / Markdown editor
 - [ ] Revisions + activity log
 - [ ] `plugin-seo`: JSON-LD, social-card images, RSS/Atom, meta-editing UI
