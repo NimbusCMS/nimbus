@@ -39,6 +39,17 @@ charter is the authority; this is the working detail.
 - **Events are post-commit notifications.** They fire only after a successful
   commit, and truthfully (only when the state change happened). They cannot veto
   a write. Listener exceptions surface at the error boundary.
+- **Config lives in files; admin-editable content lives in the DB.** Deploy/env
+  configuration — DB credentials, `APP_URL`, debug, trusted proxies, upload
+  limits, rate limits, enabled plugins, the active public theme — stays in
+  `.env` + `config/*.php`: it is per-environment, set at deploy, and some of it
+  is needed *before* the database is available, so `Support\Config` is a static,
+  **DB-free** facade and must stay that way. Values an editor changes at runtime
+  (site home, description, and future site content) live in `nb_settings` behind
+  the typed `Settings` service, with the `config/*.php` value as the **default**
+  the DB overrides — no seed migration, so a fresh install works from the file
+  and a set value wins. Do not couple `Config` to the DB, and do not move
+  deploy/env config into the settings store.
 
 ## Dependencies and abstraction
 

@@ -39,7 +39,7 @@ A scope is `resource:action`:
 
 - **Content** — `{handle}:read`, `{handle}:write` (a collection handle).
 - **Management** — `schema:write`, `media:read`, `media:write`, `users:write`,
-  `tokens:write`.
+  `tokens:write`, `settings:read`, `settings:write`.
 - **`admin`** — the one cross-cutting super-grant (every action, every resource).
 
 The content wildcard `*:{action}` grants that action on every *collection* but
@@ -100,9 +100,17 @@ escalation. Minted token secrets and generated passwords are returned **once** i
 the result and never persisted, logged or audited. `set_role` will not demote the
 last admin.
 
-> Settings management is not yet exposed — site config currently lives in PHP
-> config files, not a runtime store. `settings:write` is reserved for a future
-> DB-backed settings store.
+### Settings (`settings:read` / `settings:write`)
+
+- `get_settings`, `set_settings`
+
+The site settings store (home page, default meta description). `get_settings`
+needs `settings:read` (or `settings:write`); `set_settings` needs `settings:write`
+— a management capability, so a content `*:write` scope cannot reach it. Only
+**known** keys are accepted (`set_settings` with an unregistered key is rejected —
+no arbitrary rows), each value is validated (a home must name a real collection; a
+description is length-bounded), and every write is audited. Deploy/environment
+configuration is **not** here — it stays in `.env` + `config/*.php`.
 
 ## Connecting a client
 

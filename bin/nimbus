@@ -199,11 +199,14 @@ try {
             $mediaRepo   = new Nimbus\Media\MediaRepository($db);
             $mediaUsage  = new Nimbus\Media\MediaUsageRepository($db);
             $uploader    = new Nimbus\Media\MediaUploader($mediaRepo, Config::uploadPath(), Config::uploadUrl(), Config::uploadMaxBytes(), static fn (string $from, string $to): bool => copy($from, $to));
+            $settingsRegistry = new Nimbus\Settings\SettingsRegistry($collections);
+            $settings         = new Nimbus\Settings\Settings(new Nimbus\Settings\SettingsRepository($db), $settingsRegistry);
             $server = new Nimbus\Mcp\McpServer(
                 new Nimbus\Mcp\SchemaToolset($collections, new Nimbus\Content\CollectionService($db, $collections), $app->fieldTypeRegistry(), $app->events()),
                 new Nimbus\Mcp\MediaToolset($mediaRepo, $uploader, new Nimbus\Media\MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $app->events()),
                 new Nimbus\Mcp\UsersToolset(new Nimbus\Auth\UserRepository($db), $app->events()),
                 new Nimbus\Mcp\TokensToolset(new Nimbus\Api\ApiTokenRepository($db), new Nimbus\Auth\RoleRepository($db), $app->events()),
+                new Nimbus\Mcp\SettingsToolset($settings, $settingsRegistry, $app->events()),
                 new Nimbus\Mcp\ContentToolset($collections, $app->fieldTypeRegistry(), $ops),
             );
             $transport = new Nimbus\Mcp\StdioTransport(
