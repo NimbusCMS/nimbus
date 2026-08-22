@@ -6,6 +6,8 @@ namespace Nimbus\Admin;
 
 use Nimbus\Api\ApiTokenRepository;
 use Nimbus\Auth\Auth;
+use Nimbus\Auth\Role;
+use Nimbus\Auth\RoleRepository;
 use Nimbus\Content\Collection;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
@@ -39,12 +41,14 @@ final class TokensController extends Controller
 
     private ApiTokenRepository $tokens;
     private CollectionRepository $collections;
+    private RoleRepository $roles;
 
     public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null)
     {
         parent::__construct($db, $auth, $adminPages);
         $this->tokens      = new ApiTokenRepository($this->db);
         $this->collections = new CollectionRepository($this->db);
+        $this->roles       = new RoleRepository($this->db);
     }
 
     public function routes(Router $r): void
@@ -63,10 +67,21 @@ final class TokensController extends Controller
     {
         $this->requireCan('tokens', 'write');
 
+        $allRoles = $this->roles->all();
+        // The dropdown offers only roles the actor can fully bind (subset-only);
+        // the server re-checks on submit — the filter is convenience, not the gate.
+        $grantable = array_values(array_filter($allRoles, fn (Role $r): bool => $this->firstUngrantable($r->capabilities) === null));
+        $roleNames = [];
+        foreach ($allRoles as $r) {
+            $roleNames[$r->id] = $r->name;
+        }
+
         return $this->page('tokens/index', 'tokens', [
             'tokens'      => $this->tokens->all(),
             'expiries'    => array_keys(self::EXPIRY),
             'collections' => $this->collections->all(),
+            'roles'       => $grantable,
+            'roleNames'   => $roleNames,
             'justCreated' => $justCreated,
             'flash'       => $req->query('msg'),
             'error'       => $req->query('err'),
@@ -85,19 +100,37 @@ final class TokensController extends Controller
             return $this->redirect('/admin/tokens?err=' . rawurlencode('A token needs a name.'));
         }
 
-        // Deny-by-default: a token must be granted read on all collections or on
-        // a chosen few — never nothing.
         $scopes = $this->scopesFrom($req);
-        if ($scopes === []) {
-            return $this->redirect('/admin/tokens?err=' . rawurlencode('Choose "All collections", or at least one collection.'));
+
+        // Optionally bind a role — its capabilities apply LIVE (ADR 0011).
+        // Subset-only over EVERY capability the role grants, so binding a role is
+        // no way around the escalation guard; the server re-resolves the id, so
+        // the dropdown's filtering to grantable roles is convenience, not the
+        // control (a crafted id is checked here just the same).
+        $roleId  = null;
+        $roleRaw = trim((string) $req->input('role'));
+        if ($roleRaw !== '') {
+            $role = ctype_digit($roleRaw) ? $this->roles->find((int) $roleRaw) : null;
+            if ($role === null) {
+                return $this->redirect('/admin/tokens?err=' . rawurlencode('No such role.'));
+            }
+            $ungrantableRole = $this->firstUngrantable($role->capabilities);
+            if ($ungrantableRole !== null) {
+                return $this->redirect('/admin/tokens?err=' . rawurlencode("You cannot mint a token as \"{$role->name}\" — it grants access you do not hold: \"{$ungrantableRole}\"."));
+            }
+            $roleId = $role->id;
         }
 
-        // Subset-only escalation guard (ADR 0011): you can only grant a token
-        // access you hold yourself. `tokens:write` reaches this form, but a
-        // custom-role holder without `*:read` must not be able to mint a
-        // read-all token — the CLI and MCP mint paths already enforce this; the
-        // web form must too (its read-only construction was never an authz
-        // control, only a limitation).
+        // Deny-by-default: a token needs read scopes, a bound role, or both.
+        if ($scopes === [] && $roleId === null) {
+            return $this->redirect('/admin/tokens?err=' . rawurlencode('Choose "All collections", at least one collection, or a role.'));
+        }
+
+        // Subset-only over the explicit scopes too (you can only grant access you
+        // hold): `tokens:write` reaches this form, but a custom-role holder
+        // without `*:read` must not mint a read-all token. Both the granted
+        // scopes AND the role's caps are checked — neither path smuggles more
+        // than the actor holds. CLI + MCP already enforce this.
         $ungrantable = $this->firstUngrantable($scopes);
         if ($ungrantable !== null) {
             return $this->redirect('/admin/tokens?err=' . rawurlencode("You cannot grant access you do not hold: \"{$ungrantable}\"."));
@@ -111,7 +144,7 @@ final class TokensController extends Controller
             return $this->redirect('/admin/tokens?msg=resubmit');
         }
 
-        $plain = $this->tokens->create($name, $scopes, $this->expiryFrom($req->input('expires')));
+        $plain = $this->tokens->create($name, $scopes, $this->expiryFrom($req->input('expires')), $roleId);
 
         // Rendered, never redirected: the plaintext is shown once and must not
         // land in a URL, a flash, or a log.

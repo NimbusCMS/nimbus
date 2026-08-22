@@ -163,6 +163,91 @@ final class TokenAdminTest extends HttpTestCase
         self::assertSame(['posts:read'], $this->tokens->all()[0]->abilities, 'a scope the actor holds is grantable');
     }
 
+    // -------------------------------------------------- role binding (Slice 4b-UI)
+
+    public function test_mint_can_bind_a_role_the_actor_fully_holds(): void
+    {
+        $writer = (new \Nimbus\Auth\RoleRepository($this->db))->create('writer', ['posts:write'], false);
+        $this->actingWithCapabilities(['tokens:write', 'posts:write']);
+
+        $this->post('/admin/tokens', ['name' => 'bound', 'role' => (string) $writer, '_nonce' => FormNonce::issue()]);
+
+        $all = $this->tokens->all();
+        self::assertCount(1, $all, 'a role-only mint (no scopes) is allowed');
+        self::assertSame($writer, $all[0]->roleId, 'the token is bound to the role');
+    }
+
+    public function test_mint_cannot_bind_a_role_beyond_the_actor(): void
+    {
+        $roles     = new \Nimbus\Auth\RoleRepository($this->db);
+        $super     = $roles->create('superuser', ['admin'], false);
+        $userAdmin = $roles->create('user-admin', ['users:write'], false);
+        $this->actingWithCapabilities(['tokens:write', 'posts:write']);
+
+        $this->post('/admin/tokens', ['name' => 'esc', 'role' => (string) $super, '_nonce' => FormNonce::issue()]);
+        self::assertSame([], $this->tokens->all(), 'a crafted admin-role id cannot launder admin — server-side check, not the dropdown');
+
+        $this->post('/admin/tokens', ['name' => 'esc2', 'role' => (string) $userAdmin, '_nonce' => FormNonce::issue()]);
+        self::assertSame([], $this->tokens->all(), 'nor a role carrying an unheld management cap');
+    }
+
+    public function test_admin_can_bind_an_admin_role(): void
+    {
+        $super = (new \Nimbus\Auth\RoleRepository($this->db))->create('superuser', ['admin'], false);
+        $this->actingAs('admin');
+
+        $this->post('/admin/tokens', ['name' => 'deputy', 'role' => (string) $super, '_nonce' => FormNonce::issue()]);
+
+        self::assertSame($super, $this->tokens->all()[0]->roleId, 'an admin may bind an admin-capable role');
+    }
+
+    public function test_a_crafted_or_unknown_role_id_is_rejected(): void
+    {
+        $this->actingAs('admin');
+
+        foreach (['0', 'abc', '999999'] as $bad) {
+            $this->post('/admin/tokens', ['name' => 'x', 'role' => $bad, 'scope_all' => '1', '_nonce' => FormNonce::issue()]);
+        }
+
+        self::assertSame([], $this->tokens->all(), 'a bad role id mints nothing, even with a valid scope');
+    }
+
+    public function test_a_held_role_does_not_excuse_an_unheld_scope(): void
+    {
+        // The union is checked on BOTH paths: a grantable role must not let an
+        // unheld scope (*:read) ride along.
+        $reader = (new \Nimbus\Auth\RoleRepository($this->db))->create('pages-reader', ['pages:read'], false);
+        $this->makeCollection('pages');
+        $this->actingWithCapabilities(['tokens:write', 'pages:read']);
+
+        $this->post('/admin/tokens', ['name' => 'sneaky', 'role' => (string) $reader, 'scope_all' => '1', '_nonce' => FormNonce::issue()]);
+
+        self::assertSame([], $this->tokens->all(), 'the scope check survives alongside role binding');
+    }
+
+    public function test_role_only_mint_requires_csrf(): void
+    {
+        $writer = (new \Nimbus\Auth\RoleRepository($this->db))->create('writer', ['posts:write'], false);
+        $this->actingWithCapabilities(['tokens:write', 'posts:write']);
+
+        $this->postWithoutCsrf('/admin/tokens', ['name' => 'nocsrf', 'role' => (string) $writer]);
+
+        self::assertSame([], $this->tokens->all(), 'a role-only mint still needs a CSRF token');
+    }
+
+    public function test_the_role_dropdown_offers_only_grantable_roles(): void
+    {
+        $roles = new \Nimbus\Auth\RoleRepository($this->db);
+        $roles->create('writer', ['posts:write'], false);
+        $roles->create('superuser', ['admin'], false);
+        $this->actingWithCapabilities(['tokens:write', 'posts:write']);
+
+        $body = $this->get('/admin/tokens')->body;
+
+        self::assertStringContainsString('>writer</option>', $body, 'a grantable role is offered');
+        self::assertStringNotContainsString('>superuser</option>', $body, 'an unbindable role is not offered (defense-in-depth over the server check)');
+    }
+
     public function test_choosing_no_access_is_rejected(): void
     {
         $this->actingAs('admin');
