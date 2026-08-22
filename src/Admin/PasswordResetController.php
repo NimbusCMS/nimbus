@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Nimbus\Admin;
 
+use Nimbus\Auth\AccountTokenService;
 use Nimbus\Auth\Auth;
+use Nimbus\Auth\InvitationService;
 use Nimbus\Auth\LoginThrottle;
 use Nimbus\Auth\PasswordResetOutcome;
 use Nimbus\Auth\PasswordResetRepository;
@@ -32,16 +34,14 @@ use Nimbus\Support\EventDispatcher;
 final class PasswordResetController extends Controller
 {
     private PasswordResetService $service;
+    private InvitationService $invitations;
 
     public function __construct(Connection $db, Auth $auth, Mailer $mailer, EventDispatcher $events, ?AdminPageRegistry $adminPages = null)
     {
         parent::__construct($db, $auth, $adminPages);
-        $this->service = new PasswordResetService(
-            new UserRepository($db),
-            new PasswordResetRepository($db),
-            $mailer,
-            $events,
-        );
+        $accountTokens     = new AccountTokenService(new UserRepository($db), new PasswordResetRepository($db), $events);
+        $this->service     = new PasswordResetService(new UserRepository($db), $accountTokens, $mailer, $events);
+        $this->invitations = new InvitationService($accountTokens, $mailer);
     }
 
     public function routes(Router $r): void
@@ -50,6 +50,9 @@ final class PasswordResetController extends Controller
         $r->post('/admin/forgot', fn (Request $req, array $p): Response => $this->sendLink($req));
         $r->get('/admin/reset', fn (Request $req, array $p): Response => $this->resetForm($req))->name('admin.reset');
         $r->post('/admin/reset', fn (Request $req, array $p): Response => $this->doReset($req));
+        // Invitation acceptance — a new user setting their first password.
+        $r->get('/admin/accept', fn (Request $req, array $p): Response => $this->acceptForm($req))->name('admin.accept');
+        $r->post('/admin/accept', fn (Request $req, array $p): Response => $this->doAccept($req));
     }
 
     private function forgotForm(?string $error = null, bool $sent = false): Response
@@ -111,6 +114,46 @@ final class PasswordResetController extends Controller
                 'csrf'  => Csrf::token(),
             ])->withHeader('Referrer-Policy', 'no-referrer'),
             PasswordResetOutcome::InvalidToken => $this->bare('reset', [
+                'valid' => false, 'token' => '', 'error' => null, 'csrf' => Csrf::token(),
+            ])->withHeader('Referrer-Policy', 'no-referrer'),
+        };
+    }
+
+    // ------------------------------------------------------ invitation accept
+
+    private function acceptForm(Request $req, ?string $error = null): Response
+    {
+        $token = (string) $req->query('token');
+        $valid = $this->invitations->isValidInvite($token);
+
+        return $this->bare('accept', [
+            'valid' => $valid,
+            'token' => $valid ? $token : '',
+            'error' => $valid ? $error : null,
+            'csrf'  => Csrf::token(),
+        ])->withHeader('Referrer-Policy', 'no-referrer');
+    }
+
+    private function doAccept(Request $req): Response
+    {
+        if (!Csrf::check($req->input('_token'))) {
+            return $this->acceptForm($req, 'Your session expired. Please try again.');
+        }
+
+        $token    = (string) $req->input('token');
+        $password = (string) $req->input('password');
+
+        $outcome = $this->invitations->accept($token, $password, $req->ip());
+
+        return match ($outcome) {
+            PasswordResetOutcome::Ok           => $this->redirect('/admin/login?welcome=1'),
+            PasswordResetOutcome::WeakPassword => $this->bare('accept', [
+                'valid' => true,
+                'token' => $token,
+                'error' => 'Please choose a stronger password (at least 12 characters).',
+                'csrf'  => Csrf::token(),
+            ])->withHeader('Referrer-Policy', 'no-referrer'),
+            PasswordResetOutcome::InvalidToken => $this->bare('accept', [
                 'valid' => false, 'token' => '', 'error' => null, 'csrf' => Csrf::token(),
             ])->withHeader('Referrer-Policy', 'no-referrer'),
         };

@@ -122,6 +122,14 @@ final class CoreEvents
      */
     public const PASSWORD_RESET_COMPLETED = 'auth.password_reset_completed';
 
+    /**
+     * An invited user **accepted** their invitation (set a password, activating
+     * the account). Payload: `['user_id' => int, 'ip' => string,
+     * 'at' => 'Y-m-d H:i:s']`. Best-effort; the record that a pending account
+     * became active.
+     */
+    public const INVITATION_ACCEPTED = 'auth.invitation_accepted';
+
     private function __construct()
     {
     }
