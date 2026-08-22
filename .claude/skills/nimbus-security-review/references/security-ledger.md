@@ -422,3 +422,19 @@ Template for an accepted risk:
 - **A5 representation-only — confirmed:** validation logic, the mass-assignment guard, and scope/If-Match checks are untouched; the existing suite guards that nothing was dropped.
 - **Correction applied:** dropped `duplicate` from the vocabulary (no producer — slugs auto-uniquify).
 - **Regression tests:** `tests/Http/ValidationErrorsTest.php` (API required/invalid/missing_provider/hostile-label-JSON; MCP structured; admin prose + top-level alert + hostile-label HTML escaping), `tests/Integration/EntryServiceTest.php` (title→`title`/`required`; missing-provider top-level), `tests/Unit/NumberTypeTest.php` (code vs message).
+
+### 2026-08-22 · Password reset (emailed one-time token) — security-green
+- **Status:** shipped (`feat/password-reset`). Highest-stakes flow to date (account takeover); reviewed hard before code. No Critical/High.
+- **Controls built (each tested):**
+  - **Reset-link poisoning — closed by design:** the link uses `Config::appUrl()` (`APP_URL` env), never the request `Host` (verified no Host-derived URLs exist).
+  - **Token:** 32-byte `random_bytes` (256-bit), **SHA-256 hash-at-rest**, lookup **by hash** (no raw-token timing), plaintext only in the email. 1h expiry.
+  - **Single-use, atomic:** `UPDATE … SET used_at=NOW() WHERE token_hash=? AND used_at IS NULL AND expires_at>NOW()` → apply only if affected-rows=1 (single-winner lock; no double-spend race). Second use / expired / unknown all rejected.
+  - **No enumeration:** `/admin/forgot` always renders the identical "if that account exists…" and mints a token regardless (comparable work); throttled by IP **and** target email (reuse `LoginThrottle`); a delivery failure is swallowed (still generic) and never logs the token/key.
+  - **Strength gate before consume:** a weak password is rejected with the token left intact (retry); strong → consume + set argon2id + invalidate the user's other tokens.
+  - **CSRF** on both POSTs; **Referrer-Policy: no-referrer** on the reset page (header + `<meta>`), so `?token=` can't leak via Referer; short expiry + single-use bound the URL-in-logs residue.
+  - **Mailer header injection:** `NativeMailer` rejects CR/LF in recipient/subject and `filter_var`s the recipient; `ApiMailer` requires **https** + verifies TLS (`VERIFYPEER`/`VERIFYHOST`), key from env only (never logged/surfaced), recipient validated.
+  - Post-reset redirect is hardcoded (`/admin/login?reset=1`) — no open redirect.
+- **Accepted residuals (documented, Low):** other active sessions aren't force-invalidated on reset (PHP file sessions; the resetter re-logs in) — a later `password_changed_at` check could add it; and a perfect timing-oracle-free forgot isn't attempted (identical response + throttle is the control).
+- **Related control change:** `SecurityHeaders::apply` now **only sets a header the response didn't already set**, so a page can *harden* a default (the reset page's `no-referrer`) — it can never silently *weaken* one (nothing sets weaker values; the defaults still fill every gap).
+- **Regression tests:** `tests/Http/PasswordResetTest.php` (13 — real/unknown parity, hashed storage, invalidate-prior, valid reset changes the password, single-use, expired, weak-retry, Referrer-Policy, forgot/reset CSRF, throttle, delivery-failure parity) + `tests/Unit/MailerTest.php` (6 — CRLF/invalid-recipient rejection, https-only, key-required, log capture).
+- **Threat-catalog watch:** reset-link poisoning via Host header — closed here (config-derived URL); keep checking any future absolute-URL builder never uses the request Host.

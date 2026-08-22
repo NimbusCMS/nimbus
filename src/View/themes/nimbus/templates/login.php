@@ -18,6 +18,9 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
     <div class="nb-auth-brand"><?= $logo ?> <?= $e($appName) ?></div>
     <p class="nb-muted">Sign in to your dashboard</p>
 
+    <?php if (!empty($notice)): ?>
+        <div class="nb-alert nb-alert-ok"><?= $e($notice) ?></div>
+    <?php endif; ?>
     <?php if (!empty($error)): ?>
         <div class="nb-alert nb-alert-error"><?= $e($error) ?></div>
     <?php endif; ?>
@@ -34,6 +37,7 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
         </div>
         <button type="submit" class="nb-btn nb-btn-primary nb-btn-block">Sign in</button>
     </form>
+    <p class="nb-auth-alt"><a class="nb-link" href="/admin/forgot">Forgot your password?</a></p>
 </div>
 </body>
 </html>
