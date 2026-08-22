@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nimbus\Api;
 
+use Nimbus\Content\FieldError;
+
 /**
  * The transport-agnostic result of a content operation (EntryOperations).
  *
@@ -17,7 +19,8 @@ final readonly class EntryOpResult
     /**
      * @param array<string,mixed>|list<array<string,mixed>>|null $data rendered entry view, list of views, or null (delete)
      * @param array<string,mixed> $meta pagination meta (list only)
-     * @param array<string,string> $errors field validation errors (Invalid only)
+     * @param array<string,FieldError> $errors per-field validation errors (Invalid only)
+     * @param string $code top-level machine code for a failure (e.g. `invalid`, `missing_provider`)
      */
     private function __construct(
         public EntryOpStatus $status,
@@ -27,6 +30,7 @@ final readonly class EntryOpResult
         public array $meta = [],
         public array $errors = [],
         public string $message = '',
+        public string $code = '',
     ) {
     }
 
@@ -49,10 +53,16 @@ final readonly class EntryOpResult
         return new self(EntryOpStatus::NotFound, message: $message);
     }
 
-    /** @param array<string,string> $errors */
-    public static function invalid(array $errors): self
+    /**
+     * A validation failure: per-field {@see FieldError}s and a top-level machine
+     * code (`invalid` for field errors, `missing_provider` for an unavailable
+     * field-type plugin — which carries a message and no field entries).
+     *
+     * @param array<string,FieldError> $errors
+     */
+    public static function invalid(array $errors, string $code = 'invalid', string $message = ''): self
     {
-        return new self(EntryOpStatus::Invalid, errors: $errors);
+        return new self(EntryOpStatus::Invalid, errors: $errors, message: $message, code: $code);
     }
 
     public static function preconditionRequired(string $message): self

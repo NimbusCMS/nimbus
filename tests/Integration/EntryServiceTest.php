@@ -88,7 +88,9 @@ final class EntryServiceTest extends IntegrationTestCase
         $result = $this->service->save($c, new EntryInput('', '', 'draft', []), null, null); // title required, empty
 
         self::assertFalse($result->successful);
-        self::assertArrayHasKey('__title', $result->errors);
+        self::assertSame('invalid', $result->code);
+        self::assertArrayHasKey('title', $result->errors);
+        self::assertSame('required', $result->errors['title']->code);
         self::assertSame(0, $fired);
         self::assertSame(0, $this->entryCount($c->id));
     }
@@ -113,8 +115,10 @@ final class EntryServiceTest extends IntegrationTestCase
         $result = $this->service->save($c, new EntryInput('Trafalgar Square', '', 'draft', ['where' => '51.5,-0.12']), null, null);
 
         self::assertFalse($result->successful);
-        self::assertArrayHasKey('__types', $result->errors);
-        self::assertStringContainsString('geolocation', $result->errors['__types']);
+        // A missing provider is a top-level failure, not a per-field error.
+        self::assertSame('missing_provider', $result->code);
+        self::assertSame([], $result->errors);
+        self::assertStringContainsString('geolocation', $result->message);
         self::assertSame(0, $this->entryCount($c->id), 'nothing may be written');
         self::assertSame(0, $fired, 'no events for a refused save');
     }

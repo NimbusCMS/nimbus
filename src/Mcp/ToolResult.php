@@ -33,7 +33,7 @@ final class ToolResult
      * A tool-level error: a code, a message, optional field errors, and optional
      * structured extras (e.g. where a file is still used) merged into the error.
      *
-     * @param array<string,string> $fields
+     * @param array<string,mixed> $fields per-field errors — either a plain map or `{code, message}` objects
      * @param array<string,mixed>  $extra
      * @return array<string,mixed>
      */

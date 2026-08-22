@@ -13,6 +13,7 @@ use Nimbus\Api\TokenPrincipal;
 use Nimbus\Content\Collection;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\Field;
+use Nimbus\Content\FieldError;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\Publication;
 
@@ -190,15 +191,19 @@ final class ContentToolset implements Toolset
         $code = match ($result->status) {
             EntryOpStatus::Forbidden            => 'forbidden',
             EntryOpStatus::NotFound             => 'not_found',
-            EntryOpStatus::Invalid              => 'invalid',
+            // The top-level code the service assigned (`invalid` or `missing_provider`).
+            EntryOpStatus::Invalid              => $result->code !== '' ? $result->code : 'invalid',
             EntryOpStatus::PreconditionRequired => 'precondition_required',
             EntryOpStatus::PreconditionFailed   => 'precondition_failed',
         };
         $message = $result->status === EntryOpStatus::Invalid
-            ? 'The entry could not be saved.'
+            ? ($result->message !== '' ? $result->message : 'The entry could not be saved.')
             : $result->message;
 
-        return ToolResult::error($message, $code, $result->errors);
+        // Per-field errors as structured {code, message} so an agent can branch.
+        $fields = array_map(static fn (FieldError $e): array => $e->toArray(), $result->errors);
+
+        return ToolResult::error($message, $code, $fields);
     }
 
     // ------------------------------------------------------------- definitions

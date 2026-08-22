@@ -204,8 +204,10 @@ final class EntriesController extends Controller
         $result = $this->entryService->save($collection, $input, $id, $this->auth->user()?->id);
 
         if (!$result->successful) {
-            // Render what was submitted, never a re-read of storage.
-            return $this->renderForm($collection, $this->modelFromInput($input, $id), $result->errors);
+            // Render what was submitted, never a re-read of storage. The admin
+            // shows prose (the projection); the top-level message covers the
+            // non-field case (a missing field-type provider).
+            return $this->renderForm($collection, $this->modelFromInput($input, $id), $result->messages(), null, $result->message);
         }
         $msg = $id === null ? 'created' : ($collection->isSingle() ? 'saved' : 'updated');
         return $this->redirect("/admin/collections/{$collection->handle}/entries?msg={$msg}");
@@ -215,9 +217,10 @@ final class EntriesController extends Controller
 
     /**
      * @param array<string,mixed>  $model
-     * @param array<string,string> $errors
+     * @param array<string,string> $errors   per-field human messages, keyed by input name
+     * @param string               $topError a non-field failure (e.g. missing provider), or ''
      */
-    private function renderForm(Collection $collection, array $model, array $errors, ?string $flash = null): Response
+    private function renderForm(Collection $collection, array $model, array $errors, ?string $flash = null, string $topError = ''): Response
     {
         // Relation pickers need their target collection's entries (id => title).
         $relationOptions = [];
@@ -242,6 +245,7 @@ final class EntriesController extends Controller
             'collection'      => $collection,
             'model'           => $model,
             'errors'          => $errors,
+            'topError'        => $topError,
             'flash'           => $flash,
             'types'           => $this->types,
             'relationOptions' => $relationOptions,

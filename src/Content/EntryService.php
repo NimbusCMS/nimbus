@@ -43,10 +43,11 @@ final class EntryService
         // Nothing is touched, so the data survives until the plugin is back.
         $missing = $this->types->missingFor($collection->fields);
         if ($missing !== []) {
-            return SaveEntryResult::failed([
-                '__types' => 'This entry cannot be saved: the field type(s) “' . implode('”, “', $missing)
+            return SaveEntryResult::missingProvider(
+                'This entry cannot be saved: the field type(s) “' . implode('”, “', $missing)
                     . '” are unavailable. Install or reactivate the plugin that provides them. Existing content is unchanged.',
-            ], $input);
+                $input,
+            );
         }
 
         // A singleton never creates a second row: target the existing one if present.
@@ -59,10 +60,12 @@ final class EntryService
 
         $errors = $this->validator->validate($collection, $input->values);
         if (!$collection->isSingle() && trim($input->title) === '') {
-            $errors['__title'] = 'Title is required.';
+            // `title` is a writable input alongside the collection's fields, so it
+            // keys into the same error map (no more `__title` pseudo-field).
+            $errors['title'] = FieldError::required('Title is required.');
         }
         if ($errors !== []) {
-            return SaveEntryResult::failed($errors, $input);
+            return SaveEntryResult::invalid($errors, $input);
         }
 
         [$title, $slug] = $this->resolveTitleSlug($collection, $input, $entryId);

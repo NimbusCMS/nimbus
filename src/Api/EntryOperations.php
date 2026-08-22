@@ -131,7 +131,7 @@ final class EntryOperations
 
         $result = $this->entryService->save($collection, $this->inputFrom($payload, $collection, null), null, null);
         if (!$result->successful) {
-            return EntryOpResult::invalid($result->errors);
+            return EntryOpResult::invalid($result->errors, $result->code, $result->message);
         }
 
         $row = $this->entries->find($collection->id, (int) $result->entryId) ?? [];
@@ -165,7 +165,7 @@ final class EntryOperations
 
         $result = $this->entryService->save($collection, $this->inputFrom($payload, $collection, $row), (int) $row['id'], null);
         if (!$result->successful) {
-            return EntryOpResult::invalid($result->errors);
+            return EntryOpResult::invalid($result->errors, $result->code, $result->message);
         }
 
         $saved = $this->entries->find($collection->id, (int) $result->entryId) ?? [];

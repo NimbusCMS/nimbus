@@ -239,7 +239,7 @@ final class ApiController
         return match ($result->status) {
             EntryOpStatus::Forbidden            => ApiResponse::forbidden($result->message),
             EntryOpStatus::NotFound             => ApiResponse::notFound($result->message),
-            EntryOpStatus::Invalid              => ApiResponse::invalid($result->errors),
+            EntryOpStatus::Invalid              => ApiResponse::invalid($result->errors, $result->code, $result->message),
             EntryOpStatus::PreconditionRequired => ApiResponse::error(428, 'precondition_required', $result->message),
             EntryOpStatus::PreconditionFailed   => ApiResponse::error(412, 'precondition_failed', $result->message),
             EntryOpStatus::Ok                   => throw new \LogicException('mapFailure called on a successful result.'),
