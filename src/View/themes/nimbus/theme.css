@@ -1,11 +1,12 @@
 /* NimbusCMS — "Nimbus" admin theme: night-sky sidebar, gold accents. A theme is
    only a re-declaration of this :root token block (docs/design/admin-experience.md,
-   §2). Budget: ≤ 30 KB total inlined — the settled ceiling for the COMPLETE
-   four-theme set (Nimbus/Nocturne/Daybreak/Grimoire). The figure rose 24→28→30 as
-   the real cost of the ~60-token layer + four full themes became known; it is now
-   final (no more themes planned). Still ~6 KB gzipped with zero extra requests, so
-   the "fast/lightweight" promise holds. No webfonts, no images, no framework. State
-   `wc -c` on every CSS PR; a fifth theme means proving the byte case first. */
+   §2). Budget: ≤ 32 KB total inlined — the settled ceiling for the SIX-theme set
+   (Nimbus / Nocturne / Daybreak / Grimoire / Auto / Owl). The figure grew with the
+   theme count as its real cost became known; ~6.5 KB gzipped with zero extra
+   requests, so the "fast/lightweight" promise (no framework/build/webfonts) holds.
+   A SEVENTH theme should override only the tokens that differ from :root (a leaner
+   block) or move themes to a separate concern — don't just raise the ceiling.
+   No webfonts, no images, no framework. State `wc -c` on every CSS PR. */
 :root {
   color-scheme: light;
 
@@ -122,6 +123,53 @@
   --nb-shadow-2: 0 8px 26px rgba(51,40,28,.14); --nb-shadow-pop: 0 24px 60px rgba(23,37,29,.55);
   --nb-focus: 0 0 0 3px #ddebe2;
 }
+
+/* theme: Owl (high-contrast) — stark black-on-white; gold reads bright on the
+   black sidebar; decorative stars off; borders and focus rings strengthened. */
+[data-theme="owl"] {
+  --nb-brand: #0b3d91; --nb-brand-dark: #082c6b; --nb-brand-bright: #1a56c4;
+  --nb-brand-tint: #e6ecf7; --nb-on-brand: #ffffff; --nb-link-color: #0b3d91;
+  --nb-gold: #ffbf00; --nb-gold-soft: #ffd24d; --nb-gold-ink: #6b5400; --nb-gold-tint: #fbf3d0;
+  --nb-bg: #ffffff; --nb-surface: #ffffff; --nb-surface-2: #f2f2f2;
+  --nb-line: #767676; --nb-line-strong: #000000;
+  --nb-ink: #000000; --nb-muted: #3a3a3a; --nb-faint: #595959;
+  --nb-ok: #0a6b2e; --nb-ok-bg: #dff5e6; --nb-ok-text: #05461d;
+  --nb-warn: #7a5200; --nb-warn-bg: #fbf0d5; --nb-warn-text: #573a00;
+  --nb-danger: #b30000; --nb-danger-bg: #fbe3e3; --nb-danger-text: #7a0000;
+  --nb-sky: linear-gradient(180deg, #000000, #1a1a1a); --nb-sky-text: #ffffff; --nb-sky-text-hi: #ffffff;
+  --nb-sky-hover: rgba(255,255,255,.14); --nb-sky-active: rgba(255,255,255,.22); --nb-sky-active-rg: rgba(255,255,255,.7);
+  --nb-star-a: transparent; --nb-star-b: transparent; --nb-star-opacity: 0;
+  --nb-sky-foot: rgba(255,255,255,.7); --nb-sky-glow: transparent;
+  --nb-const: #c8c8c8; --nb-const-line: rgba(0,0,0,.18);
+  --nb-shadow-1: 0 0 0 1px #000; --nb-shadow-2: 0 0 0 2px #000; --nb-shadow-pop: 0 0 0 2px #000, 0 24px 60px rgba(0,0,0,.5);
+  --nb-focus: 0 0 0 3px #ffbf00; --nb-focus-ring: 3px solid #000;
+}
+
+/* theme: Auto — follows the device. Light mode inherits :root (Nimbus); dark
+   mode re-declares Nocturne under the media query. The one media-driven theme. */
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] {
+    color-scheme: dark;
+    --nb-brand: #8b7dff; --nb-brand-dark: #a99dff; --nb-brand-bright: #8b7dff;
+    --nb-brand-tint: rgba(139,125,255,.16); --nb-on-brand: #17133a; --nb-link-color: #b3a8ff;
+    --nb-gold: #f0c24b; --nb-gold-soft: #f6d888; --nb-gold-ink: #f0c24b; --nb-gold-tint: rgba(240,194,75,.10);
+    --nb-bg: #13102b; --nb-surface: #1c1840; --nb-surface-2: #241f4e;
+    --nb-line: #2e2960; --nb-line-strong: #3d3778;
+    --nb-ink: #ecebf8; --nb-muted: #a8a5cd; --nb-faint: #7d79a8;
+    --nb-ok: #4cc98d; --nb-ok-bg: #14382a; --nb-ok-text: #7ee2ae;
+    --nb-warn: #e6b566; --nb-warn-bg: #3a2c10; --nb-warn-text: #f2c76e;
+    --nb-danger: #ff7b80; --nb-danger-bg: #40181c; --nb-danger-text: #ff9a9e; --nb-on-danger: #2b0d0f;
+    --nb-sky: linear-gradient(180deg, #0b0920 0%, #140f38 60%, #1b1547 100%);
+    --nb-sky-text: #b6b3dd; --nb-sky-text-hi: #ffffff;
+    --nb-sky-hover: rgba(255,255,255,.06); --nb-sky-active: rgba(240,194,75,.14); --nb-sky-active-rg: rgba(240,194,75,.35);
+    --nb-star-a: #ffffff; --nb-star-b: var(--nb-gold-soft); --nb-star-opacity: 1;
+    --nb-sky-foot: rgba(182,179,221,.45); --nb-sky-glow: rgba(139,125,255,.14);
+    --nb-const: #4f4890; --nb-const-line: rgba(139,125,255,.14);
+    --nb-shadow-1: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+    --nb-shadow-2: 0 8px 26px rgba(0,0,0,.5); --nb-shadow-pop: 0 24px 60px rgba(0,0,0,.7);
+    --nb-focus: 0 0 0 3px rgba(139,125,255,.30);
+  }
+}
 * { box-sizing: border-box; }
 body.nb {
   margin: 0; display: flex; min-height: 100vh;
@@ -138,7 +186,6 @@ body.nb {
   outline: var(--nb-focus-ring); outline-offset: 2px; border-radius: 6px;
 }
 
-/* sidebar (night sky) */
 .nb-side {
   width: 236px; flex-shrink: 0; color: var(--nb-sky-text); position: relative; overflow: hidden;
   display: flex; flex-direction: column; padding: 20px 14px; gap: 4px;
@@ -179,7 +226,6 @@ body.nb {
 .nb-side-foot { margin-top: auto; padding: 12px 8px 0; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--nb-sky-foot); }
 .nb-summon { color: var(--nb-gold-soft); }
 
-/* main column */
 .nb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .nb-top {
   display: flex; align-items: center; justify-content: space-between;
@@ -204,7 +250,6 @@ body.nb {
   background: linear-gradient(90deg, var(--nb-gold), var(--nb-gold-soft) 70%, transparent);
 }
 
-/* dashboard cards */
 .nb-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; margin-bottom: 22px; }
 .nb-card {
   display: flex; flex-direction: column; gap: 2px; padding: 20px; text-decoration: none !important;
@@ -219,7 +264,6 @@ body.nb {
 .nb-card-count { font-family: var(--nb-display); font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
 .nb-card-label { color: var(--nb-muted); font-weight: 600; }
 
-/* panels */
 .nb-panel { background: var(--nb-surface); border: 1px solid var(--nb-line); border-radius: var(--nb-radius); box-shadow: var(--nb-shadow-1); padding: 24px; }
 .nb-panel h2 { font-size: 18px; margin-bottom: 6px; }
 .nb-panel p { color: var(--nb-muted); margin: 0; }
@@ -238,7 +282,6 @@ body.nb {
 .nb-empty-panel h2 { font-size: 20px; margin-bottom: 6px; }
 .nb-empty-panel p { color: var(--nb-muted); margin: 0; }
 
-/* buttons */
 .nb-btn {
   display: inline-flex; align-items: center; gap: 7px; padding: 10px 17px; border-radius: var(--nb-radius-m); cursor: pointer;
   border: 1px solid var(--nb-line); background: var(--nb-surface); color: var(--nb-ink) !important;
@@ -255,7 +298,6 @@ body.nb {
 .nb-link-danger { background: none; border: 0; padding: 0; cursor: pointer; color: var(--nb-danger); font: inherit; font-weight: 600; }
 .nb-link-danger:hover { text-decoration: underline; }
 
-/* forms */
 .nb-field { margin-bottom: 16px; display: flex; flex-direction: column; gap: 6px; }
 .nb-field > label { font-weight: 600; font-size: 13px; }
 .nb input:not([type=checkbox]):not([type=radio]), .nb select, .nb textarea {
@@ -266,13 +308,11 @@ body.nb {
   outline: none; border-color: var(--nb-brand); box-shadow: var(--nb-focus);
 }
 
-/* alerts */
 .nb-alert { padding: 11px 14px; border-radius: var(--nb-radius-m); margin-bottom: 16px; font-weight: 500; }
 .nb-alert-error { background: var(--nb-danger-bg); color: var(--nb-danger-text); }
 .nb-alert-ok { background: var(--nb-ok-bg); color: var(--nb-ok-text); }
 .nb-muted { color: var(--nb-muted); }
 
-/* centered auth (night sky) */
 .nb-centered { align-items: center; justify-content: center; }
 body.nb-night { background: var(--nb-sky); position: relative; overflow: hidden; }
 body.nb-night::before {
@@ -293,7 +333,6 @@ body.nb-night::before {
 .nb-auth-brand svg { color: var(--nb-gold); }
 .nb-auth .nb-muted { margin: 4px 0 20px; }
 
-/* tables */
 .nb-table-wrap { background: var(--nb-surface); border: 1px solid var(--nb-line); border-radius: var(--nb-radius); box-shadow: var(--nb-shadow-1); overflow: auto; }
 .nb-table { width: 100%; border-collapse: collapse; }
 .nb-table th { text-align: left; padding: 12px 16px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--nb-muted); border-bottom: 1px solid var(--nb-line); background: var(--nb-surface-2); }
@@ -311,7 +350,6 @@ body.nb-night::before {
 .nb-badge-muted { background: #eef0f6; color: var(--nb-muted); }
 .nb-head-actions { display: flex; gap: 10px; }
 
-/* form card */
 .nb-form-card { background: var(--nb-surface); border: 1px solid var(--nb-line); border-radius: var(--nb-radius); box-shadow: var(--nb-shadow-1); padding: 24px; max-width: 760px; }
 .nb-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
 .nb-section-title { font-size: 16px; margin: 20px 0 12px; padding-top: 8px; border-top: 1px solid var(--nb-line); }
@@ -321,7 +359,6 @@ body.nb-night::before {
 .nb-check input { width: auto !important; margin-right: 6px; }
 .nb-checks { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 4px 0; }
 
-/* field builder */
 .nb-fields { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
 .nb-field-row { border: 1px solid var(--nb-line); border-radius: 11px; padding: 10px; background: var(--nb-surface-2); }
 .nb-field-row-main { display: flex; gap: 8px; align-items: center; }
@@ -341,17 +378,14 @@ body.nb-night::before {
 .nb-fr-relation { grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; }
 .nb-fr-relation select { flex: 1; }
 
-/* field help + validation errors */
 .nb-help { font-size: 12px; color: var(--nb-muted); margin-top: 2px; }
 .nb-field-error { font-size: 12px; color: var(--nb-danger); font-weight: 600; margin-top: 2px; }
 .nb-field.has-error input:not([type=checkbox]), .nb-field.has-error select, .nb-field.has-error textarea { border-color: var(--nb-danger); }
 .nb-field.has-error input:focus, .nb-field.has-error select:focus, .nb-field.has-error textarea:focus { box-shadow: 0 0 0 3px var(--nb-danger-bg); }
 
-/* nav drawer machinery (mobile only; hidden on desktop) */
 .nb-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .nb-nav-toggle, .nb-scrim, .nb-menu, .nb-top-brand { display: none; }
 
-/* responsive (mobile is a first-class user; design §1.6) */
 @media (max-width: 1024px) {
   .nb-content { padding: 20px; }
 }
@@ -415,7 +449,6 @@ body.nb-night::before {
   .nb-stack .nb-row-actions { white-space: normal; flex-wrap: wrap; padding-top: 6px; }
 }
 
-/* settings: theme picker */
 .nb-theme-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 4px 0; }
 .nb-theme-card { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--nb-line); border-radius: var(--nb-radius-m); background: var(--nb-surface); cursor: pointer; }
 .nb-theme-card:hover { border-color: var(--nb-line-strong); }
@@ -426,26 +459,22 @@ body.nb-night::before {
 .nb-theme-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .nb-theme-meta small { color: var(--nb-muted); }
 
-/* unavailable field type (provider plugin missing) */
 .nb-missing-type { border: 1px dashed var(--nb-danger); border-radius: var(--nb-radius-m); padding: 12px 14px; background: #fff8f8; }
 .nb-missing-type p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: var(--nb-danger-text); }
 .nb-missing-type__value { margin: 0; padding: 8px 10px; border-radius: var(--nb-radius-s); background: var(--nb-surface); border: 1px solid var(--nb-line); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
 .nb-missing-type__cell { color: var(--nb-danger); font-weight: 600; }
 
-/* plugins diagnostic page */
 .nb-badge-danger { background: var(--nb-danger-bg); color: var(--nb-danger-text); }
 .nb-badge-official { background: var(--nb-brand-tint); color: var(--nb-brand); }
 .nb-row-danger td { background: #fffafa; }
 .nb-plugin-msg { font-size: 12px; margin-top: 4px; max-width: 52ch; }
 
-/* publication state badges */
 .nb-badge-state-published { background: var(--nb-ok-bg); color: var(--nb-ok-text); }
 .nb-badge-state-scheduled { background: var(--nb-warn-bg); color: var(--nb-warn-text); }
 .nb-badge-state-draft     { background: #eef0f6; color: var(--nb-muted); }
 .nb-badge-state-archived  { background: #f3eefe; color: #6b4bd6; }
 .nb-sched-at { font-size: 11px; margin-top: 3px; }
 
-/* media library */
 .nb-media-upload { background: var(--nb-surface); border: 1px solid var(--nb-line); border-radius: var(--nb-radius); box-shadow: var(--nb-shadow-1); padding: 18px 20px; margin-bottom: 22px; }
 .nb-media-upload .nb-field { margin-bottom: 12px; }
 .nb-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
