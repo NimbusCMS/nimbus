@@ -47,6 +47,16 @@ final class AdminTheme
             'mood'     => 'A candlelit spellbook library — parchment & brass.',
             'gradient' => 'linear-gradient(180deg,#17251d,#274a38)',
         ],
+        'auto'     => [
+            'name'     => 'Auto',
+            'mood'     => 'Follows your device — Nimbus by day, Nocturne at night.',
+            'gradient' => 'linear-gradient(135deg,#2c1e63 0%,#2c1e63 49%,#0b0920 51%,#0b0920 100%)',
+        ],
+        'owl'      => [
+            'name'     => 'Owl',
+            'mood'     => 'High contrast — stark black-on-white for maximum legibility.',
+            'gradient' => 'linear-gradient(135deg,#000 0%,#000 49%,#fff 51%,#fff 100%)',
+        ],
     ];
 
     /** A stored/submitted slug resolved to a known theme — anything unknown → the default. */
