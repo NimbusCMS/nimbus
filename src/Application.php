@@ -9,6 +9,7 @@ use Nimbus\Admin\AdminPageRegistry;
 use Nimbus\Admin\CollectionsController;
 use Nimbus\Admin\EntriesController;
 use Nimbus\Admin\MediaController;
+use Nimbus\Admin\PasswordResetController;
 use Nimbus\Admin\PluginPagesController;
 use Nimbus\Admin\RolesController;
 use Nimbus\Admin\SettingsController;
@@ -27,6 +28,8 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\SecurityHeaders;
+use Nimbus\Mail\Mailer;
+use Nimbus\Mail\MailerFactory;
 use Nimbus\Plugin\PluginCapabilities;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
@@ -69,6 +72,9 @@ final class Application
     /** Request-scoped carrier for the authenticated API principal (ADR 0006). */
     private ApiAuthContext $apiAuth;
 
+    /** Outgoing-mail transport (password reset, later notifications). */
+    private Mailer $mailer;
+
     /** @var array<string,array{to:string,status:int}> exact-path redirects, applied before routing */
     private array $redirects;
 
@@ -89,8 +95,9 @@ final class Application
      * @param PageCache|null       $pageCache test seam; defaults to the configured cache
      * @param EventDispatcher|null $events    test seam; lets a test observe request.handled
      * @param ApiAuthContext|null  $apiAuth   test seam; lets a test observe the established API principal
+     * @param Mailer|null          $mailer    test seam; lets a test capture outgoing mail (default: configured transport)
      */
-    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null, ?PageCache $pageCache = null, ?EventDispatcher $events = null, ?ApiAuthContext $apiAuth = null)
+    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null, ?PageCache $pageCache = null, ?EventDispatcher $events = null, ?ApiAuthContext $apiAuth = null, ?Mailer $mailer = null)
     {
         if ($db === null) {
             Env::load(Config::basePath() . '/.env');
@@ -105,6 +112,7 @@ final class Application
         $this->maintenance      = new MaintenanceRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
+        $this->mailer           = $mailer ?? MailerFactory::fromConfig();
         $this->redirects  = $redirects ?? Config::redirects();
         $this->pageCache  = $pageCache ?? new PageCache(Config::pageCachePath(), Config::pageCacheTtl());
 
@@ -282,6 +290,7 @@ final class Application
     {
         $router = new Router();
         (new AdminController($this->db, $this->auth, $this->pluginStatuses, $this->adminPages))->routes($router);
+        (new PasswordResetController($this->db, $this->auth, $this->mailer, $this->events, $this->adminPages))->routes($router);
         (new CollectionsController($this->db, $this->auth, $this->fieldTypes, $this->adminPages))->routes($router);
         (new EntriesController($this->db, $this->auth, $this->fieldTypes, $this->events, $this->adminPages))->routes($router);
         (new MediaController($this->db, $this->auth, $this->adminPages))->routes($router);

@@ -38,7 +38,12 @@ final class SecurityHeaders
     public static function apply(Response $response): Response
     {
         foreach (self::all() as $name => $value) {
-            $response = $response->withHeader($name, $value);
+            // A response may deliberately harden a header (e.g. the password-reset
+            // page sets Referrer-Policy: no-referrer); the secure default only
+            // fills in what the response did not already set.
+            if ($response->header($name) === null) {
+                $response = $response->withHeader($name, $value);
+            }
         }
         return $response;
     }

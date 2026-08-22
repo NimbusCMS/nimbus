@@ -107,6 +107,21 @@ final class CoreEvents
      */
     public const API_MANAGEMENT_WRITTEN = 'api.management_written';
 
+    /**
+     * A password reset was **requested** (a link issued for a real account).
+     * Payload: `['user_id' => int, 'email' => string, 'ip' => string,
+     * 'at' => 'Y-m-d H:i:s']`. Best-effort; leaves an audit trail of who asked.
+     * Not emitted for an unknown email (there is nothing to reset).
+     */
+    public const PASSWORD_RESET_REQUESTED = 'auth.password_reset_requested';
+
+    /**
+     * A password was **changed** via a reset token. Payload: `['user_id' => int,
+     * 'ip' => string, 'at' => 'Y-m-d H:i:s']`. Best-effort; the security-relevant
+     * record that an account's credentials rotated.
+     */
+    public const PASSWORD_RESET_COMPLETED = 'auth.password_reset_completed';
+
     private function __construct()
     {
     }

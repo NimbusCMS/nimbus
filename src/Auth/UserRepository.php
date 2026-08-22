@@ -66,6 +66,15 @@ final class UserRepository
         );
     }
 
+    /** Set a user's password. The caller supplies an already-hashed value (argon2id). */
+    public function setPassword(int $id, string $passwordHash): void
+    {
+        $this->db->execute(
+            'UPDATE nb_users SET password = :p, updated_at = :u WHERE id = :id',
+            ['p' => $passwordHash, 'u' => date('Y-m-d H:i:s'), 'id' => $id],
+        );
+    }
+
     /** Set a user's admin theme preference. The caller allow-lists the slug (AdminTheme). */
     public function setTheme(int $id, string $theme): void
     {

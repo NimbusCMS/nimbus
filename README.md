@@ -11,7 +11,7 @@
 ---
 
 > ⚠️ **Status: alpha (`0.x`) — feature-rich and in active development, approaching a first `0.1` release. Not production-ready.**
-> A lot works end to end today: define collections and fields; create, schedule and publish entries; upload media; compose **capability-based roles** for people *and* machines; drive the whole CMS over a scoped **headless JSON API** (read + write, ETag/If-Match, OpenAPI) **and over MCP** (agents are first-class operators); and render a public site through plain-PHP themes. The **admin is themeable** — four built-in themes incl. dark mode, plus a per-user picker — and **mobile-native** (an off-canvas nav, responsive tables and forms). Still alpha, honestly: **no release is tagged**, there is **no upgrade path** between versions, and **password reset isn't built** yet. Public theming and richer capabilities are still growing. See [What works today](#what-works-today) and [ROADMAP.md](ROADMAP.md).
+> A lot works end to end today: define collections and fields; create, schedule and publish entries; upload media; compose **capability-based roles** for people *and* machines; drive the whole CMS over a scoped **headless JSON API** (read + write, ETag/If-Match, OpenAPI) **and over MCP** (agents are first-class operators); and render a public site through plain-PHP themes. The **admin is themeable** — four built-in themes incl. dark mode, plus a per-user picker — and **mobile-native** (an off-canvas nav, responsive tables and forms). Still alpha, honestly: **no release is tagged** and there is **no upgrade path** between versions yet. Public theming and richer capabilities are still growing. See [What works today](#what-works-today) and [ROADMAP.md](ROADMAP.md).
 
 ## Why NimbusCMS?
 
@@ -27,7 +27,8 @@ Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a smal
 - 🔗 **Relations** between collections, with referential cascade
 - 📄 **Singletons** — single-entry collections for things like Site Settings
 - 👤 **Roles & capabilities** — admin-composed roles from one `resource:action` capability vocabulary shared by users **and** API tokens; users hold the union of their roles, tokens carry scopes and/or a live-bound role, deny-by-default with subset-only granting ([docs/ROLES.md](docs/ROLES.md))
-- 🔒 **Auth & hardening** — argon2id hashing, CSRF-guarded writes, session rotation on login, progressive login throttling, CSP + security headers on every response, configurable trusted proxies
+- 🔒 **Auth & hardening** — argon2id hashing, CSRF-guarded writes, session rotation on login, progressive login throttling, **self-service password reset** (one-time hashed emailed token, no account enumeration), CSP + security headers on every response, configurable trusted proxies
+- ✉️ **Pluggable mail** — a small `Mailer` behind one interface: `log` (default — writes to a file, zero config), `native` (PHP `mail()`), or `api` (a transactional provider's HTTPS API — one key, no SMTP). Used by password reset today
 - 🎨 **Themeable, mobile-native admin** — six built-in themes (**Nimbus** night-sky, **Nocturne** dark, **Daybreak**, **Grimoire**, **Auto** match-device, **Owl** high-contrast) with a per-user picker, all token-driven; a phone-native shell (off-canvas nav drawer, responsive tables/forms), WCAG-AA, one inlined vanilla-CSS file — no framework, no build ([docs/design/admin-experience.md](docs/design/admin-experience.md))
 - 🗓️ **Publishing lifecycle** — draft / published / scheduled / archived with cron-free scheduling; the API serves exactly the live set
 - 🖼️ **Media library** — upload (content-validated, safe names), a library, and a `media` field the API expands to `{ url, alt, … }`
@@ -83,7 +84,7 @@ authoritative, evidence-backed capability matrix lives in
 
 ### 🚧 Not production-ready
 
-No tagged release, no upgrade path between versions, no password reset, no backup tooling. Run it locally, fork it, read it — don't put a client's site on it yet.
+No tagged release, no upgrade path between versions, no backup tooling. Run it locally, fork it, read it — don't put a client's site on it yet.
 
 ## Quick start
 

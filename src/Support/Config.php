@@ -35,6 +35,48 @@ final class Config
     }
 
     /**
+     * Outgoing-mail transport: `log` (default — writes to a file, no delivery),
+     * `native` (PHP mail()), or `api` (a transactional provider's HTTPS API).
+     * The default needs no configuration, so a fresh install and CI work as-is.
+     */
+    public static function mailTransport(): string
+    {
+        return strtolower((string) Env::get('MAIL_TRANSPORT', 'log'));
+    }
+
+    /** The From address for outgoing mail. */
+    public static function mailFrom(): string
+    {
+        $from = trim((string) Env::get('MAIL_FROM', ''));
+        if ($from !== '') {
+            return $from;
+        }
+        $host = parse_url(self::appUrl(), PHP_URL_HOST);
+        return 'no-reply@' . (is_string($host) && $host !== '' ? $host : 'localhost');
+    }
+
+    /** Bearer API key for the `api` mail transport (a secret — never logged). */
+    public static function mailApiKey(): string
+    {
+        return (string) Env::get('MAIL_API_KEY', '');
+    }
+
+    /**
+     * HTTPS endpoint for the `api` transport. Defaults to a Resend-compatible
+     * `POST {from,to,subject,text}`; override for another provider of that shape.
+     */
+    public static function mailApiEndpoint(): string
+    {
+        return (string) Env::get('MAIL_API_ENDPOINT', 'https://api.resend.com/emails');
+    }
+
+    /** Where the `log` transport writes captured mail. */
+    public static function mailLogPath(): string
+    {
+        return self::basePath() . '/storage/mail/mail.log';
+    }
+
+    /**
      * Comma-separated IPs/CIDRs allowed to set X-Forwarded-*. Empty (default)
      * means forwarded headers are ignored — see Http\TrustedProxies.
      */

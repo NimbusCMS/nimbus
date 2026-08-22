@@ -30,6 +30,9 @@ abstract class HttpTestCase extends IntegrationTestCase
     protected Auth $auth;
     protected Router $router;
 
+    /** Optional mail transport for a test to capture outgoing mail; null → the configured default. */
+    protected ?\Nimbus\Mail\Mailer $mailer = null;
+
     protected function setUp(): void
     {
         parent::setUp(); // truncates every nb_ table
@@ -116,7 +119,7 @@ abstract class HttpTestCase extends IntegrationTestCase
      */
     protected function throughKernel(Request $request): Response
     {
-        return (new Application($this->db, $this->auth))->handle($request);
+        return (new Application($this->db, $this->auth, mailer: $this->mailer))->handle($request);
     }
 
     // -------------------------------------------------------------- users

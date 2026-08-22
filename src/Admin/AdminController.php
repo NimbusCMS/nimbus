@@ -32,7 +32,7 @@ final class AdminController extends Controller
     public function routes(Router $r): void
     {
         // Public (no auth middleware).
-        $r->get('/admin/login', fn (Request $req, array $p): Response => $this->loginForm())->name('admin.login');
+        $r->get('/admin/login', fn (Request $req, array $p): Response => $this->loginForm(null, $req->query('reset') !== null ? 'Your password has been reset — please sign in.' : null))->name('admin.login');
         $r->post('/admin/login', fn (Request $req, array $p): Response => $this->login($req));
         $r->post('/admin/logout', fn (Request $req, array $p): Response => $this->logout($req))->name('admin.logout');
 
@@ -62,12 +62,12 @@ final class AdminController extends Controller
         ]);
     }
 
-    private function loginForm(?string $error = null): Response
+    private function loginForm(?string $error = null, ?string $notice = null): Response
     {
         if ($this->auth->check()) {
             return $this->redirect('/admin');
         }
-        return $this->bare('login', ['error' => $error, 'csrf' => Csrf::token()]);
+        return $this->bare('login', ['error' => $error, 'notice' => $notice, 'csrf' => Csrf::token()]);
     }
 
     private function login(Request $req): Response
