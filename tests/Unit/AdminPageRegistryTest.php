@@ -56,6 +56,52 @@ final class AdminPageRegistryTest extends TestCase
         $registrar->register('Not A Slug!', 'x', 'x', $this->handler());
     }
 
+    public function test_a_page_defaults_to_no_capability(): void
+    {
+        $registry = new AdminPageRegistry();
+        (new AdminPageRegistrar($registry, 'p'))->register('a', 'A', '★', $this->handler());
+
+        self::assertNull($registry->all()[0]['capability'], 'default is login-only');
+    }
+
+    public function test_the_registrar_accepts_admin_and_management_capabilities(): void
+    {
+        $registry  = new AdminPageRegistry();
+        $registrar = new AdminPageRegistrar($registry, 'p');
+
+        $registrar->register('a', 'A', '★', $this->handler(), 'admin');
+        $registrar->register('b', 'B', '☆', $this->handler(), 'users:write');
+
+        self::assertSame(['admin', 'users:write'], array_column($registry->all(), 'capability'));
+    }
+
+    /**
+     * A content-shaped cap would be reachable by the `*:read` wildcard, so it is
+     * rejected at registration — the gate would not actually restrict the page.
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('ungateableCapabilities')]
+    public function test_the_registrar_rejects_a_content_or_malformed_capability(string $capability): void
+    {
+        $registrar = new AdminPageRegistrar(new AdminPageRegistry(), 'p');
+
+        $this->expectException(InvalidArgumentException::class);
+        $registrar->register('a', 'A', '★', $this->handler(), $capability);
+    }
+
+    /** @return array<string,array{string}> */
+    public static function ungateableCapabilities(): array
+    {
+        return [
+            'content resource'    => ['posts:read'],
+            'unknown resource'    => ['analytics:read'],
+            'bare wildcard'       => ['*:read'],
+            'wrong action'        => ['users:delete'],
+            'non-canonical case'  => ['Users:Write'],
+            'padded'              => [' users:write '],
+            'not a capability'    => ['nonsense'],
+        ];
+    }
+
     public function test_plugin_context_binds_pages_to_the_plugin_id(): void
     {
         $registry = new AdminPageRegistry();
