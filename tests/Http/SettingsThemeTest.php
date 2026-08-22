@@ -55,6 +55,17 @@ final class SettingsThemeTest extends HttpTestCase
         self::assertStringContainsString('data-theme="nimbus"', $this->get('/admin')->body);
     }
 
+    public function test_every_shipped_theme_is_selectable_and_renders(): void
+    {
+        $id = $this->actingAs('admin');
+
+        foreach (array_keys(\Nimbus\View\AdminTheme::THEMES) as $slug) {
+            $this->post('/admin/settings/theme', ['theme' => $slug]);
+            self::assertSame($slug, $this->users->find($id)?->theme, "{$slug} persists");
+            self::assertStringContainsString('data-theme="' . $slug . '"', $this->get('/admin')->body, "{$slug} renders");
+        }
+    }
+
     // --------------------------------------------------------- security
 
     public function test_a_bogus_theme_is_rejected_at_write(): void
