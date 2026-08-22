@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace Nimbus\Admin;
 
+use Nimbus\Auth\AccountTokenService;
 use Nimbus\Auth\Auth;
+use Nimbus\Auth\InvitationService;
 use Nimbus\Auth\Password;
+use Nimbus\Auth\PasswordResetRepository;
 use Nimbus\Auth\RoleRepository;
 use Nimbus\Auth\UserRepository;
 use Nimbus\Database\Connection;
@@ -13,6 +16,9 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Mail\Mailer;
+use Nimbus\Mail\MailerFactory;
+use Nimbus\Support\EventDispatcher;
 
 /**
  * The users admin page (ADR 0011) — create people and assign them roles. Users
@@ -24,12 +30,17 @@ final class UsersController extends Controller
 {
     private UserRepository $users;
     private RoleRepository $roles;
+    private InvitationService $invitations;
 
-    public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null)
+    public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null, ?Mailer $mailer = null, ?EventDispatcher $events = null)
     {
         parent::__construct($db, $auth, $adminPages);
         $this->users = new UserRepository($db);
         $this->roles = new RoleRepository($db);
+        $this->invitations = new InvitationService(
+            new AccountTokenService($this->users, new PasswordResetRepository($db), $events ?? new EventDispatcher()),
+            $mailer ?? MailerFactory::fromConfig(),
+        );
     }
 
     public function routes(Router $r): void
@@ -76,8 +87,11 @@ final class UsersController extends Controller
         if ($this->users->emailExists($email)) {
             return $this->redirect('/admin/users?err=' . rawurlencode("A user with email \"{$email}\" already exists."));
         }
+        // Blank password → email an invite (the user sets their own); a typed
+        // password → direct create (the fallback, e.g. a no-mail install).
         $password = (string) $req->input('password');
-        if (Password::isWeak($password)) {
+        $invite   = trim($password) === '';
+        if (!$invite && Password::isWeak($password)) {
             return $this->redirect('/admin/users?err=' . rawurlencode('Choose a password of at least 8 non-default characters.'));
         }
         $name = trim((string) $req->input('name'));
@@ -91,11 +105,20 @@ final class UsersController extends Controller
             return $this->redirect('/admin/users?err=' . rawurlencode("You cannot assign the \"{$ungrantable}\" role — it grants more than you hold."));
         }
 
+        // An invited account gets a random, unusable password: no plaintext ever
+        // matches, so it cannot be logged into until the invite is accepted.
+        $hash = $invite ? Password::hash(bin2hex(random_bytes(32))) : Password::hash($password);
+
         // `users.role` keeps a legacy primary role for compatibility until
         // enforcement moves fully to capabilities; the roles below are the source
         // of authority.
-        $id = $this->users->create($name, $email, Password::hash($password), 'author');
+        $id = $this->users->create($name, $email, $hash, 'author');
         $this->roles->syncUserRoles($id, $roleIds);
+
+        if ($invite) {
+            $sent = $this->invitations->sendInvite($id, $email);
+            return $this->redirect('/admin/users?msg=' . ($sent ? 'invited' : 'invited-nomail'));
+        }
 
         return $this->redirect('/admin/users?msg=created');
     }

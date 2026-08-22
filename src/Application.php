@@ -294,7 +294,7 @@ final class Application
         (new CollectionsController($this->db, $this->auth, $this->fieldTypes, $this->adminPages))->routes($router);
         (new EntriesController($this->db, $this->auth, $this->fieldTypes, $this->events, $this->adminPages))->routes($router);
         (new MediaController($this->db, $this->auth, $this->adminPages))->routes($router);
-        (new UsersController($this->db, $this->auth, $this->adminPages))->routes($router);
+        (new UsersController($this->db, $this->auth, $this->adminPages, $this->mailer, $this->events))->routes($router);
         (new RolesController($this->db, $this->auth, $this->adminPages))->routes($router);
         (new TokensController($this->db, $this->auth, $this->adminPages))->routes($router);
         (new SettingsController($this->db, $this->auth, $this->adminPages))->routes($router);

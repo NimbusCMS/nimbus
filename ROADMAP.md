@@ -91,7 +91,8 @@ repositories, install+CRUD and package-boundary tests — all green.*
   every controller still builds paths as strings, so the names are not yet load-bearing
 - [ ] Nonce-based CSP (drop `'unsafe-inline'` once inline theme/field-builder JS moves
   out)
-- [x] **Password reset flow** — self-service reset via a one-time, hashed, expiring emailed token (no account enumeration, throttled, CSRF, atomic single-use, session-safe), on a small `Mailer` (log/native/api transports). Deferred siblings: user-invitation email (same token primitive), an SMTP/audited-lib transport, a mailer plugin capability
+- [x] **Password reset flow** — self-service reset via a one-time, hashed, expiring emailed token (no account enumeration, throttled, CSRF, atomic single-use, session-safe), on a small `Mailer` (log/native/api transports)
+- [x] **User invitation email** — admin invites by email (blank password on create) → the user sets their own password via a one-time `invite` token (the reset primitive, purpose-scoped so the two never interfere; subset-only role guard; `/admin/accept` is the seam for a future "Continue with Google/GitHub"). Deferred siblings: SMTP/audited-lib transport, a mailer plugin capability, `invite_user` over MCP, OAuth SSO as its own initiative
 - [ ] Trusted-proxy config for URL generation (already used by sessions + throttling)
 - [ ] Separate field rendering from field domain behaviour (only when alt themes /
   non-HTML editors create real pressure)

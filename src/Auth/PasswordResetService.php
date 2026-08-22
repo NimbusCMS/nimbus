@@ -24,7 +24,7 @@ final class PasswordResetService
 {
     public function __construct(
         private UserRepository $users,
-        private PasswordResetRepository $resets,
+        private AccountTokenService $tokens,
         private Mailer $mailer,
         private EventDispatcher $events,
     ) {
@@ -36,20 +36,16 @@ final class PasswordResetService
      */
     public function request(string $email, string $ip): void
     {
-        // Mint the token up front so the work is comparable whether or not the
-        // account exists (the response is identical; the endpoint is throttled).
-        $token = self::newToken();
-
         $user = $this->users->findByEmail(trim($email));
         if ($user === null) {
+            // No account: the endpoint is throttled and the response is identical,
+            // so nothing here reveals whether the email is registered.
             return;
         }
 
-        // Supersede any outstanding links, then issue exactly one.
-        $this->resets->invalidateForUser($user->id);
-        $this->resets->create($user->id, $token);
-
-        $link = Config::appUrl() . '/admin/reset?token=' . urlencode($token);
+        // Supersede the user's outstanding reset links, then issue exactly one.
+        $token = $this->tokens->issue($user->id, PasswordResetRepository::PURPOSE_RESET, PasswordResetRepository::TTL_SECONDS);
+        $link  = Config::appUrl() . '/admin/reset?token=' . urlencode($token);
         $body = 'Someone asked to reset the password for your ' . Config::appName() . " account.\n\n"
             . "Set a new password (this link is valid for one hour and can be used once):\n{$link}\n\n"
             . "If you didn't request this, you can ignore this email — your password stays the same.";
@@ -70,41 +66,18 @@ final class PasswordResetService
     /** True if the token is currently valid (for rendering the set-password form). Does not consume. */
     public function isValid(string $token): bool
     {
-        return $this->resets->userIdForValidToken($token) !== null;
+        return $this->tokens->isValid($token, PasswordResetRepository::PURPOSE_RESET);
     }
 
-    /**
-     * Spend a token to set a new password. Strength is checked BEFORE the token
-     * is consumed, so a weak attempt leaves the link usable for a retry. The
-     * consume is atomic (single-use); on success every other outstanding token
-     * for the user is invalidated too.
-     */
+    /** Spend a reset token to set a new password (the shared, hardened routine). */
     public function reset(string $token, string $newPassword, string $ip): PasswordResetOutcome
     {
-        if ($this->resets->userIdForValidToken($token) === null) {
-            return PasswordResetOutcome::InvalidToken;
-        }
-        if (Password::isWeak($newPassword)) {
-            return PasswordResetOutcome::WeakPassword;
-        }
-
-        $userId = $this->resets->consume($token);
-        if ($userId === null) {
-            return PasswordResetOutcome::InvalidToken; // lost the single-use race
-        }
-
-        $this->users->setPassword($userId, Password::hash($newPassword));
-        $this->resets->invalidateForUser($userId);
-
-        $this->events->emitBestEffort(CoreEvents::PASSWORD_RESET_COMPLETED, [
-            'user_id' => $userId, 'ip' => $ip, 'at' => date('Y-m-d H:i:s'),
-        ]);
-
-        return PasswordResetOutcome::Ok;
-    }
-
-    private static function newToken(): string
-    {
-        return bin2hex(random_bytes(32)); // 256 bits of CSPRNG entropy
+        return $this->tokens->setPassword(
+            $token,
+            $newPassword,
+            PasswordResetRepository::PURPOSE_RESET,
+            CoreEvents::PASSWORD_RESET_COMPLETED,
+            $ip,
+        );
     }
 }

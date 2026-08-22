@@ -23,10 +23,10 @@ final class SpyMailer implements Mailer
         $this->sent[] = ['to' => $to, 'subject' => $subject, 'body' => $textBody];
     }
 
-    /** The reset token from the most recent message, or null. */
+    /** The reset/invite token from the most recent message, or null. */
     public function lastToken(): ?string
     {
         $body = $this->sent === [] ? '' : $this->sent[array_key_last($this->sent)]['body'];
-        return preg_match('~/admin/reset\?token=([a-f0-9]+)~', $body, $m) === 1 ? $m[1] : null;
+        return preg_match('~/admin/(?:reset|accept)\?token=([a-f0-9]+)~', $body, $m) === 1 ? $m[1] : null;
     }
 }

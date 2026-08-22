@@ -12,7 +12,12 @@ use Nimbus\View\View;
 
 $e = static fn (?string $v): string => View::e($v);
 
-$flashLabel = ['created' => 'User created.', 'updated' => 'User updated.'];
+$flashLabel = [
+    'created'       => 'User created.',
+    'updated'       => 'User updated.',
+    'invited'       => 'Invitation sent — they’ll set their own password.',
+    'invited-nomail' => 'User created, but the invitation email could not be sent. Check your mail settings (MAIL_TRANSPORT), then re-invite.',
+];
 $checked    = static fn (int $roleId): string => in_array($roleId, $editingRoles, true) ? ' checked' : '';
 ?>
 <div class="nb-page-head"><h1>Users</h1></div>
@@ -45,8 +50,8 @@ $checked    = static fn (int $roleId): string => in_array($roleId, $editingRoles
             <input type="text" name="name" placeholder="e.g. Alex Rivera">
         </div>
         <div class="nb-field">
-            <label>Password</label>
-            <input type="password" name="password" placeholder="at least 8 characters" required>
+            <label>Password <small class="nb-muted">— leave blank to email an invite; they set their own</small></label>
+            <input type="password" name="password" placeholder="blank = send invite" autocomplete="new-password">
         </div>
     <?php endif; ?>
 
@@ -62,7 +67,7 @@ $checked    = static fn (int $roleId): string => in_array($roleId, $editingRoles
         </div>
     </div>
 
-    <button type="submit" class="nb-btn nb-btn-primary"><?= $editing !== null ? 'Save user' : 'Create user' ?></button>
+    <button type="submit" class="nb-btn nb-btn-primary"><?= $editing !== null ? 'Save user' : 'Add user' ?></button>
     <?php if ($editing !== null): ?><a class="nb-link" href="/admin/users">Cancel</a><?php endif; ?>
 </form>
 
