@@ -61,6 +61,37 @@ final class CollectionRepository
         return (int) ($this->db->selectOne('SELECT COUNT(*) AS c FROM nb_entries WHERE collection_id = :c', ['c' => $collectionId])['c'] ?? 0);
     }
 
+    /**
+     * Field counts for every collection in one grouped query — collection_id =>
+     * count. A collection with no fields is simply absent from the map, so
+     * callers default with `?? 0`. Avoids an N+1 across the collections list.
+     *
+     * @return array<int,int>
+     */
+    public function fieldCounts(): array
+    {
+        $out = [];
+        foreach ($this->db->select('SELECT collection_id, COUNT(*) AS c FROM nb_fields GROUP BY collection_id') as $r) {
+            $out[(int) $r['collection_id']] = (int) $r['c'];
+        }
+        return $out;
+    }
+
+    /**
+     * Entry counts for every collection in one grouped query — collection_id =>
+     * count; a collection with no entries is absent (default `?? 0`).
+     *
+     * @return array<int,int>
+     */
+    public function entryCounts(): array
+    {
+        $out = [];
+        foreach ($this->db->select('SELECT collection_id, COUNT(*) AS c FROM nb_entries GROUP BY collection_id') as $r) {
+            $out[(int) $r['collection_id']] = (int) $r['c'];
+        }
+        return $out;
+    }
+
     /** @param array<string,mixed> $options */
     public function create(string $handle, string $name, string $icon, string $description, array $options): int
     {

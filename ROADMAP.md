@@ -83,8 +83,8 @@ repositories, install+CRUD and package-boundary tests — all green.*
       contributors, formatting noise multiplies and every review starts
       arguing about whitespace. PSR-12-oriented, small config.
 - [ ] Raise PHPStan above level 6
-- [ ] Entry-list **pagination**
-- [ ] Collection-index **N+1 count** query fix
+- [x] Entry-list **pagination** — admin entry list pages at 25/entry (search-aware count, clamp-to-range), mobile pager
+- [x] Collection-index **N+1 count** query fix — grouped `fieldCounts()`/`entryCounts()` (2N+1 → 3 queries)
 - [ ] Migration-upgrade tests · upload-security tests · permission-matrix tests
 - [ ] **Structured validation errors** (before freezing the public API error contract)
 - [ ] Consume named routes in controllers — URL generation exists and is tested, but
@@ -240,6 +240,14 @@ Ordered, because each step depends on the one before:
       `nimbuscms/core` package — **only** when installing Nimbus as a
       dependency becomes a real requirement. Splitting now buys release and
       synchronisation overhead before the plugin API has been proven.
+- [ ] **Research: make setup super-easy.** A first-class goal — evaluate ways to
+      install Nimbus with the least friction, so the on-ramp rivals upload-and-go
+      CMSes without abandoning the modern architecture. Compare, with the
+      trade-offs of each: a downloadable release artifact + a guided web
+      installer (shared-hosting-friendly, no SSH/Composer/build); a one-command
+      Docker/Compose bootstrap; a `composer create-project` template; a
+      prebuilt image / PaaS one-click. Output = an ADR recommending the default
+      path(s) + a "5-minute install" target, decided before `0.1.0` docs land.
 
 > Renaming packages or moving repositories after third parties depend on them
 > is the expensive version of this work. Doing it while nothing is published
@@ -264,10 +272,9 @@ prove Nimbus is flexible. When one hits a wall, the gap is recorded, then built
 Findings so far, from the Restaurant **Menu** vertical (which needed **zero core
 changes** — collections + relation + number, served over the API):
 
-- **F1 — API returns relations as bare ids** (`"category": [15]`). Reference
-  *expansion* in the read API, like media already has. **Classify: Core
-  capability** (API maturity) — many headless frontends need it, unrelated to
-  Restaurant. Fits Release 0.2's "relation expansion". *Candidate next.*
+- **F1 — API returns relations as bare ids** (`"category": [15]`). ✅ **DONE (PR #34)**
+  — the read API expands relations to `{id, slug, title}` link objects (live-only,
+  scope-filtered) via `EntryView`, exactly as media expands. **Core** (API maturity).
 - **F2 — no supported way to consume Nimbus from a separate app repo** (root-only,
   not on Packagist, no library mode/image). **Classify: Core / release process** —
   foundational to anyone deploying. Belongs with installation/upgrades below.
@@ -477,7 +484,7 @@ theme is a set of CSS custom-property values, never a template fork.
 
 1. **Versioned read API** (`/api/v1`) — `[x]` live-only entries, pagination with a
    hard cap, consistent JSON errors, field `toApi` serialization, bearer-token auth;
-   still open: **relation expansion (F1)**, filtering + sorting, sparse fields,
+   relation expansion (F1) done; still open: filtering + sorting, sparse fields,
    ETags + Last-Modified.
 2. **API tokens** — `[~]` bearer tokens with SHA-256 hashing and last-used
    tracking; still open: per-token **scopes** (abilities column reserved), expiry,
