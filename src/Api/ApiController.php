@@ -48,6 +48,7 @@ final class ApiController
     private CollectionRepository $collections;
     private FieldTypeRegistry $types;
     private EntryOperations $ops;
+    private Settings $settings;
     private McpServer $mcpServer;
     private ApiAuthMiddleware $auth;
     private ApiAuthContext $authContext;
@@ -73,6 +74,7 @@ final class ApiController
         $uploader = new MediaUploader($mediaRepo, Config::uploadPath(), Config::uploadUrl(), Config::uploadMaxBytes(), static fn (string $from, string $to): bool => copy($from, $to));
         $settingsRegistry = new SettingsRegistry($this->collections);
         $settings         = new Settings(new SettingsRepository($db), $settingsRegistry);
+        $this->settings   = $settings;
         $this->mcpServer = new McpServer(
             new SchemaToolset($this->collections, new CollectionService($db, $this->collections), $types, $events),
             new MediaToolset($mediaRepo, $uploader, new MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $events),
@@ -115,7 +117,7 @@ final class ApiController
      */
     private function openapi(): Response
     {
-        return Response::json((new OpenApiGenerator($this->collections, $this->types))->generate());
+        return Response::json((new OpenApiGenerator($this->collections, $this->types, $this->settings->title()))->generate());
     }
 
     /**

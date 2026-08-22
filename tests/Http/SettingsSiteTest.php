@@ -141,4 +141,66 @@ final class SettingsSiteTest extends HttpTestCase
         self::assertStringNotContainsString('<script>alert(1)', $body);
         self::assertStringContainsString('&lt;script&gt;', $body);
     }
+
+    // ------------------------------------------------------------- site title
+
+    public function test_the_site_form_includes_the_title_field(): void
+    {
+        $this->actingAs('admin');
+        $body = $this->get('/admin/settings')->body;
+        self::assertStringContainsString('Site title', $body);
+        self::assertStringContainsString('name="settings[site.title]"', $body);
+    }
+
+    public function test_admin_can_save_the_title_and_the_shell_reflects_it(): void
+    {
+        $this->actingAs('admin');
+
+        $resp = $this->post('/admin/settings/site', ['settings' => ['site.title' => 'Danmat Studio']]);
+
+        $this->assertRedirectsTo($resp, '/admin/settings?flash=site');
+        self::assertSame('Danmat Studio', $this->stored()['site.title'] ?? null);
+        // The resolved title rides the admin shell (title + brand), not the .env default.
+        self::assertStringContainsString('Danmat Studio', $this->get('/admin')->body);
+    }
+
+    public function test_a_blank_title_is_rejected(): void
+    {
+        $this->actingAs('admin');
+
+        $resp = $this->post('/admin/settings/site', ['settings' => ['site.title' => '   ']]);
+
+        $this->assertRedirectsTo($resp, '/admin/settings?flash=site-error');
+        self::assertArrayNotHasKey('site.title', $this->stored());
+    }
+
+    public function test_an_over_long_title_is_rejected(): void
+    {
+        $this->actingAs('admin');
+
+        $resp = $this->post('/admin/settings/site', ['settings' => ['site.title' => str_repeat('a', 81)]]);
+
+        $this->assertRedirectsTo($resp, '/admin/settings?flash=site-error');
+        self::assertArrayNotHasKey('site.title', $this->stored());
+    }
+
+    /** A1 (escape-lock) — a hostile stored title is escaped in the admin shell. */
+    public function test_a_hostile_title_is_escaped_in_the_admin_shell(): void
+    {
+        (new SettingsRepository($this->db))->set('site.title', '"><script>alert(1)</script>');
+        $this->actingAs('admin');
+
+        $body = $this->get('/admin')->body;
+        self::assertStringNotContainsString('<script>alert(1)', $body);
+        self::assertStringContainsString('&lt;script&gt;', $body);
+    }
+
+    /** Unset → the `.env`/config default (APP_NAME=NimbusCMS in the test env). */
+    public function test_the_title_defaults_to_the_config_value_when_unset(): void
+    {
+        self::assertArrayNotHasKey('site.title', $this->stored());
+        $this->actingAs('admin');
+
+        self::assertStringContainsString('NimbusCMS', $this->get('/admin')->body);
+    }
 }

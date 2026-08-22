@@ -125,6 +125,29 @@ final class McpSettingsToolsTest extends HttpTestCase
         self::assertSame([], (new SettingsRepository($this->db))->all());
     }
 
+    public function test_set_and_get_the_site_title(): void
+    {
+        $writer = $this->tokens->create('W', ['settings:write']);
+
+        $this->call('set_settings', ['settings' => ['site.title' => 'Danmat Studio']], $writer);
+        $data = $this->structured($this->call('get_settings', [], $writer))['data'];
+
+        self::assertSame('Danmat Studio', $data['site.title']);
+    }
+
+    public function test_set_validates_the_title(): void
+    {
+        $writer = $this->tokens->create('W', ['settings:write']);
+
+        $blank = $this->structured($this->call('set_settings', ['settings' => ['site.title' => '  ']], $writer));
+        self::assertSame('invalid', $blank['error']['code']);
+
+        $long = $this->structured($this->call('set_settings', ['settings' => ['site.title' => str_repeat('a', 81)]], $writer));
+        self::assertSame('invalid', $long['error']['code']);
+
+        self::assertArrayNotHasKey('site.title', (new SettingsRepository($this->db))->all());
+    }
+
     /** Every write is audited via API_MANAGEMENT_WRITTEN (checked at the toolset). */
     public function test_set_settings_is_audited(): void
     {

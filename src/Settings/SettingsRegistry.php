@@ -26,12 +26,30 @@ final class SettingsRegistry
     /** A generous cap for a meta-description value — long enough for SEO, bounded against abuse. */
     public const MAX_DESCRIPTION = 500;
 
+    /** A site title is a short brand string; bound it well under any sink's limit. */
+    public const MAX_TITLE = 80;
+
     /** @var array<string,Setting> */
     private array $settings;
 
     public function __construct(CollectionRepository $collections)
     {
         $this->settings = [
+            'site.title' => new Setting(
+                'site.title',
+                'text',
+                'Site title',
+                'The name shown in the admin, on your public site, and in Open Graph tags.',
+                Config::appName(),
+                static function (string $value): ?string {
+                    if ($value === '') {
+                        return 'A site title is required.';
+                    }
+                    return mb_strlen($value) <= self::MAX_TITLE
+                        ? null
+                        : 'Keep the title under ' . self::MAX_TITLE . ' characters.';
+                },
+            ),
             'site.home' => new Setting(
                 'site.home',
                 'collection',

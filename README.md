@@ -32,7 +32,7 @@ Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a smal
 - 🗓️ **Publishing lifecycle** — draft / published / scheduled / archived with cron-free scheduling; the API serves exactly the live set
 - 🖼️ **Media library** — upload (content-validated, safe names), a library, and a `media` field the API expands to `{ url, alt, … }`
 - 🔌 **Headless JSON API** — read + write `/api/v1`, scoped bearer tokens (expiry/pause/revoke), ETag/If-Match concurrency, rate limiting + CORS, `toApi()` serialization; self-describing via generated **OpenAPI** (`GET /api/v1/openapi.json`)
-- ⚙️ **Site settings** — admin-editable site configuration (home page, default meta description) in a small typed store, with `config/*.php` as the shipped default the database overrides; gated on `settings:write` and editable over the API/MCP too. Deploy/env config stays in files
+- ⚙️ **Site settings** — admin-editable site configuration (site title, home page, default meta description) in a small typed store, with `.env`/`config/*.php` as the shipped default the database overrides; gated on `settings:write` and editable over the API/MCP too. Deploy/env config stays in files
 - 🤖 **MCP-native** — an agent with a scoped token operates the whole CMS over the [Model Context Protocol](https://modelcontextprotocol.io) (HTTP `POST /api/v1/mcp` **and** stdio `nimbus mcp`): content, schema, media, users, tokens and settings, through the same scope-checked, audited services the admin uses — not a bolt-on. See [docs/MCP.md](docs/MCP.md)
 - 🧩 **Plugins** — official [Markdown](https://github.com/NimbusCMS/plugin-markdown), [SEO](https://github.com/NimbusCMS/plugin-seo) and [Analytics](https://github.com/NimbusCMS/plugin-analytics) plugins, a Composer-driven loader, and a read-only Plugins admin page
 
@@ -148,7 +148,7 @@ field never means an `ALTER TABLE`.
 - [x] **SEO foundations** — per-page meta + canonical + Open Graph, `sitemap.xml`, `robots.txt`
 - [x] **Roles & capabilities** — one `resource:action` vocabulary for users **and** tokens; admin-composed roles (union per user, live-bound to tokens), deny-by-default, subset-only granting across admin + CLI + MCP ([docs/ROLES.md](docs/ROLES.md))
 - [x] **MCP control surface** — the full CMS over MCP (HTTP + stdio): content, schema, media, users, tokens, settings — scope-checked, non-enumerating, audited, through the same services the admin uses ([docs/MCP.md](docs/MCP.md))
-- [x] **Site settings store** — a typed, DB-backed store for admin-editable site config (home, description), `config/*.php` the default it overrides; `settings:write` capability, admin form + MCP tools, deploy/env config kept in files
+- [x] **Site settings store** — a typed, DB-backed store for admin-editable site config (title, home, description), `.env`/`config/*.php` the default it overrides; `settings:write` capability, admin form + MCP tools, deploy/env config kept in files
 - [x] **Themeable, mobile-native admin** — four token-driven themes + per-user picker, an off-canvas mobile nav and responsive tables/forms, one inlined vanilla-CSS file ([docs/design/admin-experience.md](docs/design/admin-experience.md))
 - [ ] Rich-text / Markdown editor
 - [ ] Revisions + activity log

@@ -69,4 +69,44 @@ final class SiteSettingsTest extends HttpTestCase
 
         self::assertSame(200, $resp->status);
     }
+
+    // ------------------------------------------------------------- site title
+
+    public function test_the_stored_title_renders_on_the_public_site(): void
+    {
+        $this->makeCollection('journal');
+        $this->set('site.home', 'journal');
+        $this->set('site.title', 'Danmat Studio');
+
+        $body = $this->get('/')->body;
+
+        // The header brand is a NESTED partial — it must see the resolved title,
+        // not just the layout-level <title>/og tags (regression: the brand once
+        // fell back to the shared Config default while og showed the new value).
+        self::assertStringContainsString('class="brand" href="/">Danmat Studio</a>', $body);
+        self::assertStringContainsString('<meta property="og:site_name" content="Danmat Studio">', $body);
+    }
+
+    /** A1 (escape-lock) — a hostile stored title is escaped at every public sink. */
+    public function test_a_hostile_title_is_escaped_in_public_meta(): void
+    {
+        $this->makeCollection('journal');
+        $this->set('site.home', 'journal');
+        $this->set('site.title', '"><script>alert(1)</script>');
+
+        $body = $this->get('/')->body;
+
+        self::assertStringNotContainsString('<script>alert(1)', $body);
+        self::assertStringContainsString('&lt;script&gt;', $body);
+    }
+
+    public function test_the_public_title_defaults_to_the_config_value_when_unset(): void
+    {
+        $this->makeCollection('journal');
+        $this->set('site.home', 'journal');
+
+        // Assert the BRAND specifically (the footer's "Powered by NimbusCMS" link
+        // always contains the string, so a bare contains() would be a false pass).
+        self::assertStringContainsString('class="brand" href="/">NimbusCMS</a>', $this->get('/')->body);
+    }
 }

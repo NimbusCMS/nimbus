@@ -64,4 +64,12 @@ final class OpenApiGeneratorTest extends IntegrationTestCase
         self::assertStringContainsString('"body":{"type":"string"}', $json, 'textarea → string');
         self::assertStringContainsString('"rank":{"type":"number"}', $json, 'number → number');
     }
+
+    public function test_the_info_title_reflects_the_resolved_site_title(): void
+    {
+        $repo = new CollectionRepository($this->db);
+        $doc  = (new OpenApiGenerator($repo, new FieldTypeRegistry(), 'Danmat Studio'))->generate();
+
+        self::assertSame('Danmat Studio API', $doc['info']['title']);
+    }
 }

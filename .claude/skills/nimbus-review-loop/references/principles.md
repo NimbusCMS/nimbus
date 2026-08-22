@@ -49,7 +49,12 @@ charter is the authority; this is the working detail.
   the typed `Settings` service, with the `config/*.php` value as the **default**
   the DB overrides — no seed migration, so a fresh install works from the file
   and a set value wins. Do not couple `Config` to the DB, and do not move
-  deploy/env config into the settings store.
+  deploy/env config into the settings store. A setting's default *source* is
+  "whatever the file layer says for that key" and may differ per setting
+  (`site.home`/`site.description` default from `config/site.php`; `site.title`
+  defaults from `.env`'s `APP_NAME`, the established app-identity var) — expected,
+  not a bug: whether a value is editable (a DB override) is separate from where
+  its shipped default lives.
 
 ## Dependencies and abstraction
 

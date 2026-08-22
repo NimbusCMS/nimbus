@@ -40,6 +40,8 @@ $e = static fn (?string $v): string => View::e($v);
                         </option>
                     <?php endforeach; ?>
                 </select>
+            <?php elseif ($field['type'] === 'text'): ?>
+                <input type="text" id="set-<?= $e($field['key']) ?>" name="settings[<?= $e($field['key']) ?>]" value="<?= $e($field['value']) ?>">
             <?php else: ?>
                 <textarea id="set-<?= $e($field['key']) ?>" name="settings[<?= $e($field['key']) ?>]" rows="3"><?= $e($field['value']) ?></textarea>
             <?php endif; ?>

@@ -105,8 +105,10 @@ final class SettingsController extends Controller
     /**
      * Save the site settings. Registry-driven: iterate the *known* settings and
      * read each from the request, so an unregistered key is simply never read —
-     * no over-posting. Every value is registry-validated before any is stored; if
-     * one fails, nothing is written and the error is flashed.
+     * no over-posting. Only keys actually present in the request are touched (a
+     * partial save leaves the rest as-is); every submitted value is
+     * registry-validated before any is stored — if one fails, nothing is written
+     * and the error is flashed.
      */
     private function saveSite(Request $req): Response
     {
@@ -117,7 +119,13 @@ final class SettingsController extends Controller
 
         $values = [];
         foreach ($this->registry->all() as $key => $setting) {
-            $value = is_string($submitted[$key] ?? null) ? trim($submitted[$key]) : '';
+            // Registry-driven: only registry keys are ever read from the request,
+            // so an unknown submitted key has nowhere to land. A key the request
+            // omits is left unchanged.
+            if (!array_key_exists($key, $submitted) || !is_string($submitted[$key])) {
+                continue;
+            }
+            $value = trim($submitted[$key]);
             if ($setting->validate($value) !== null) {
                 return $this->redirect('/admin/settings?flash=site-error');
             }

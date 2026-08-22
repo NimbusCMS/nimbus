@@ -104,8 +104,8 @@ last admin.
 
 - `get_settings`, `set_settings`
 
-The site settings store (home page, default meta description). `get_settings`
-needs `settings:read` (or `settings:write`); `set_settings` needs `settings:write`
+The site settings store (site title, home page, default meta description).
+`get_settings` needs `settings:read` (or `settings:write`); `set_settings` needs `settings:write`
 — a management capability, so a content `*:write` scope cannot reach it. Only
 **known** keys are accepted (`set_settings` with an unregistered key is rejected —
 no arbitrary rows), each value is validated (a home must name a real collection; a

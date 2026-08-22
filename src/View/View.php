@@ -18,6 +18,18 @@ final class View
     ) {
     }
 
+    /**
+     * Set a shared global seen by every template AND every nested partial. Use
+     * this for a value that must be consistent across the whole render tree
+     * (e.g. the resolved site title) — per-render `$data` reaches the top-level
+     * template but not the partials it includes, which fall back to the shared
+     * set.
+     */
+    public function share(string $key, mixed $value): void
+    {
+        $this->shared[$key] = $value;
+    }
+
     /** @param array<string,mixed> $data */
     public function render(string $template, array $data = []): string
     {
