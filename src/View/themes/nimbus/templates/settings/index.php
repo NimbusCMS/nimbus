@@ -36,3 +36,11 @@ $e = static fn (?string $v): string => View::e($v);
     </div>
     <button type="submit" class="nb-btn nb-btn-primary">Save theme</button>
 </form>
+
+<script>
+/* Instant preview before saving (progressive enhancement). The radio values are
+   server-rendered from the theme allow-list, so they're always known slugs. */
+document.querySelectorAll('input[name=theme]').forEach(function (r) {
+    r.addEventListener('change', function () { document.documentElement.dataset.theme = r.value; });
+});
+</script>

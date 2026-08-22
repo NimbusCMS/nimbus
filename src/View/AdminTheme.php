@@ -37,6 +37,16 @@ final class AdminTheme
             'mood'     => 'The observatory at 2 a.m. — full dark.',
             'gradient' => 'linear-gradient(180deg,#0b0920,#1b1547)',
         ],
+        'daybreak' => [
+            'name'     => 'Daybreak',
+            'mood'     => 'The broom at dawn — high blue & sun-gold.',
+            'gradient' => 'linear-gradient(180deg,#123f74,#2d7bd0)',
+        ],
+        'grimoire' => [
+            'name'     => 'Grimoire',
+            'mood'     => 'A candlelit spellbook library — parchment & brass.',
+            'gradient' => 'linear-gradient(180deg,#17251d,#274a38)',
+        ],
     ];
 
     /** A stored/submitted slug resolved to a known theme — anything unknown → the default. */
