@@ -3,6 +3,8 @@
  * @var \Nimbus\Api\ApiToken[]         $tokens
  * @var string[]                       $expiries
  * @var \Nimbus\Content\Collection[]   $collections
+ * @var \Nimbus\Auth\Role[]            $roles       roles the actor may bind (grantable)
+ * @var array<int,string>             $roleNames   role id => name, for the list
  * @var ?string                        $justCreated one-time plaintext to display, or null
  * @var ?string                        $flash
  * @var ?string                        $error
@@ -28,15 +30,19 @@ $badge = static fn (string $status): string => match ($status) {
     default   => 'nb-badge-muted',
 };
 
-// A compact summary of a token's read scopes for the list.
-$access = static function (array $abilities): string {
-    if ($abilities === []) {
-        return 'all (legacy)';
+// A compact summary of a token's access for the list — its explicit scopes and,
+// if bound, its role (whose live capabilities apply on top).
+$access = static function (\Nimbus\Api\ApiToken $t) use ($roleNames): string {
+    $parts = [];
+    if (in_array('*:read', $t->abilities, true)) {
+        $parts[] = 'all collections';
+    } elseif ($t->abilities !== []) {
+        $parts[] = implode(', ', array_map(static fn (string $s): string => explode(':', $s)[0], $t->abilities));
     }
-    if (in_array('*:read', $abilities, true)) {
-        return 'all collections';
+    if ($t->roleId !== null && isset($roleNames[$t->roleId])) {
+        $parts[] = 'role: ' . $roleNames[$t->roleId];
     }
-    return implode(', ', array_map(static fn (string $s): string => explode(':', $s)[0], $abilities));
+    return $parts === [] ? 'none' : implode(' · ', $parts);
 };
 ?>
 <div class="nb-page-head">
@@ -86,9 +92,20 @@ $access = static function (array $abilities): string {
                     </label>
                 <?php endforeach; ?>
             </div>
-            <p class="nb-muted">Uncheck “All collections” to grant only the ones you tick. Tokens are read-only.</p>
+            <p class="nb-muted">Uncheck “All collections” to grant only the ones you tick — these scopes are read-only. For write access, bind a role below.</p>
         <?php endif; ?>
     </div>
+    <?php if ($roles !== []): ?>
+        <div class="nb-field">
+            <label>Role <small class="nb-muted">— optional; the token draws this role’s capabilities, live</small></label>
+            <select name="role">
+                <option value="">No role</option>
+                <?php foreach ($roles as $r): ?>
+                    <option value="<?= (int) $r->id ?>"><?= $e($r->name) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    <?php endif; ?>
     <button type="submit" class="nb-btn nb-btn-primary">Create token</button>
 </form>
 
@@ -111,7 +128,7 @@ $access = static function (array $abilities): string {
             <?php foreach ($tokens as $t): $status = $t->status(); ?>
                 <tr>
                     <td><?= $e($t->name) ?></td>
-                    <td data-label="Access"><span class="nb-muted"><?= $e($access($t->abilities)) ?></span></td>
+                    <td data-label="Access"><span class="nb-muted"><?= $e($access($t)) ?></span></td>
                     <td data-label="Status"><span class="nb-badge <?= $badge($status) ?>"><?= $e($status) ?></span></td>
                     <td data-label="Expires"><?= $t->expiresAt !== null ? $e($t->expiresAt) : '<span class="nb-muted">never</span>' ?></td>
                     <td data-label="Last used">
