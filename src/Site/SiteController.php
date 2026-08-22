@@ -16,6 +16,7 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Media\MediaRepository;
+use Nimbus\Settings\Settings;
 use Nimbus\Support\Config;
 use Nimbus\View\View;
 
@@ -77,6 +78,8 @@ final class SiteController
     /** Handle of the collection rendered at `/`, or null for the placeholder. */
     private ?string $home;
 
+    private ?Settings $settings;
+
     private HeadContributorRegistry $headContributors;
 
     /** @var array<string,array<string,mixed>>|null memoized live blocks by slug */
@@ -88,6 +91,7 @@ final class SiteController
         ?string $home = null,
         ?string $themePath = null,
         ?HeadContributorRegistry $headContributors = null,
+        ?Settings $settings = null,
     ) {
         $this->collections      = new CollectionRepository($db);
         $this->entries          = new EntryRepository($db);
@@ -98,6 +102,7 @@ final class SiteController
             'menus'   => Config::menus(),
         ]);
         $this->home             = $home;
+        $this->settings         = $settings;
         $this->headContributors = $headContributors ?? new HeadContributorRegistry();
     }
 
@@ -218,7 +223,12 @@ final class SiteController
      */
     private function homePage(Request $request): Response
     {
-        $collection = $this->home === null ? null : $this->collections->findByHandle($this->home);
+        // The home handle comes from the settings store (DB override) when wired,
+        // else the config default. A handle that no longer names a collection —
+        // a since-deleted home — resolves to null and shows the placeholder, so
+        // a dangling setting never 500s.
+        $home       = $this->settings !== null ? $this->settings->home() : $this->home;
+        $collection = $home === null ? null : $this->collections->findByHandle($home);
         if ($collection === null) {
             return $this->placeholder();
         }
@@ -335,7 +345,7 @@ final class SiteController
         if ($collection->description !== '') {
             return $this->clip($collection->description);
         }
-        return Config::siteDescription();
+        return $this->settings !== null ? $this->settings->description() : Config::siteDescription();
     }
 
     /** Flatten to a single line and cap at a meta-description-friendly length. */

@@ -17,6 +17,7 @@ use Nimbus\Admin\UsersController;
 use Nimbus\Api\ApiAuthContext;
 use Nimbus\Api\ApiController;
 use Nimbus\Auth\Auth;
+use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Database\MigrationRegistry;
@@ -30,6 +31,9 @@ use Nimbus\Plugin\PluginCapabilities;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
 use Nimbus\Plugin\PluginStatus;
+use Nimbus\Settings\Settings;
+use Nimbus\Settings\SettingsRegistry;
+use Nimbus\Settings\SettingsRepository;
 use Nimbus\Site\HeadContributorRegistry;
 use Nimbus\Site\SiteController;
 use Nimbus\Support\Config;
@@ -292,7 +296,11 @@ final class Application
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.
-        (new SiteController($this->db, $this->fieldTypes, Config::home(), null, $this->headContributors))->routes($router);
+        $settings = new Settings(
+            new SettingsRepository($this->db),
+            new SettingsRegistry(new CollectionRepository($this->db)),
+        );
+        (new SiteController($this->db, $this->fieldTypes, Config::home(), null, $this->headContributors, $settings))->routes($router);
         return $router;
     }
 

@@ -147,7 +147,20 @@ generic `entry`/`collection` when the specific one is absent.
 `{ title, description, canonical, og_type }`. The starter renders a
 `<meta name="description">`, a `<link rel="canonical">`, and Open Graph tags from
 it. A description comes from an entry's `excerpt`/`summary`/`description` field,
-then the collection's description, then `config/site.php`'s `description`.
+then the collection's description, then the site default — the `site.description`
+setting when set, otherwise `config/site.php`'s `description` (the file is the
+default the settings store overrides). The site home (`/`) resolves the same way:
+the `site.home` setting when set, else `config/site.php`'s `home`.
+
+**Site settings.** Admin-editable site configuration lives in a typed store
+(`nb_settings`): today `site.home` and `site.description`. Only registered keys
+are readable-with-a-default or writable — it is an allow-list, not free key/value.
+`config/*.php` provides the default each setting overrides, so a fresh install
+works from the files with no seed step. Deploy/environment configuration (DB, URL,
+proxies, upload/rate limits, enabled plugins, active theme) is **not** in this
+store — it stays in `.env` + `config/*.php`, and `Support\Config` stays DB-free.
+Writes are gated on `settings:write`; reads are public (home/description render on
+the public site).
 
 **Reusable blocks.** A collection with the handle `blocks` holds shared content
 fragments — the live entries are passed to the view-model as `$blocks`, keyed by
