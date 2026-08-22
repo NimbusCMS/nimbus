@@ -153,14 +153,18 @@ default the settings store overrides). The site home (`/`) resolves the same way
 the `site.home` setting when set, else `config/site.php`'s `home`.
 
 **Site settings.** Admin-editable site configuration lives in a typed store
-(`nb_settings`): today `site.home` and `site.description`. Only registered keys
-are readable-with-a-default or writable — it is an allow-list, not free key/value.
-`config/*.php` provides the default each setting overrides, so a fresh install
-works from the files with no seed step. Deploy/environment configuration (DB, URL,
-proxies, upload/rate limits, enabled plugins, active theme) is **not** in this
-store — it stays in `.env` + `config/*.php`, and `Support\Config` stays DB-free.
-Writes are gated on `settings:write`; reads are public (home/description render on
-the public site).
+(`nb_settings`): today `site.title`, `site.home` and `site.description`. Only
+registered keys are readable-with-a-default or writable — it is an allow-list, not
+free key/value. The file layer provides the default each setting overrides, so a
+fresh install works from the files with no seed step: `site.home`/`site.description`
+default from `config/site.php`, and `site.title` from `.env`'s `APP_NAME` (the
+established app-identity var) — the store overrides whichever the file layer sets.
+The site title is the brand shown in the admin, the public theme, Open Graph tags
+and the OpenAPI `info.title`. Deploy/environment configuration (DB, URL, proxies,
+upload/rate limits, enabled plugins, active theme) is **not** in this store — it
+stays in `.env` + `config/*.php`, and `Support\Config` stays DB-free. Writes are
+gated on `settings:write`; reads are public (title/home/description render on the
+public site).
 
 **Reusable blocks.** A collection with the handle `blocks` holds shared content
 fragments — the live entries are passed to the view-model as `$blocks`, keyed by

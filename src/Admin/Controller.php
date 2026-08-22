@@ -7,12 +7,16 @@ namespace Nimbus\Admin;
 use Nimbus\Auth\Auth;
 use Nimbus\Auth\Gate;
 use Nimbus\Auth\RoleRepository;
+use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\HttpException;
 use Nimbus\Http\Middleware\AuthMiddleware;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
+use Nimbus\Settings\Settings;
+use Nimbus\Settings\SettingsRegistry;
+use Nimbus\Settings\SettingsRepository;
 use Nimbus\Support\Config;
 use Nimbus\View\View;
 
@@ -22,6 +26,9 @@ abstract class Controller
     protected View $view;
     protected AuthMiddleware $authMw;
     protected Gate $gate;
+
+    /** Memoized site title, resolved lazily on first render (see {@see siteTitle()}). */
+    private ?string $siteTitle = null;
 
     public function __construct(
         protected Connection $db,
@@ -83,6 +90,7 @@ abstract class Controller
      */
     protected function shell(string $navActive, string $content): Response
     {
+        $this->view->share('appName', $this->siteTitle());
         return Response::html($this->view->partial('layout', [
             'nav'       => $this->nav($navActive),
             '__content' => $content,
@@ -96,6 +104,7 @@ abstract class Controller
      */
     protected function page(string $template, string $navActive, array $data = []): Response
     {
+        $this->view->share('appName', $this->siteTitle());
         return Response::html($this->view->render($template, ['nav' => $this->nav($navActive)] + $data));
     }
 
@@ -106,7 +115,24 @@ abstract class Controller
      */
     protected function bare(string $template, array $data = []): Response
     {
+        $this->view->share('appName', $this->siteTitle());
         return Response::html($this->view->renderBare($template, $data));
+    }
+
+    /**
+     * The site title, resolved from the settings store (DB override ?? the
+     * `.env`/config default) and memoized for this request. Built lazily — only
+     * a controller that actually renders pays the one query, so `/api` handlers
+     * and redirects do not. Set as a shared View global at render time (so the
+     * layout and every nested partial see it), overriding the construction-time
+     * `Config::appName()` default.
+     */
+    protected function siteTitle(): string
+    {
+        return $this->siteTitle ??= (new Settings(
+            new SettingsRepository($this->db),
+            new SettingsRegistry(new CollectionRepository($this->db)),
+        ))->title();
     }
 
     protected function redirect(string $to): Response

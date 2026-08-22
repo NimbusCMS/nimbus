@@ -282,7 +282,7 @@ final class SiteController
         return $this->renderPage($this->specialize('collection', $collection->handle), [
             'title'       => $collection->name,
             'meta'        => $this->meta($request->path, $collection->name, $this->describe(null, $collection), 'website'),
-            'head'        => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, $collection->name, Config::appName(), null, $info)),
+            'head'        => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, $collection->name, $this->title(), null, $info)),
             'collection'  => $info,
             'entries'     => $this->view->many($collection, $rows),
             'page'        => $page,
@@ -304,7 +304,7 @@ final class SiteController
         return $this->renderPage($this->specialize('entry', $collection->handle), [
             'title'      => (string) $row['title'],
             'meta'       => $this->meta($request->path, (string) $row['title'], $this->describe($entry, $collection), 'article'),
-            'head'       => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, (string) $row['title'], Config::appName(), $entry, $info)),
+            'head'       => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, (string) $row['title'], $this->title(), $entry, $info)),
             'collection' => $info,
             'entry'      => $entry,
         ]);
@@ -365,7 +365,18 @@ final class SiteController
     private function renderPage(string $template, array $data, int $status = 200): Response
     {
         $data['blocks'] = $this->blocks();
+        // Resolve the site title from the store (DB override ?? file default) and
+        // set it as a shared global — so the layout AND every nested partial
+        // (header/footer brand) reflect the editable setting consistently. Done
+        // at render time, so /api and cache-hit requests never run the query.
+        $this->render->share('appName', $this->title());
         return Response::html($this->render->render($template, $data), $status);
+    }
+
+    /** The site title: the stored setting, or the config default when unwired. */
+    private function title(): string
+    {
+        return $this->settings !== null ? $this->settings->title() : Config::appName();
     }
 
     /**
@@ -429,7 +440,7 @@ final class SiteController
      */
     private function placeholder(): Response
     {
-        $name = View::e(Config::appName());
+        $name = View::e($this->title());
         return Response::html(
             '<!doctype html><meta charset="utf-8"><title>' . $name . '</title>'
             . '<div style="font-family:system-ui,sans-serif;max-width:40rem;margin:14vh auto;padding:0 1.5rem">'

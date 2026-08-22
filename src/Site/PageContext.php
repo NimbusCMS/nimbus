@@ -8,6 +8,12 @@ namespace Nimbus\Site;
  * A data-only description of the public page being rendered, handed to head
  * contributors (see HeadContributor). It carries the same prepared view-model
  * the theme receives — never a service or the database.
+ *
+ * SECURITY — its string values are UNTRUSTED. `title`, `siteName` and the
+ * view-model derive from editor/admin input (entry fields, the `site.title`
+ * setting). A contributor emits into the raw `<head>`, so it MUST escape every
+ * value it embeds — `View::e()` for an attribute/text sink, `json_encode` for a
+ * JSON-LD block. Do not assume any field is safe because it "looks like config".
  */
 final class PageContext
 {

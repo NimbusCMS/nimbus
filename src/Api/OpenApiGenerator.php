@@ -22,10 +22,16 @@ use Nimbus\Support\Config;
  */
 final class OpenApiGenerator
 {
+    private string $title;
+
     public function __construct(
         private CollectionRepository $collections,
         private FieldTypeRegistry $types,
+        ?string $title = null,
     ) {
+        // The site title (settings store) titles the spec's `info`. Falls back to
+        // the config default when a caller does not resolve it.
+        $this->title = $title ?? Config::appName();
     }
 
     /** @return array<string,mixed> */
@@ -46,7 +52,7 @@ final class OpenApiGenerator
         return [
             'openapi' => '3.0.3',
             'info'    => [
-                'title'       => Config::appName() . ' API',
+                'title'       => $this->title . ' API',
                 'version'     => 'v1',
                 'description' => 'Generated from the live content model. Read + write; bearer-token auth with per-collection read/write scopes; optimistic concurrency via ETag/If-Match.',
             ],

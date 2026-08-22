@@ -41,6 +41,12 @@ final class Settings
         return $setting !== null ? $setting->default : '';
     }
 
+    /** The site title / brand name — never empty (validated on write; the file default backs it). */
+    public function title(): string
+    {
+        return $this->get('site.title');
+    }
+
     /** The home collection handle, or null when none is set (root shows a placeholder). */
     public function home(): ?string
     {
