@@ -291,6 +291,11 @@ body.nb {
 .nb-btn-primary { background: var(--nb-brand); border-color: var(--nb-brand); color: var(--nb-on-brand) !important; }
 .nb-btn-primary:hover { background: var(--nb-brand-dark); border-color: var(--nb-brand-dark); }
 .nb-btn-block { width: 100%; justify-content: center; }
+.nb-btn-disabled { opacity: .45; pointer-events: none; }
+
+/* List pager (admin entry lists): Prev / status / Next, wraps on narrow screens. */
+.nb-pager { display: flex; align-items: center; gap: .75rem; margin-top: 1.25rem; flex-wrap: wrap; }
+.nb-pager-status { color: var(--nb-muted); font-size: .9rem; }
 
 /* Text-style buttons (row actions): a plain link and a danger link. */
 .nb-link { background: none; border: 0; padding: 0; cursor: pointer; color: var(--nb-link-color); font: inherit; font-weight: 600; }

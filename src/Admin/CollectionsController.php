@@ -53,12 +53,16 @@ final class CollectionsController extends Controller
 
     private function index(Request $req): Response
     {
-        $rows = [];
+        // Counts for every collection in two grouped queries, not one pair per
+        // collection (no N+1); a collection missing from a map has zero.
+        $fieldCounts = $this->collections->fieldCounts();
+        $entryCounts = $this->collections->entryCounts();
+        $rows        = [];
         foreach ($this->collections->all() as $c) {
             $rows[] = [
                 'c'       => $c,
-                'fields'  => $this->collections->fieldCount($c->id),
-                'entries' => $this->collections->entryCount($c->id),
+                'fields'  => $fieldCounts[$c->id] ?? 0,
+                'entries' => $entryCounts[$c->id] ?? 0,
             ];
         }
         return $this->page('collections/index', 'collections', [

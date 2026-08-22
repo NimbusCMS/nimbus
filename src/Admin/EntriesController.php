@@ -38,6 +38,9 @@ use Nimbus\Support\EventDispatcher;
  */
 final class EntriesController extends Controller
 {
+    /** Entries per admin list page. Admins scan/manage in bulk, so a touch larger than the site's reader page. */
+    private const PER_PAGE = 25;
+
     private CollectionRepository $collections;
     private EntryRepository $entries;
     private RelationRepository $relations;
@@ -89,12 +92,25 @@ final class EntriesController extends Controller
             return $this->renderForm($collection, $this->modelFromEntry($collection, $entry), [], $req->query('msg'));
         }
 
+        // Paginate: count first (search-aware), derive total pages, then clamp
+        // the requested page into range so a too-high ?page can't produce a huge
+        // OFFSET or a dead "Next".
+        $q          = $req->query('q');
+        $total      = $this->entries->countForCollection($collection->id, $q);
+        $totalPages = $total === 0 ? 1 : (int) ceil($total / self::PER_PAGE);
+        $page       = min(max(1, (int) $req->query('page')), $totalPages);
+        $rows       = $this->entries->forCollection($collection->id, $q, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
+
         return $this->page('entries/index', 'collections', [
-            'collection' => $collection,
-            'rows'       => $this->entries->forCollection($collection->id, $req->query('q')),
-            'types'      => $this->types,
-            'canManage'  => $this->gate->manages($collection),
-            'flash'      => $req->query('msg'),
+            'collection'  => $collection,
+            'rows'        => $rows,
+            'types'       => $this->types,
+            'canManage'   => $this->gate->manages($collection),
+            'flash'       => $req->query('msg'),
+            'page'        => $page,
+            'total_pages' => $totalPages,
+            'total'       => $total,
+            'q'           => $q,
         ]);
     }
 

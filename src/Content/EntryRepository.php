@@ -19,7 +19,16 @@ final class EntryRepository
     }
 
     /** @return array<int,array<string,mixed>> hydrated rows (data decoded) */
-    public function forCollection(int $collectionId, ?string $search = null): array
+    /**
+     * A collection's entries (all statuses), newest-edited first, optionally
+     * filtered by a title search. Pass `$limit` to page the result — `$limit`
+     * and `$offset` are interpolated as cast ints (they cannot be bound), so the
+     * caller must supply integers (the admin derives them from a clamped page).
+     * Omit `$limit` for the full set (used where the count is small/bounded).
+     *
+     * @return array<int,array<string,mixed>> hydrated rows (data decoded)
+     */
+    public function forCollection(int $collectionId, ?string $search = null, ?int $limit = null, int $offset = 0): array
     {
         $sql    = 'SELECT * FROM nb_entries WHERE collection_id = :c';
         $params = ['c' => $collectionId];
@@ -28,8 +37,24 @@ final class EntryRepository
             $params['s'] = '%' . $search . '%';
         }
         $sql .= ' ORDER BY updated_at DESC';
+        if ($limit !== null) {
+            $sql .= ' LIMIT ' . max(0, $limit) . ' OFFSET ' . max(0, $offset);
+        }
 
         return array_map([$this, 'hydrate'], $this->db->select($sql, $params));
+    }
+
+    /** How many entries a collection has, honouring the same title search — for the admin pager total. */
+    public function countForCollection(int $collectionId, ?string $search = null): int
+    {
+        $sql    = 'SELECT COUNT(*) AS c FROM nb_entries WHERE collection_id = :c';
+        $params = ['c' => $collectionId];
+        if ($search !== null && trim($search) !== '') {
+            $sql .= ' AND title LIKE :s';
+            $params['s'] = '%' . $search . '%';
+        }
+
+        return (int) ($this->db->selectOne($sql, $params)['c'] ?? 0);
     }
 
     /**

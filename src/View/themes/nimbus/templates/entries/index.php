@@ -4,6 +4,10 @@
  * @var array<int,array<string,mixed>>   $rows
  * @var \Nimbus\Content\FieldTypeRegistry $types
  * @var bool                             $canManage
+ * @var int                              $page
+ * @var int                              $total_pages
+ * @var int                              $total
+ * @var ?string                          $q
  */
 use Nimbus\Content\Publication;
 use Nimbus\Http\Csrf;
@@ -77,4 +81,31 @@ $h          = $e($collection->handle);
             </tbody>
         </table>
     </div>
+
+    <?php if ($total_pages > 1): ?>
+        <?php
+        // Build a pager link, preserving the search term. rawurlencode() makes the
+        // term safe inside the attribute (no `"`/`<`/`>`); $e() escapes the `&`.
+        $pageLink = static function (int $p) use ($collection, $q): string {
+            $qs = 'page=' . $p;
+            if ($q !== null && $q !== '') {
+                $qs .= '&q=' . rawurlencode($q);
+            }
+            return '/admin/collections/' . rawurlencode($collection->handle) . '/entries?' . $qs;
+        };
+        ?>
+        <nav class="nb-pager" aria-label="Pagination">
+            <?php if ($page > 1): ?>
+                <a class="nb-btn" href="<?= $e($pageLink($page - 1)) ?>" rel="prev">← Prev</a>
+            <?php else: ?>
+                <span class="nb-btn nb-btn-disabled" aria-disabled="true">← Prev</span>
+            <?php endif; ?>
+            <span class="nb-pager-status">Page <?= (int) $page ?> of <?= (int) $total_pages ?> <span class="nb-muted">(<?= (int) $total ?> total)</span></span>
+            <?php if ($page < $total_pages): ?>
+                <a class="nb-btn" href="<?= $e($pageLink($page + 1)) ?>" rel="next">Next →</a>
+            <?php else: ?>
+                <span class="nb-btn nb-btn-disabled" aria-disabled="true">Next →</span>
+            <?php endif; ?>
+        </nav>
+    <?php endif; ?>
 <?php endif; ?>
