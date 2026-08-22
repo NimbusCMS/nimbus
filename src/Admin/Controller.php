@@ -62,8 +62,12 @@ abstract class Controller
             $items[] = ['key' => 'plugins', 'label' => 'Plugins', 'url' => '/admin/plugins', 'icon' => '⚡'];
         }
         $items[] = ['key' => 'settings', 'label' => 'Settings', 'url' => '/admin/settings', 'icon' => '⚙'];
-        // Plugin-registered pages sit below the core sections.
+        // Plugin-registered pages sit below the core sections; one that declared a
+        // capability appears only to holders (no dead links) — the route enforces it too.
         foreach ($this->adminPages?->all() ?? [] as $page) {
+            if ($page['capability'] !== null && !$this->gate->holds($page['capability'])) {
+                continue;
+            }
             $items[] = ['key' => $page['slug'], 'label' => $page['label'], 'url' => '/admin/' . $page['slug'], 'icon' => $page['icon']];
         }
         foreach ($items as &$item) {

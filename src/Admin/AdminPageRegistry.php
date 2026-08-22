@@ -14,21 +14,22 @@ namespace Nimbus\Admin;
  */
 final class AdminPageRegistry
 {
-    /** @var list<array{slug:string,label:string,icon:string,handler:callable,provider:string}> */
+    /** @var list<array{slug:string,label:string,icon:string,handler:callable,provider:string,capability:?string}> */
     private array $pages = [];
 
-    public function add(string $slug, string $label, string $icon, callable $handler, string $provider): void
+    public function add(string $slug, string $label, string $icon, callable $handler, string $provider, ?string $capability = null): void
     {
         $this->pages[] = [
-            'slug'     => $slug,
-            'label'    => $label,
-            'icon'     => $icon,
-            'handler'  => $handler,
-            'provider' => $provider,
+            'slug'       => $slug,
+            'label'      => $label,
+            'icon'       => $icon,
+            'handler'    => $handler,
+            'provider'   => $provider,
+            'capability' => $capability,
         ];
     }
 
-    /** @return list<array{slug:string,label:string,icon:string,handler:callable,provider:string}> */
+    /** @return list<array{slug:string,label:string,icon:string,handler:callable,provider:string,capability:?string}> */
     public function all(): array
     {
         return $this->pages;
