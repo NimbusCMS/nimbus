@@ -104,7 +104,17 @@ response shapes, not on any PHP class. What is promised:
   `Retry-After` header. Limits are deployment config, not part of the contract.
 - **CORS** — off by default (same-origin). When origins are allow-listed, an
   allowed `Origin` gets `Access-Control-Allow-Origin` (echoed, with
-  `Vary: Origin`); browser `OPTIONS` preflights are answered without a token.
+  `Vary: Origin`); browser `OPTIONS` preflights are answered without a token and
+  advertise the methods the API serves — `GET, POST, PATCH, DELETE, OPTIONS` — and
+  the headers `Authorization, Content-Type, If-Match`, so an allow-listed browser
+  app can read, write and call MCP cross-origin. Auth is bearer-only: no cookies,
+  no `Access-Control-Allow-Credentials`. Preflights are counted by the per-IP flood
+  guard, and the API surface (`/api/**`) never sets a session cookie.
+- **Methods** (kernel-wide, not just the API) — a `HEAD` is served by the `GET`
+  route: same status and headers, no body. A request whose path matches a route
+  but not its method gets `405` with an `Allow` header (rather than `404`); a path
+  matching no route is still `404`. Note the site's `/{collection}` catch-alls
+  mean a wrong-method request to almost any path is a `405`, not a `404`.
 - **Visibility** — only the *live* set is served (published, `published_at` in
   the past); drafts and scheduled entries are indistinguishable from absent.
 - **Field values** pass through each field type's `toApi()` — e.g. a `boolean`

@@ -167,4 +167,14 @@ postr /admin/logout -d "_token=$(token /admin/collections)" >/dev/null
 expect 'Sign in' "$(get /admin/collections)" "still authenticated after logout"
 pass "signed out and re-gated"
 
+say "The API mints no session cookie (HTTP-3)"
+# A bearer-only surface must not issue nimbus_session. -D- dumps headers; the API
+# returns 401 without a token, which is fine — we only assert on Set-Cookie.
+API_HEADERS="$(curl -sS -D- -o /dev/null "http://127.0.0.1:$PORT/api/v1/collections/smoke_posts/entries")"
+reject 'nimbus_session' "$API_HEADERS" "the API minted a session cookie"
+# And an admin page still does start a session.
+ADMIN_HEADERS="$(curl -sS -D- -o /dev/null "http://127.0.0.1:$PORT/admin/login")"
+expect 'nimbus_session' "$ADMIN_HEADERS" "the admin lost its session cookie"
+pass "API is cookie-free; admin keeps its session"
+
 printf '\n\033[32m✓ smoke test passed — installed from empty and completed collection + entry CRUD\033[0m\n'

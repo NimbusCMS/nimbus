@@ -147,6 +147,29 @@ final class CacheRoutesTest extends HttpTestCase
         self::assertSame($stored, $this->headerNonce($hit, 'style-src'), 'style-src re-emits it too');
     }
 
+    public function test_a_head_request_neither_populates_nor_is_served_from_the_cache(): void
+    {
+        // HTTP-2 × cache: cacheKey is GET-only, and the body strip happens after
+        // the store — so a HEAD never writes an (empty) entry, and a later GET
+        // renders the full body. Guards against a future refactor poisoning it.
+        $c = $this->makeCollection('posts');
+        $this->seedLive($c, 'Cached Hello', 'hello');
+
+        $cache = new PageCache($this->dir, 300);
+        $app   = $this->appUsing($cache);
+
+        $head = $app->handle($this->request('HEAD', '/posts'));
+        self::assertSame(200, $head->status);
+        self::assertSame('', $head->body, 'HEAD carries no body');
+        self::assertNull($cache->get('/posts'), 'HEAD did not populate the cache');
+
+        self::assertStringContainsString(
+            'Cached Hello',
+            $app->handle($this->request('GET', '/posts'))->body,
+            'the following GET renders the full body, not an empty HEAD reply',
+        );
+    }
+
     public function test_a_content_write_rotates_the_cached_nonce(): void
     {
         // The invariant the stable-nonce safety argument rests on: a write flushes

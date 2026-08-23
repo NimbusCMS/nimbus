@@ -19,6 +19,36 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice J — HTTP/CORS/HEAD hardening (HTTP-2/3/4 + API-5)
+- **Status:** fixed. Fable two-skill burst — **security-green, no Critical/High/Medium.** Two Lows
+  (each with a pinning test) + informationals. Catalog: #13 (HTTP/header/proxy), #6 (CSRF boundary).
+- **Surface:** `src/Http/Router.php` (dispatch/405/HEAD), `src/Http/Response.php` (`withoutBody`),
+  `src/Application.php` (session skip, fail-open preflight guard, HEAD strip), `src/Http/Cors.php`
+  (`isApiPath`, widened preflight), `src/Api/ApiController.php` (injected flood guard).
+- **HEAD verb-smuggling (confirmed SAFE, no finding):** HEAD maps to GET **only**; no POST/PATCH/
+  DELETE route matches a HEAD, and `Request::fromGlobals` has **no method-override seam** (`_method`/
+  `X-HTTP-Method-Override` absent). `Route::run` executes the middleware stack before the handler, so
+  `HEAD /api/...` runs ipFlood→auth→quota and `HEAD /admin` runs authMw — HEAD skips no guard. Guard:
+  `HttpMethodTest` (HEAD /admin → 302 login; HEAD /api without token → 401).
+- **HTTP-3 session drop (confirmed SAFE, strengthens #6):** zero `$_SESSION`/`session_*` under
+  `src/Api`+`src/Mcp`; API auth is bearer at the middleware door. Removing the cookie is pure hygiene
+  (an unused ambient credential is no longer even minted). Guard: `ApiSessionlessTest` static drift
+  test fails loudly if a future /api addition depends on the session the kernel no longer starts.
+- **HTTP-4 uncounted preflight (Low, fixed):** the amplified CORS-decorated 204 class is closed (flood
+  guard now runs on the preflight, fail-open on DB error). Residual (Info): an Origin-less OPTIONS
+  isn't a preflight → routes to a 405, uncounted — but baseline-equivalent to any 404/405 (no DB, no
+  amplification). Guard: `ApiCorsTest` (repeated preflights → 429; shared `ip:` bucket).
+- **HEAD × page-cache poisoning (Low, unreachable-but-pinned):** `cacheKey` is GET-only and the body
+  strip is applied after the cache store, so a HEAD never writes an empty entry. Safe by ordering,
+  one refactor from a bug → pinned: `CacheRoutesTest` HEAD-then-GET returns the full body.
+- **API-5 CORS widening (confirmed NOT a security change):** no `Access-Control-Allow-Credentials`
+  (verified nowhere in `Cors`), bearer-only auth (no ambient cookie, esp. after HTTP-3), origin still
+  allow-list-gated and echoed only when approved — advertising POST/PATCH/DELETE+If-Match changes what
+  the browser permits, not what the server authorizes. Guard: `ApiCorsTest` asserts no Allow-Credentials.
+- **Left open:** Origin-less/non-API uncounted request classes (inherent — the flood limiter is an API
+  control, not site-wide DoS); asset/public-site session skip (deferred, recorded); HTTP-5 dispatch
+  cost + API-6 MCP batch (out of scope).
+
 ### 2026-08-23 · Slice I — mail reliability: recovery-mail DoS closed + guarded resend route (SUP-1/2/6 + ADMIN-7)
 - **Status:** fixed. Fable two-skill burst — **security-green conditional on the ADMIN-7 controls (all shipped)**.
   No Critical/High introduced; SUP-1/2/6 are net security improvements. Catalog: **user-editable config →

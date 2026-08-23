@@ -30,7 +30,8 @@ decision were both verified to still hold.
 
 ---
 
-### HTTP-2 · HEAD requests (and method mismatches) return 404 instead of serving/annotating
+### HTTP-2 · HEAD requests (and method mismatches) return 404 instead of serving/annotating ✅ RESOLVED
+- **Resolved:** Slice J (branch `slice-j-http-cors-head`). `Router::dispatch` matches `HEAD` as `GET` (single pass, first-match-wins preserved) and returns a **405 with an `Allow` header** when a route's *pattern* matches but not its method (else null → 404). `Application::handle` strips the body for a HEAD via new `Response::withoutBody()` — after headers/CORS are set, before `notifyHandled` — so a HEAD carries the GET's status + headers, no body. **Documented consequence** (both reviews): because `SiteController` registers `GET /{collection}` catch-alls, a wrong-method request to a 1–2-segment path (e.g. `POST /anything`) is now **405 (Allow: GET, HEAD)**, not 404 — uniform, no oracle, RFC-tolerable; pinned by a test. 405 returned as a `Response` (not an exception), plain-text (the Cors 204 precedent), `OPTIONS` omitted from `Allow`, no fabricated Content-Length. Tests: `RouterTest` (405+Allow, HEAD→GET), `HttpMethodTest` (HEAD 200 empty, 405 catch-all, 3-seg 404, HEAD still runs admin+API guards), `CacheRoutesTest` (HEAD neither populates nor is served from cache).
 - **Priority:** P2
 - **Type:** correctness / product-gap
 - **Where:** `src/Http/Router.php:70-79` (`dispatch` requires exact `$route->method === $request->method`), `src/Http/Response.php:105-114` (`send()` always echoes the body)
@@ -41,7 +42,8 @@ decision were both verified to still hold.
 
 ---
 
-### HTTP-3 · A session is started for every request, so API/JSON and CORS-preflight responses set a `nimbus_session` cookie
+### HTTP-3 · A session is started for every request, so API/JSON and CORS-preflight responses set a `nimbus_session` cookie ✅ RESOLVED
+- **Resolved:** Slice J. `Application::run()` skips `startSession()` when `Cors::isApiPath($request->path)` — covering `/api/**`, MCP, and the OPTIONS preflight (all bearer-only; verified **zero** `$_SESSION`/`session_*` under `src/Api/`+`src/Mcp/`). Admin + public site + login unchanged. Uses the shared `Cors::isApiPath` predicate so the CORS scope and the session-skip can't drift. Since the cookie is emitted by `session_start()` (not on the `Response`, so unobservable via `handle()`), the seam is tested three ways: `ApiSessionlessTest` unit-tests the predicate AND a static drift guard (no session use under Api/Mcp — a future session-dependent /api addition fails loudly), and `smoke.sh` asserts no `Set-Cookie` on a live `/api/v1` response while `/admin/login` still sets one. **Deferred (recorded):** session-skip for `/theme/assets/` + public GETs (a behavior change — themes could touch session) → its own later slice.
 - **Priority:** P3
 - **Type:** security (hygiene) / architecture
 - **Severity (if security):** Low
@@ -53,7 +55,8 @@ decision were both verified to still hold.
 
 ---
 
-### HTTP-4 · CORS preflight is answered before rate-limiting and the DB gate
+### HTTP-4 · CORS preflight is answered before rate-limiting and the DB gate ✅ RESOLVED
+- **Resolved:** Slice J. The preflight now passes the per-IP flood guard before returning the 204, so it is no longer an uncounted request class. The flood guard is built **once** in `Application` (`RateLimitMiddleware` keyed `ip:{ip}`) and injected into `ApiController` — one config read, one construction site (platform ❌2, no static Config-coupled factory), so preflight + real API requests share the same DB bucket. **Fail-open** (platform ❌1): the guard's DB call runs before `respond()`'s try/catch + the readiness gates and `index.php` has no net, so a DB-down / not-yet-installed site logs a ref and still answers 204 (a real API request 503s pre-limiter anyway). Residual (both lenses, Low/Info): an `OPTIONS` with **no** Origin isn't a preflight → falls to routing → 405, uncounted — but that's baseline-equivalent to any 404/405 (no DB, limiter never fires). Tests: `ApiCorsTest` (repeated preflights → 429; preflight + real request share the `ip:` bucket).
 - **Priority:** P3
 - **Type:** security
 - **Severity (if security):** Low

@@ -60,4 +60,46 @@ final class ApiCorsTest extends HttpTestCase
         self::assertSame(200, $response->status, 'the request still succeeds — the browser is what blocks it');
         self::assertNull($response->header('Access-Control-Allow-Origin'), 'but no origin is granted');
     }
+
+    // ------------------------------------------------- API-5: advertise the real methods
+
+    public function test_a_preflight_advertises_the_write_methods_and_if_match(): void
+    {
+        $response = $this->send('OPTIONS', ['HTTP_ORIGIN' => 'https://app.example']);
+
+        $methods = (string) $response->header('Access-Control-Allow-Methods');
+        foreach (['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'] as $m) {
+            self::assertStringContainsString($m, $methods, "the API serves {$m} cross-origin");
+        }
+        self::assertStringContainsString('If-Match', (string) $response->header('Access-Control-Allow-Headers'), 'writes need If-Match');
+        self::assertNull($response->header('Access-Control-Allow-Credentials'), 'bearer auth, never a credentialed CORS grant');
+    }
+
+    // ------------------------------------------------- HTTP-4: the preflight is rate-limited
+
+    public function test_repeated_preflights_are_flood_limited(): void
+    {
+        $prev = getenv('API_FLOOD_LIMIT');
+        putenv('API_FLOOD_LIMIT=2');
+        try {
+            self::assertSame(204, $this->send('OPTIONS', ['HTTP_ORIGIN' => 'https://app.example'])->status);
+            self::assertSame(204, $this->send('OPTIONS', ['HTTP_ORIGIN' => 'https://app.example'])->status);
+            self::assertSame(429, $this->send('OPTIONS', ['HTTP_ORIGIN' => 'https://app.example'])->status, 'the 3rd preflight is no longer uncounted');
+        } finally {
+            $prev === false ? putenv('API_FLOOD_LIMIT') : putenv('API_FLOOD_LIMIT=' . $prev);
+        }
+    }
+
+    public function test_a_preflight_and_a_real_request_share_the_ip_flood_bucket(): void
+    {
+        $prev = getenv('API_FLOOD_LIMIT');
+        putenv('API_FLOOD_LIMIT=2');
+        try {
+            self::assertSame(204, $this->send('OPTIONS', ['HTTP_ORIGIN' => 'https://app.example'])->status, 'preflight — bucket hit 1');
+            self::assertSame(200, $this->send('GET', ['HTTP_ORIGIN' => 'https://app.example', 'HTTP_AUTHORIZATION' => 'Bearer ' . $this->token])->status, 'real request — bucket hit 2');
+            self::assertSame(429, $this->send('OPTIONS', ['HTTP_ORIGIN' => 'https://app.example'])->status, 'preflight + real share one ip: bucket');
+        } finally {
+            $prev === false ? putenv('API_FLOOD_LIMIT') : putenv('API_FLOOD_LIMIT=' . $prev);
+        }
+    }
 }
