@@ -19,6 +19,36 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice D — plugin migration isolation (PLUG-1), availability DoS closed
+- **Status:** fixed. Design reviewed via a **Fable two-skill burst** (green, no Critical/High,
+  conditional on four must-ships — all shipped). Resolves audit **PLUG-1** (availability: one
+  plugin wedging the whole install's migrations). CLI-only surface (no web reachability —
+  verified; ADR 0001 no-in-admin-installer holds); plugin = admin-installed, semi-trusted
+  in-process code (contract-not-sandbox).
+- **Surface:** `src/Database/Migrator.php`, `bin/nimbus` (migrate/install), `tests/bootstrap.php`.
+- **Controls shipped (each a regression test in `PluginMigrationTest`):**
+  1. **Per-provider isolation** — plugin loop catches `PDOException` per `apply()`, records +
+     skips that provider's rest, continues others; a broken plugin can no longer starve the
+     rest or block core. Red-on-old-code test: A fails → B still applies + records.
+  2. **Structural core/plugin distinction** — halt-vs-isolate is decided by which loop runs,
+     **never by `provider === 'core'`** — so a plugin manifest id `"core"` (PLUG-2 is unfixed)
+     can't seize core's halt-everything behaviour as a re-wedge/attribution-spoof primitive.
+     Test: a registry migration `provider:'core'` is isolated, not halting.
+  3. **Fail-closed call sites** — `migrate`/`install` exit non-zero + stderr on failure;
+     **core** failure throws `MigrationFailed` (so `install` never seeds a half-migrated schema,
+     `bootstrap` dies loudly) while `install` still seeds on a *plugin*-only failure. Closed the
+     fail-open the non-throwing design would have opened (same class as Slice B/C).
+  4. **Error-string sink** — `MigrationReport.error` (raw DB error: SQL fragments, values) is
+     documented **operator-only**, routed to stderr; stdout stays the clean applied-names list.
+     Not web/MCP-reachable today (A1 = Low; would be Medium if a status surface ever renders it).
+- **Severity:** availability defect, no Critical/High; the isolation removes the one-plugin DoS.
+- **Leaves open (recorded, Low, pre-existing):** plugin migrations execute on the **core PDO
+  connection** — ADR 0005 "own tables only" is a contract, not a wall (a hostile migration can
+  still DDL `nb_*`); **PLUG-2** id validation = named fast-follow; A4 partial-apply state (a
+  half-created table missing its UNIQUE) is plugin-owned + now documented for authors; the CLI-
+  only assumption gates A1 — re-review the `error` field if a web/MCP migration-status consumer
+  ever ships (PLUG-11).
+
 ### 2026-08-23 · Slice C — relation cross-collection scope-confusion closed (DATA-1)
 - **Status:** fixed. Design reviewed via a **Fable two-skill burst** (green conditional on the
   must-ships, all shipped). Resolves audit **DATA-1** (Medium — cross-collection read leak +

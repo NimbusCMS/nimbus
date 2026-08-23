@@ -94,6 +94,15 @@ preclude it.
   capability slices: table-namespace collisions, migration ordering, uninstall
   cleanup (deferred), and SQL safety (bound-param helpers; plugin code is trusted
   like a field type, but the interface should make the safe path the easy one).
+- **Migration failure isolation (Slice D, 2026-08-23):** a failing plugin
+  migration is isolated per provider — it records the error, skips that provider's
+  remaining migrations, and lets other providers and core proceed — so one broken
+  plugin can no longer wedge `nimbus migrate` for the whole install. A **core**
+  migration failure still fails closed (throws), because plugin tables may
+  reference core's. Because MySQL auto-commits DDL and cannot roll it back, plugin
+  migration statements **must be individually idempotent** (`… IF NOT EXISTS`) so
+  the automatic retry after a partial failure is safe; the contract is stated on
+  `MigrationRegistrar::register()`.
 
 ## Alternatives considered
 

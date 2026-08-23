@@ -25,8 +25,10 @@ final class CoreMigrationTest extends IntegrationTestCase
     {
         // Already migrated by the bootstrap; a second run applies nothing.
         self::assertFalse($this->migrator()->pending(), 'no migrations pending after bootstrap');
-        self::assertSame([], $this->migrator()->migrate(), 'a second migrate() applies nothing');
-        self::assertSame([], $this->migrator()->migrate(), 'and is stable on a third run');
+        $second = $this->migrator()->migrate();
+        self::assertSame([], $second->applied, 'a second migrate() applies nothing');
+        self::assertSame([], $second->failures, 'and nothing failed');
+        self::assertSame([], $this->migrator()->migrate()->applied, 'and is stable on a third run');
     }
 
     public function test_the_core_tables_all_exist_after_migration(): void
