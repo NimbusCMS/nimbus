@@ -90,6 +90,12 @@ final class UsersController extends Controller
         if ($email === '' || !str_contains($email, '@')) {
             return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('A valid email is required.'));
         }
+        if ($this->tooLong($email, 191)) { // nb_users.email VARCHAR(191)
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('Email must be 191 characters or fewer.'));
+        }
+        if ($this->tooLong(trim((string) $req->input('name')), 120)) { // nb_users.name VARCHAR(120)
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('Name must be 120 characters or fewer.'));
+        }
         if ($this->users->emailExists($email)) {
             return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode("A user with email \"{$email}\" already exists."));
         }
@@ -161,6 +167,9 @@ final class UsersController extends Controller
         }
 
         $name = trim((string) $req->input('name'));
+        if ($this->tooLong($name, 120)) { // nb_users.name VARCHAR(120)
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('Name must be 120 characters or fewer.'));
+        }
         if ($name !== '') {
             $this->users->setName($id, $name);
         }

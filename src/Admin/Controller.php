@@ -144,6 +144,17 @@ abstract class Controller
         return Response::redirect($to);
     }
 
+    /**
+     * Is a value longer than a column allows? A small shared guard so every admin
+     * form rejects over-long input with a friendly message instead of a 1406
+     * "Data too long" → 500 under STRICT_TRANS_TABLES. `mb_strlen` counts
+     * characters (utf8mb4), matching the column definition.
+     */
+    protected function tooLong(?string $value, int $max): bool
+    {
+        return $value !== null && mb_strlen($value) > $max;
+    }
+
     /** Short-circuit the current action with a redirect (throws; caught by the kernel). */
     protected function abortTo(string $to): never
     {

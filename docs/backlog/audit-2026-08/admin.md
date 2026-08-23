@@ -53,6 +53,7 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Effort:** S
 
 ### ADMIN-5 · Two fields with colliding handles: 500 on edit, wrong error on create
+- **✅ RESOLVED** (Slice G, 2026-08-23) — `validateDraft` rejects duplicate (normalized, intra-submission) field handles + length caps; MCP `SchemaToolset` dedups too. Silent-overwrite closed.
 - **Priority:** P2
 - **Type:** error-handling
 - **Where:** `src/Admin/CollectionsController.php:221-260` (`fieldDefs()` — no duplicate-handle check), `src/Content/CollectionRepository.php:129-166` (`syncFields` INSERTs both), `src/Content/CollectionService.php:26-42` (create's catch mislabels it)
@@ -81,6 +82,7 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Effort:** M
 
 ### ADMIN-8 · No length caps on admin text inputs — over-long values 500 under STRICT_TRANS_TABLES (verified on this stack)
+- **✅ RESOLVED** (Slice G, 2026-08-23) — `Controller::tooLong` + per-form caps (collection name/handle/desc/label incl. the VARCHAR(80) handles; user/role/token/media); MCP parity in `SchemaToolset`/`create_collection`.
 - **Priority:** P2
 - **Type:** error-handling
 - **Where:** `src/Admin/UsersController.php:89-121` (name→VARCHAR(120), email→191), `src/Admin/RolesController.php:81-95` (name→80), `src/Admin/TokensController.php:99-101` (name→120), `src/Admin/CollectionsController.php:175-207` (name→120, description→255, field label→120), `src/Admin/EntriesController.php:299-320` (title→255, slug→191), `src/Admin/MediaController.php:85` (alt→255)
@@ -118,6 +120,7 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Effort:** S
 
 ### ADMIN-12 · Crafted array-shaped field-builder input → TypeError 500 in the collections form
+- **✅ RESOLVED** (Slice G, 2026-08-23) — `fieldDefs` coerces `type`/`handle`/`target` with `is_string` (both array-key TypeError paths).
 - **Priority:** P3
 - **Type:** error-handling
 - **Where:** `src/Admin/CollectionsController.php:236-238` (`fieldDefs()`: `$row['type']` / `$row['handle']` passed un-coerced)

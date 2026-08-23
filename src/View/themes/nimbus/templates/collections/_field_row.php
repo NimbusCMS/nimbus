@@ -19,7 +19,9 @@ $multiple = $f ? (bool) $f->option('multiple', false) : false;
 $isRel    = in_array($type, $relationTypes ?? [], true);
 $name     = 'fields[' . $i . ']';
 ?>
-<div class="nb-field-row" data-row>
+<?php $rowErr = isset($err) && is_string($i) === false ? $err("fields.$i") : ''; ?>
+<div class="nb-field-row<?= $rowErr !== '' ? ' has-error' : '' ?>" data-row>
+    <?= $rowErr ?>
     <div class="nb-field-row-main">
         <input class="nb-fr-label" name="<?= $e($name) ?>[label]" placeholder="Field label" value="<?= $e($label) ?>" data-label>
         <input class="nb-fr-handle" name="<?= $e($name) ?>[handle]" placeholder="handle" value="<?= $e($handle) ?>" <?= ($f && ($lockHandles ?? true)) ? 'readonly title="Handle can’t change once entries exist"' : '' ?> data-handle>

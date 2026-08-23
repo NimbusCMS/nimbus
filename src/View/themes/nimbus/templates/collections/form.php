@@ -45,9 +45,10 @@ $err         = static fn (string $k): string => isset($errors[$k])
             <label>Icon</label>
             <input name="icon" value="<?= $e($draft['icon'] ?? '❑') ?>" maxlength="4">
         </div>
-        <div class="nb-field">
+        <div class="nb-field <?= isset($errors['description']) ? 'has-error' : '' ?>">
             <label>Description</label>
             <input name="description" value="<?= $e($draft['description'] ?? '') ?>">
+            <?= $err('description') ?>
         </div>
     </div>
 

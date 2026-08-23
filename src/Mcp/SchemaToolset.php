@@ -112,6 +112,16 @@ final class SchemaToolset implements Toolset
         if ($handle === '' || $name === '') {
             return ToolResult::error('A collection needs a non-empty handle and name.', 'invalid');
         }
+        // Column widths — a friendly error, not a 1406/500 (parity with the admin form).
+        if (mb_strlen($handle) > CollectionService::HANDLE_MAX) {
+            return ToolResult::error('Handle must be ' . CollectionService::HANDLE_MAX . ' characters or fewer.', 'invalid');
+        }
+        if (mb_strlen($name) > CollectionService::NAME_MAX) {
+            return ToolResult::error('Name must be ' . CollectionService::NAME_MAX . ' characters or fewer.', 'invalid');
+        }
+        if (mb_strlen(trim($this->str($args, 'description'))) > CollectionService::DESC_MAX) {
+            return ToolResult::error('Description must be ' . CollectionService::DESC_MAX . ' characters or fewer.', 'invalid');
+        }
 
         $errors = [];
         $fields = $this->fieldDefs(is_array($args['fields'] ?? null) ? $args['fields'] : [], $errors);
@@ -271,11 +281,20 @@ final class SchemaToolset implements Toolset
     private function fieldDefs(array $rows, array &$errors): array
     {
         $defs = [];
+        $seen = [];
         $i    = 0;
         foreach ($rows as $row) {
             $def = $this->fieldDef(is_array($row) ? $row : [], $errors, "fields[{$i}]");
             if ($def !== null) {
-                $defs[] = $def;
+                // Duplicate handles would 500 (uq_field) / mislabel the collection
+                // dup-key catch, or silently overwrite a sibling on set_fields —
+                // reject them here (parity with the admin validateDraft check).
+                if (isset($seen[$def['handle']])) {
+                    $errors["fields[{$i}]"] = "Duplicate field handle \"{$def['handle']}\" — each field needs a distinct handle.";
+                } else {
+                    $seen[$def['handle']] = true;
+                    $defs[] = $def;
+                }
             }
             $i++;
         }
@@ -297,6 +316,10 @@ final class SchemaToolset implements Toolset
             $errors[$key] = 'A field needs a label.';
             return null;
         }
+        if (mb_strlen($label) > CollectionService::LABEL_MAX) {
+            $errors[$key] = 'A field label must be ' . CollectionService::LABEL_MAX . ' characters or fewer.';
+            return null;
+        }
         if (!$this->types->has($type)) {
             $errors[$key] = "Unknown field type \"{$type}\". Valid types: " . implode(', ', array_keys($this->types->choices())) . '.';
             return null;
@@ -304,6 +327,10 @@ final class SchemaToolset implements Toolset
         $handle = Str::handle($this->str($row, 'handle') !== '' ? $this->str($row, 'handle') : $label);
         if ($handle === '') {
             $errors[$key] = 'A field needs a handle (or a label to derive one from).';
+            return null;
+        }
+        if (mb_strlen($handle) > CollectionService::HANDLE_MAX) {
+            $errors[$key] = 'A field handle must be ' . CollectionService::HANDLE_MAX . ' characters or fewer (it derives from the label).';
             return null;
         }
 
