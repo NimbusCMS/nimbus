@@ -137,17 +137,20 @@ final class CollectionRoutesTest extends HttpTestCase
         self::assertSame(['body', 'qty'], array_map(static fn ($f) => $f->handle, $collection->fields));
     }
 
-    public function test_a_failed_field_write_rolls_back_the_whole_collection(): void
+    public function test_an_over_long_field_label_is_caught_before_the_write(): void
     {
         $this->actingAs('admin');
 
-        // A label past VARCHAR(120) fails the field insert mid-transaction.
+        // A label past VARCHAR(120) is now rejected at validation (Slice G / ADMIN-8),
+        // so the form re-renders with a friendly error and the collection is never
+        // created — better than the old mid-transaction 500 + rollback.
         $response = $this->post('/admin/collections', [
             'name' => 'Broken', 'handle' => 'broken', 'kind' => 'collection',
         ] + $this->fields([str_repeat('x', 300), 'wide']));
 
-        self::assertSame(500, $response->status, 'an unexpected DB error surfaces as a generic 500');
-        self::assertNull($this->repo->findByHandle('broken'), 'the collection must not be left behind');
+        self::assertSame(200, $response->status, 'a friendly re-render, not a 500');
+        self::assertStringContainsString('Field label must be', $response->body);
+        self::assertNull($this->repo->findByHandle('broken'), 'the collection is not created');
     }
 
     public function test_update_changes_the_collection(): void

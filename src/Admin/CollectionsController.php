@@ -95,7 +95,8 @@ final class CollectionsController extends Controller
         $this->requireCan('schema', 'write', Url::to('admin.collections.index'));
         $this->requireCsrf($req);
 
-        $draft  = $this->draftFromRequest($req);
+        $defs   = $this->fieldDefs($req);
+        $draft  = $this->draftFromRequest($req, $defs);
         $errors = $this->validateDraft($draft);
 
         if ($errors === []) {
@@ -106,7 +107,7 @@ final class CollectionsController extends Controller
                     $draft['icon'],
                     $draft['description'],
                     $this->options($req),
-                    $this->fieldDefs($req),
+                    $defs,
                 );
                 return $this->redirect(Url::to('admin.collections.index') . '?msg=created');
             } catch (DuplicateHandle $e) {
@@ -127,13 +128,14 @@ final class CollectionsController extends Controller
             return $this->redirect(Url::to('admin.collections.index'));
         }
 
-        $draft  = $this->draftFromRequest($req);
+        $defs   = $this->fieldDefs($req);
+        $draft  = $this->draftFromRequest($req, $defs);
         $errors = $this->validateDraft($draft);
         if ($errors !== []) {
             return $this->renderCollectionForm($collection, $draft, $errors);
         }
 
-        $this->collectionService->update($id, $draft['name'], $draft['icon'], $draft['description'], $this->options($req), $this->fieldDefs($req));
+        $this->collectionService->update($id, $draft['name'], $draft['icon'], $draft['description'], $this->options($req), $defs);
         return $this->redirect(Url::to('admin.collections.index') . '?msg=updated');
     }
 
@@ -177,7 +179,13 @@ final class CollectionsController extends Controller
     }
 
     /** @return array<string,mixed> the form model rebuilt from a submission */
-    private function draftFromRequest(Request $req): array
+    /**
+     * @param array<int,array{handle:string,label:string,type:string,required:bool,options:array<string,mixed>}> $defs
+     *        the field definitions, parsed once by the caller and passed to both
+     *        validation and the service (no second parse that could differ)
+     * @return array<string,mixed>
+     */
+    private function draftFromRequest(Request $req, array $defs): array
     {
         $name    = trim((string) $req->input('name'));
         $options = $this->options($req);
@@ -189,11 +197,10 @@ final class CollectionsController extends Controller
             'description' => (string) $req->input('description'),
             'kind'        => $options['kind'],
             'roles'       => [],
-            // Field defs are already normalized; wrap them so the builder can
-            // re-render the rows exactly as they were submitted.
+            // Wrap the same defs so the builder re-renders the rows exactly as submitted.
             'fields'      => array_map(
                 static fn (array $d): Field => new Field($d['handle'], $d['label'], $d['type'], $d['required'], $d['options']),
-                $this->fieldDefs($req),
+                $defs,
             ),
         ];
     }
@@ -207,9 +214,36 @@ final class CollectionsController extends Controller
         $errors = [];
         if ($draft['name'] === '') {
             $errors['name'] = 'Name is required.';
+        } elseif ($this->tooLong($draft['name'], CollectionService::NAME_MAX)) {
+            $errors['name'] = 'Name must be ' . CollectionService::NAME_MAX . ' characters or fewer.';
         }
         if ($draft['handle'] === '') {
             $errors['handle'] = 'Handle is required (it is normally derived from the name).';
+        } elseif ($this->tooLong($draft['handle'], CollectionService::HANDLE_MAX)) {
+            // The handle derives from the name and is not truncated — the column is
+            // VARCHAR(80), so a long name would 1406 → 500 without this.
+            $errors['handle'] = 'Handle must be ' . CollectionService::HANDLE_MAX . ' characters or fewer — shorten the name or set an explicit handle.';
+        }
+        if ($this->tooLong($draft['description'], CollectionService::DESC_MAX)) {
+            $errors['description'] = 'Description must be ' . CollectionService::DESC_MAX . ' characters or fewer.';
+        }
+
+        // Per-field: label/handle length and duplicate handles. Intra-submission
+        // and over the *normalized* handles (the edit form re-submits every field,
+        // so a collision — silent-overwrite or 500 — always appears as two rows
+        // here). Keyed `fields.{i}` to render on the offending row.
+        $seen = [];
+        foreach ($draft['fields'] as $i => $field) {
+            if ($this->tooLong($field->label, CollectionService::LABEL_MAX)) {
+                $errors["fields.$i"] = 'Field label must be ' . CollectionService::LABEL_MAX . ' characters or fewer.';
+            } elseif ($this->tooLong($field->handle, CollectionService::HANDLE_MAX)) {
+                $errors["fields.$i"] = 'Field handle must be ' . CollectionService::HANDLE_MAX . ' characters or fewer — it derives from the label.';
+            } elseif ($field->handle !== '' && isset($seen[$field->handle])) {
+                $errors["fields.$i"] = 'Two fields resolve to the same handle “' . $field->handle . '” — rename one or give it a distinct handle.';
+            }
+            if ($field->handle !== '') {
+                $seen[$field->handle] = true;
+            }
         }
         return $errors;
     }
@@ -240,9 +274,13 @@ final class CollectionsController extends Controller
             if ($label === '') {
                 continue;
             }
-            $type   = ($row['type'] ?? 'text');
-            $type   = $this->types->has($type) ? $type : 'text';
-            $handle = Str::handle(($row['handle'] ?? '') !== '' ? $row['handle'] : $label);
+            // Coerce nested values — a crafted `fields[0][type][]`/`[handle][]`
+            // sends an array where a string is expected, which would TypeError
+            // through has()/Str::handle() (ADMIN-12).
+            $type      = is_string($row['type'] ?? null) ? $row['type'] : 'text';
+            $type      = $this->types->has($type) ? $type : 'text';
+            $handleRaw = is_string($row['handle'] ?? null) ? $row['handle'] : '';
+            $handle    = Str::handle($handleRaw !== '' ? $handleRaw : $label);
 
             $options = [];
             if ($this->types->get($type)->hasChoices()) {
@@ -258,7 +296,7 @@ final class CollectionsController extends Controller
                 }
             }
             if ($type === 'relation') {
-                $options['target']   = trim((string) ($row['target'] ?? ''));
+                $options['target']   = is_string($row['target'] ?? null) ? trim($row['target']) : '';
                 $options['multiple'] = !empty($row['multiple']);
             }
             $defs[] = ['handle' => $handle, 'label' => $label, 'type' => $type, 'required' => !empty($row['required']), 'options' => $options];

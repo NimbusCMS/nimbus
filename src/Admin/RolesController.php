@@ -82,6 +82,9 @@ final class RolesController extends Controller
         if ($name === '') {
             return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('A role needs a name.'));
         }
+        if ($this->tooLong($name, 80)) { // nb_roles.name VARCHAR(80)
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('Role name must be 80 characters or fewer.'));
+        }
         if ($this->roles->findByName($name) !== null) {
             return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("A role named \"{$name}\" already exists."));
         }

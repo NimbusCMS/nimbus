@@ -13,6 +13,14 @@ use Nimbus\Database\Connection;
  */
 final class CollectionService
 {
+    // Column widths (nb_collections / nb_fields) — validated at the input edge (admin
+    // + MCP) so an over-long value is a friendly error, not a 1406 → 500. One source
+    // for both surfaces; the DB stays the authority (boundary tests guard drift).
+    public const HANDLE_MAX = 80;   // nb_collections.handle / nb_fields.handle VARCHAR(80)
+    public const NAME_MAX   = 120;  // nb_collections.name VARCHAR(120)
+    public const DESC_MAX   = 255;  // nb_collections.description VARCHAR(255)
+    public const LABEL_MAX  = 120;  // nb_fields.label VARCHAR(120)
+
     public function __construct(
         private Connection $db,
         private CollectionRepository $collections,

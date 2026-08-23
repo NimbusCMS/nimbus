@@ -100,6 +100,9 @@ final class TokensController extends Controller
         if ($name === '') {
             return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode('A token needs a name.'));
         }
+        if ($this->tooLong($name, 120)) { // nb_api_tokens.name VARCHAR(120)
+            return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode('Token name must be 120 characters or fewer.'));
+        }
 
         $scopes = $this->scopesFrom($req);
 

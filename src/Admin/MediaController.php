@@ -80,6 +80,9 @@ final class MediaController extends Controller
         if ($file === null) {
             return $this->redirect(Url::to('admin.media.index') . '?err=' . rawurlencode('No file was selected.'));
         }
+        if ($this->tooLong($req->input('alt'), 255)) { // nb_media.alt VARCHAR(255)
+            return $this->redirect(Url::to('admin.media.index') . '?err=' . rawurlencode('Alt text must be 255 characters or fewer.'));
+        }
 
         try {
             $this->uploader->store($file, $this->auth->user()?->id, $req->input('alt'));

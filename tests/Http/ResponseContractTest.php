@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nimbus\Tests\Http;
 
+use Nimbus\Application;
+use Nimbus\Database\Connection;
 use Nimbus\Http\HttpException;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
@@ -75,22 +77,40 @@ final class ResponseContractTest extends HttpTestCase
 
     public function test_an_unexpected_exception_becomes_a_generic_500_with_a_reference(): void
     {
-        // A collection with a field label past VARCHAR(120) fails deep in the
-        // write, with no typed exception for the controller to catch.
-        $this->actingAs('admin');
+        // A genuine, un-anticipated internal fault: a database that is reachable
+        // and passes the "installed" guard (nb_users exists) but is missing a
+        // table a handler needs — so dispatch throws a PDOException the app never
+        // catches. The kernel must still return a generic 500 with a reference id
+        // and leak nothing. (Replaces an over-long-field trigger now caught at
+        // validation — Slices F/G — with a fault that is unexpected by design; a
+        // fully-unreachable DB is the distinct, deliberate 503 path.)
+        $name = 'nb_contract_' . bin2hex(random_bytes(3));
+        $root = new \PDO(
+            sprintf('mysql:host=%s;port=%d', NB_TEST_DB['host'], NB_TEST_DB['port']),
+            NB_TEST_DB['user'],
+            NB_TEST_DB['pass'],
+            [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION],
+        );
+        $root->exec("CREATE DATABASE `{$name}` CHARACTER SET utf8mb4");
+        $root->exec("CREATE TABLE `{$name}`.nb_users (id INT UNSIGNED PRIMARY KEY)"); // passes the installed guard; nb_collections is absent
 
-        $response = $this->post('/admin/collections', [
-            'name'   => 'Broken',
-            'handle' => 'broken',
-            'fields' => [['label' => str_repeat('x', 300), 'handle' => 'wide', 'type' => 'text']],
-        ]);
+        try {
+            $db = new Connection([
+                'host' => NB_TEST_DB['host'], 'port' => NB_TEST_DB['port'],
+                'name' => $name, 'user' => NB_TEST_DB['user'], 'pass' => NB_TEST_DB['pass'],
+            ]);
+            // A public collection page queries nb_collections → 1146 → 500.
+            $response = (new Application($db))->handle($this->request('GET', '/posts'));
 
-        self::assertSame(500, $response->status);
-        self::assertStringContainsString('Something went wrong', $response->body);
-        self::assertMatchesRegularExpression('/Reference: <code>[0-9a-f]{8}<\/code>/', $response->body);
-        // The internals must not leak.
-        self::assertStringNotContainsString('SQLSTATE', $response->body);
-        self::assertStringNotContainsString('nb_fields', $response->body);
+            self::assertSame(500, $response->status);
+            self::assertStringContainsString('Something went wrong', $response->body);
+            self::assertMatchesRegularExpression('/Reference: <code>[0-9a-f]{8}<\/code>/', $response->body);
+            // The internals must not leak — no SQLSTATE, no table name.
+            self::assertStringNotContainsString('SQLSTATE', $response->body);
+            self::assertStringNotContainsString('nb_collections', $response->body);
+        } finally {
+            $root->exec("DROP DATABASE `{$name}`");
+        }
     }
 
     // ------------------------------------------------------ security headers
