@@ -32,7 +32,7 @@ final class PasswordResetTest extends HttpTestCase
     /** @return list<array<string,mixed>> the nb_password_resets rows */
     private function resetRows(): array
     {
-        return $this->db->select('SELECT * FROM nb_password_resets');
+        return array_values($this->db->select('SELECT * FROM nb_password_resets'));
     }
 
     // ------------------------------------------------------------- request

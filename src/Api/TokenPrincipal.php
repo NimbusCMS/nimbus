@@ -47,6 +47,6 @@ final readonly class TokenPrincipal
     /** May this token perform $action on $resource? The shared, deny-by-default decision ({@see Authorizer}). */
     public function can(string $resource, string $action): bool
     {
-        return Authorizer::can($this->scopes, $resource, $action);
+        return Authorizer::can(array_values($this->scopes), $resource, $action);
     }
 }

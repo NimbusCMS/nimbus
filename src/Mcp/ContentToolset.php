@@ -56,7 +56,7 @@ final class ContentToolset implements Toolset
                 $tools[] = $this->getDefinition($collection);
             }
             if ($principal->can($collection->handle, 'write')) {
-                $fields = $this->collections->fields($collection->id);
+                $fields = array_values($this->collections->fields($collection->id));
                 $tools[] = $this->createDefinition($collection, $fields);
                 $tools[] = $this->updateDefinition($collection, $fields);
                 $tools[] = $this->deleteDefinition($collection);

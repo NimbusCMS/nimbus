@@ -66,6 +66,7 @@ final class SiteRoutesTest extends HttpTestCase
     }
 
     /** @param array<int,array<string,mixed>> $fields */
+    /** @param list<array{handle:string,label:string,type:string,required:bool,options:array<string,mixed>}> $fields */
     private function singleCollection(string $handle, array $fields = []): Collection
     {
         return $this->makeCollection($handle, $fields, ['kind' => 'single', 'permissions' => ['manage' => ['editor']]]);

@@ -48,7 +48,7 @@ final class Route
 
     public function middleware(callable ...$middleware): self
     {
-        $this->middleware = array_merge($this->middleware, $middleware);
+        $this->middleware = array_values(array_merge($this->middleware, $middleware));
         return $this;
     }
 

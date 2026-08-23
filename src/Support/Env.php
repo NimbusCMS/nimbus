@@ -12,7 +12,11 @@ final class Env
         if (!is_file($file)) {
             return;
         }
-        foreach (file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) {
+            return;
+        }
+        foreach ($lines as $line) {
             $line = trim($line);
             if ($line === '' || $line[0] === '#' || !str_contains($line, '=')) {
                 continue;

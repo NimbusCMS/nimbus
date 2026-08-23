@@ -65,10 +65,14 @@ final class ApiRoutesTest extends HttpTestCase
     {
         // Split ?query the way Request::fromGlobals would — the router matches
         // on the path, and the handler reads the parsed query.
-        $query = [];
+        $parsed = [];
         if (str_contains($path, '?')) {
             [$path, $qs] = explode('?', $path, 2);
-            parse_str($qs, $query);
+            parse_str($qs, $parsed);
+        }
+        $query = [];
+        foreach ($parsed as $key => $value) {
+            $query[(string) $key] = $value; // query-string keys are always strings
         }
         return new Request('GET', $path, $query, [], $server, []);
     }

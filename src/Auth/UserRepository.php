@@ -20,10 +20,10 @@ final class UserRepository
     /** @return list<User> */
     public function all(): array
     {
-        return array_map(
+        return array_values(array_map(
             static fn (array $r): User => self::hydrate($r),
             $this->db->select('SELECT * FROM nb_users ORDER BY created_at, id'),
-        );
+        ));
     }
 
     public function find(int $id): ?User

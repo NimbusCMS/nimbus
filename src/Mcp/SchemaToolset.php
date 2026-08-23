@@ -323,10 +323,10 @@ final class SchemaToolset implements Toolset
      */
     private function currentFieldDefs(Collection $collection): array
     {
-        return array_map(
+        return array_values(array_map(
             static fn (Field $f): array => ['handle' => $f->handle, 'label' => $f->label, 'type' => $f->type, 'required' => $f->required, 'options' => $f->options],
             $collection->fields,
-        );
+        ));
     }
 
     /**

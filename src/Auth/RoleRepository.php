@@ -20,10 +20,10 @@ final class RoleRepository
     /** @return list<Role> */
     public function all(): array
     {
-        return array_map(
+        return array_values(array_map(
             static fn (array $r): Role => Role::fromRow($r),
             $this->db->select('SELECT * FROM nb_roles ORDER BY is_system DESC, name'),
-        );
+        ));
     }
 
     /**
@@ -115,13 +115,13 @@ final class RoleRepository
     /** @return list<Role> the roles assigned to a user */
     public function rolesForUser(int $userId): array
     {
-        return array_map(
+        return array_values(array_map(
             static fn (array $r): Role => Role::fromRow($r),
             $this->db->select(
                 'SELECT r.* FROM nb_roles r JOIN nb_user_roles ur ON ur.role_id = r.id WHERE ur.user_id = :u ORDER BY r.name',
                 ['u' => $userId],
             ),
-        );
+        ));
     }
 
     /**

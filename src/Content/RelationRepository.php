@@ -57,14 +57,14 @@ final class RelationRepository
             ['f' => $fromEntryId, 'fl' => $fieldId],
         );
 
-        return array_map(
+        return array_values(array_map(
             static fn (array $r): array => [
                 'id'    => (int) $r['id'],
                 'slug'  => (string) $r['slug'],
                 'title' => (string) $r['title'],
             ],
             $rows,
-        );
+        ));
     }
 
     /**

@@ -28,7 +28,7 @@ final class ControllerBoundaryTest extends HttpTestCase
     private function routesOf(object $controller): Router
     {
         $router = new Router();
-        $controller->routes($router);
+        $controller->routes($router); // @phpstan-ignore method.notFound
         return $router;
     }
 
