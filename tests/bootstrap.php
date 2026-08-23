@@ -10,6 +10,9 @@ declare(strict_types=1);
  */
 require __DIR__ . '/../vendor/autoload.php';
 
+// Intercept NativeMailer's mail() so tests observe the bytes without sending.
+require __DIR__ . '/native_mail_shim.php';
+
 // Sessions in CLI: there is nowhere to send a cookie, and attempting to would
 // warn once PHPUnit has printed anything. The HTTP-functional tests still get
 // real session storage, real ids, and real session_regenerate_id().

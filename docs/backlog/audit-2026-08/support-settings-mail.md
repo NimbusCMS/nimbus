@@ -11,7 +11,8 @@ silently dropping later listeners (audit records included) when an earlier one t
 
 ---
 
-### SUP-1 · A `MAIL_TRANSPORT` typo silently reroutes all mail to the log — and reports delivery success
+### SUP-1 · A `MAIL_TRANSPORT` typo silently reroutes all mail to the log — and reports delivery success ✅ RESOLVED
+- **Resolved:** Slice I (branch `slice-i-mail-reliability`). The `MailerFactory` fallback is now **loud at send time**: an unrecognized `MAIL_TRANSPORT` builds a *flagged* `LogMailer(path, badValue)` that `error_log`s a clear "NOT delivered — fix MAIL_TRANSPORT" warning on every `send()` (the moment false success is manufactured), while an intentional `MAIL_TRANSPORT=log` uses the unflagged mailer and never warns. Placing the warning at send — not in `MailerFactory::fromConfig()`, which runs in `Application::__construct` on *every* request — avoids a per-request log flood (platform ❌1). Added `nimbus mail:test <address>` (validates the address, prints the resolved transport incl. the fallback, sends through the configured transport, non-zero on `MailerException`) — the only way to verify `api`/`native` without a lockout. Tests: `MailerTest` (flagged LogMailer warns / unflagged silent), `MailerFactoryTest` (selection + `resolvedTransport()`).
 - **Priority:** P2
 - **Type:** error-handling
 - **Severity (if security):** —
@@ -21,7 +22,8 @@ silently dropping later listeners (audit records included) when an earlier one t
 - **Fix:** keep the fail-safe fallback, but make it loud: in `MailerFactory`, `error_log` a clear warning when the configured transport is not `log|native|api` (one line, once per request that builds a mailer). Optionally (small, high-value operator win): a `nimbus mail:test <address>` CLI command that sends through the configured transport and prints the outcome — the only way an operator can verify `api`/`native` config today is to lock themselves out and try a reset.
 - **Effort:** S
 
-### SUP-2 · `site.title` accepts control characters — a stored CRLF title silently kills all reset/invite mail
+### SUP-2 · `site.title` accepts control characters — a stored CRLF title silently kills all reset/invite mail ✅ RESOLVED
+- **Resolved:** Slice I. The `site.title` validator now rejects control chars — `preg_match('/[\x00-\x1F\x7F]/', $value)` (**byte-wise, no `/u`** — the `/u` modifier returns `false` on invalid UTF-8, letting a broken-UTF-8 + CRLF title through: platform ❌2, the fail-open shape). At the shared `SettingsRegistry`, so both the admin form and MCP `set_settings` are closed in one place; the CRLF can no longer reach the mail subject. `NativeMailer::assertHeaderSafe` already blocked actual header *injection*, so this was availability/DoS (security: Low, but silent+persistent+recovery-flow → fix now). Other `site.title` sinks confirmed already-safe (HTML `View::e`, OpenAPI `json_encode`, api-transport JSON). Tests: `SettingsSiteTest` (admin form) + `McpSettingsToolsTest` (MCP parity) reject CRLF and a bare `\x01`, store nothing.
 - **Priority:** P2
 - **Type:** security
 - **Severity (if security):** Low
@@ -60,7 +62,8 @@ silently dropping later listeners (audit records included) when an earlier one t
 - **Fix:** in `Env::load()`, for unquoted values strip from the first ` #` (space-hash) onward before trimming; optionally accept a leading `export `. Add the first `EnvTest` while there (see SUP-9).
 - **Effort:** S
 
-### SUP-6 · `NativeMailer` sends non-ASCII subjects raw — a Unicode site title mojibakes the subject line
+### SUP-6 · `NativeMailer` sends non-ASCII subjects raw — a Unicode site title mojibakes the subject line ✅ RESOLVED
+- **Resolved:** Slice I. `NativeMailer::send()` now RFC 2047-encodes a non-ASCII subject via `mb_encode_mimeheader($subject, 'UTF-8', 'B', "\r\n")` (`ext-mbstring` is already a hard requirement) — chosen over a single hand-rolled `=?UTF-8?B?…?=` word, which blows RFC 2047's 75-char encoded-word limit for an 80-char UTF-8 title (platform ❌3). Runs **after** `assertHeaderSafe` (the guard sees the raw value; a raw-CRLF subject still throws); pure-ASCII subjects are left byte-identical. base64's alphabet is CR/LF-free → no injection vector. Verified via a test-only `Nimbus\Mail\mail()` namespace-function shim (`tests/native_mail_shim.php` → `MailSpy`) that observes the exact bytes handed to the transport: `MailerTest` asserts a `Café Süd` subject is encoded + round-trips, an ASCII subject is verbatim, and a CRLF subject still throws.
 - **Priority:** P3
 - **Type:** correctness
 - **Where:** `src/Mail/NativeMailer.php:32-37` (+ subject producers in `PasswordResetService`/`InvitationService`)

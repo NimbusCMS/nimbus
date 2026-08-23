@@ -205,6 +205,22 @@ A plugin is in-process PHP and cannot be sandboxed — the boundary is a
 - **Control:** generic errors + server-side reference; uniform not-found for
   unauthorized-or-absent; secret-scrubbing in logs.
 
+## 15. User-editable config → downstream-sink poisoning
+
+- **Surfaces:** `Settings/SettingsRegistry.php` validators and every consumer of a
+  setting value — `View/View.php` (HTML), `Api/OpenApi*` (`info.title` JSON),
+  `Mail/NativeMailer.php` (subject header), `Auth/{Invitation,PasswordReset}Service.php`.
+- **Check:** when a value that used to be config/env becomes admin- or MCP-editable,
+  **enumerate every sink it reaches** and confirm each escapes/validates for its
+  context — HTML, JSON, **mail headers**, SQL identifiers, filenames, URLs. A sink
+  audited for one context (HTML-escape) is not safe in another (a CR/LF is inert in
+  HTML but breaks a mail subject).
+- **Control:** validate at the shared registry boundary (closes admin form + MCP at
+  once); reject control chars **byte-wise** (`/[\x00-\x1F\x7F]/` — the `/u` modifier
+  fails open on invalid UTF-8); escape per-sink at each consumer.
+- **Sightings:** 2026-08-22 site-title (HTML/JSON XSS audit); SUP-2 (the mail subject
+  the first audit missed) — the recurrence that promoted this to a standing check.
+
 ---
 
 ## Cross-cutting reminders

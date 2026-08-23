@@ -8,6 +8,8 @@ require dirname(__DIR__) . '/bootstrap.php';
 use Nimbus\Auth\Password;
 use Nimbus\Database\Connection;
 use Nimbus\Database\Migrator;
+use Nimbus\Mail\MailerException;
+use Nimbus\Mail\MailerFactory;
 use Nimbus\Support\Config;
 use Nimbus\Support\Env;
 
@@ -110,6 +112,33 @@ try {
             // left untouched.
             $seeded = (new Nimbus\Auth\RoleSeeder($db, new Nimbus\Auth\RoleRepository($db), new Nimbus\Content\CollectionRepository($db)))->seed();
             echo "Roles: {$seeded} system role(s) seeded; users assigned.\n";
+            break;
+
+        case 'mail:test':
+            $to = $argv[2] ?? null;
+            if ($to === null || filter_var($to, FILTER_VALIDATE_EMAIL) === false) {
+                fwrite(STDERR, "Usage: nimbus mail:test <address>\n");
+                exit(1);
+            }
+            // Print the transport that will actually be used (the fallback shows
+            // when MAIL_TRANSPORT is a typo) — the only way to verify api/native
+            // config without locking yourself out via a real reset.
+            $configured = Config::mailTransport();
+            $resolved   = MailerFactory::resolvedTransport();
+            echo $resolved === $configured
+                ? "Transport: {$resolved}\n"
+                : "Transport: {$resolved}  (fallback — MAIL_TRANSPORT=\"{$configured}\" is not one of native|api|log)\n";
+            try {
+                MailerFactory::fromConfig()->send(
+                    $to,
+                    'Nimbus test email',
+                    "This is a test message from `nimbus mail:test`.\nIf you received it, your mail transport is working.",
+                );
+                echo "Sent to {$to}." . ($resolved === 'log' ? " (log transport — check " . Config::mailLogPath() . ", nothing was delivered)\n" : "\n");
+            } catch (MailerException $e) {
+                fwrite(STDERR, "Send failed: {$e->getMessage()}\n");
+                exit(1);
+            }
             break;
 
         case 'create-user':
@@ -321,6 +350,7 @@ try {
               prune                                            clean stale rate rows + run plugin retention (cron)
               media:reindex                                    rebuild the media-usage index from entries (one-off on upgrade)
               roles:seed                                       seed the system roles + assign users (idempotent; run on upgrade)
+              mail:test <address>                              send a test email through the configured transport
               openapi                                          print the OpenAPI 3.0 spec for the live API
               mcp                                              serve MCP over stdio (JSON-RPC); needs NIMBUS_MCP_TOKEN
               install  [--email= --name= --password=]          migrate + create the admin user

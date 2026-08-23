@@ -19,6 +19,37 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice I — mail reliability: recovery-mail DoS closed + guarded resend route (SUP-1/2/6 + ADMIN-7)
+- **Status:** fixed. Fable two-skill burst — **security-green conditional on the ADMIN-7 controls (all shipped)**.
+  No Critical/High introduced; SUP-1/2/6 are net security improvements. Catalog: **user-editable config →
+  audit every downstream sink** now has its 2nd sighting (SUP-2) — PROMOTED below.
+- **Surface:** `src/Settings/SettingsRegistry.php` (title validator — the SUP-2 site), `src/Mail/{MailerFactory,LogMailer,NativeMailer}.php`, `src/Admin/UsersController.php` (`resendInvite`), `src/Auth/PasswordResetRepository.php` (pending signal).
+- **SUP-2 (Low, fixed) — stored CRLF in `site.title` → silent persistent recovery-mail DoS.** A `settings:write`
+  holder stores `"Nimbus\r\nX"` (raw JSON CRLF via MCP `set_settings`; `trim()` strips only ends) → every
+  reset/invite subject throws in `NativeMailer::assertHeaderSafe` → the reset flow swallows it (anti-enumeration)
+  → recovery + invite mail silently dead. **Confirmed DoS, not injection** — `assertHeaderSafe` already blocks
+  real header injection. **Control:** reject `[\x00-\x1F\x7F]` **byte-wise (no `/u`** — fail-open on invalid
+  UTF-8) at the shared `SettingsRegistry` validator → closes admin form AND MCP at once. Other title sinks
+  confirmed safe (HTML `View::e`, OpenAPI `json_encode`, api-transport JSON). Guard: `SettingsSiteTest` +
+  `McpSettingsToolsTest` reject CRLF + `\x01`.
+- **ADMIN-7 resend route (Low, shipped with all controls) — a NEW authenticated password-link-emitting POST.**
+  Must-ships all present: **CSRF** (`requireCsrf` — else High, catalog #6); **`users:write`**; **`{id}` int-cast +
+  `find()`** + send to the **stored** email (no attacker-chosen recipient / IDOR); **subset-only guard** mirroring
+  `update()` (reject before token/mail if target holds an ungrantable role — the 5th surface for the escalation-at-
+  grant check); **pending-gate** (only an unused `invite` token qualifies) so resend can never arm a password-set
+  link for an *active* account. Mitigating context: `/admin/forgot` is public and already mints a (shorter-lived)
+  credential token for any email, so resend grants no new capability class → Low. Guard: `UserInvitationTest`
+  (pending, expired-still-resendable, active-refused, CSRF, users:write, subset, nonexistent-id, list-gate).
+- **SUP-1 (Low, fixed):** silent LogMailer fallback reported false delivery success for recovery/invite mail →
+  loud warning **at send** (not ctor — would flood) + `mail:test` CLI (no new web surface).
+- **SUP-6 (no finding):** base64 subject encoding is CRLF-free (no injection) and runs AFTER the CR/LF guard —
+  ordering locked by a test that a raw-CRLF subject still throws.
+- **Left open:** no per-route throttle on resend (FU-8, Low — pending-gate + auth + users:write already bound it).
+- **THREAT-CATALOG PROMOTION:** "making a previously-trusted config value user-editable requires auditing every
+  downstream sink" — 1st sighting the 2026-08-22 site-title HTML/JSON audit, 2nd sighting SUP-2 (the mail subject
+  the first audit missed). Promote as a standing check: when a setting becomes user-editable, enumerate ALL sinks
+  (HTML, JSON, mail headers, SQL identifiers, filenames) and confirm each escapes/validates for its context.
+
 ### 2026-08-23 · Slice H — CSP nonce persisted with the page cache + exposed to plugins (HTTP-1/PLUG-5)
 - **Status:** fixed. Fable two-skill burst — **security-green conditional on one must-fix (shipped)**.
   No Critical/High; no risk ADR needed. Catalog: security-control-through-a-cache (nonce reuse) —

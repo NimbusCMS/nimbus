@@ -45,6 +45,14 @@ final class SettingsRegistry
                     if ($value === '') {
                         return 'A site title is required.';
                     }
+                    // Reject control characters (byte-wise — the /u modifier would
+                    // make preg_match return false, not 1, on invalid UTF-8 and let
+                    // a broken-UTF-8 + CRLF title through). A stored CR/LF reaches
+                    // the mail *subject*, where it throws and silently kills every
+                    // reset/invite (SUP-2). The title has no legitimate control char.
+                    if (preg_match('/[\x00-\x1F\x7F]/', $value) === 1) {
+                        return 'The title can’t contain control characters.';
+                    }
                     return mb_strlen($value) <= self::MAX_TITLE
                         ? null
                         : 'Keep the title under ' . self::MAX_TITLE . ' characters.';

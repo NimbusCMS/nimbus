@@ -36,14 +36,16 @@ final class UsersController extends Controller
     private UserRepository $users;
     private RoleRepository $roles;
     private InvitationService $invitations;
+    private PasswordResetRepository $resets;
 
     public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null, ?Mailer $mailer = null, ?EventDispatcher $events = null)
     {
         parent::__construct($db, $auth, $adminPages);
-        $this->users = new UserRepository($db);
-        $this->roles = new RoleRepository($db);
+        $this->users  = new UserRepository($db);
+        $this->roles  = new RoleRepository($db);
+        $this->resets = new PasswordResetRepository($db);
         $this->invitations = new InvitationService(
-            new AccountTokenService($this->users, new PasswordResetRepository($db), $events ?? new EventDispatcher()),
+            new AccountTokenService($this->users, $this->resets, $events ?? new EventDispatcher()),
             $mailer ?? MailerFactory::fromConfig(),
             new Settings(new SettingsRepository($db), new SettingsRegistry(new CollectionRepository($db))),
         );
@@ -54,6 +56,7 @@ final class UsersController extends Controller
         $r->group('/admin/users', [$this->authMw], function (Router $g): void {
             $g->get('', fn (Request $req, array $p): Response => $this->index($req))->name('admin.users.index');
             $g->post('', fn (Request $req, array $p): Response => $this->store($req));
+            $g->post('/{id}/invite', fn (Request $req, array $p): Response => $this->resendInvite($req, (int) $p['id']))->name('admin.users.invite');
             $g->post('/{id}', fn (Request $req, array $p): Response => $this->update($req, (int) $p['id']));
         });
     }
@@ -75,6 +78,9 @@ final class UsersController extends Controller
             'roles'        => $this->roles->all(),
             'editing'      => $editing,
             'editingRoles' => $editing !== null ? array_map(static fn ($r): int => $r->id, $this->roles->rolesForUser($editing->id)) : [],
+            // Users with an unused invite token — the "Resend invite" affordance
+            // shows only for these (one query, no N+1).
+            'pending'      => $this->resets->pendingInviteUserIds(),
             'flash'        => $req->query('msg'),
             'error'        => $req->query('err'),
             'csrf'         => Csrf::token(),
@@ -133,6 +139,41 @@ final class UsersController extends Controller
         }
 
         return $this->redirect(Url::to('admin.users.index') . '?msg=created');
+    }
+
+    /**
+     * Re-send an invite to a user whose invite is still pending (failed delivery
+     * or expired) — closing the dead-end where the "re-invite" advice was
+     * impossible (ADMIN-7). Guarded like every other user mutation: CSRF,
+     * `users:write`, and the subset-only rule (you cannot act on a user holding a
+     * role you can't grant). Only genuinely-pending users qualify — an accepted
+     * account has no unused invite token, so this can never arm a password-set
+     * link for an active colleague. The mail always goes to the *stored* address.
+     */
+    private function resendInvite(Request $req, int $id): Response
+    {
+        $this->requireCan('users', 'write');
+        $this->requireCsrf($req, Url::to('admin.users.index'));
+
+        $user = $this->users->find($id);
+        if ($user === null) {
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('No such user.'));
+        }
+
+        // Subset-only: don't let a lesser manager trigger token issuance / mail
+        // against a user who holds a role they cannot grant (mirrors update()).
+        $ungrantable = $this->firstUngrantableRole(array_map(static fn ($r): int => $r->id, $this->roles->rolesForUser($id)));
+        if ($ungrantable !== null) {
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode("You cannot re-invite this user — the \"{$ungrantable}\" role grants more than you hold."));
+        }
+
+        // Only a pending invite can be resent; an active account is not re-invitable.
+        if (!$this->resets->hasPendingInvite($id)) {
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('That user has already accepted their invite (or was never invited).'));
+        }
+
+        $sent = $this->invitations->sendInvite($id, $user->email);
+        return $this->redirect(Url::to('admin.users.index') . '?msg=' . ($sent ? 'invite-sent' : 'invite-nomail'));
     }
 
     private function update(Request $req, int $id): Response

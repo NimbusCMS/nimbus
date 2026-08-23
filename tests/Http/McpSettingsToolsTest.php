@@ -148,6 +148,22 @@ final class McpSettingsToolsTest extends HttpTestCase
         self::assertArrayNotHasKey('site.title', (new SettingsRepository($this->db))->all());
     }
 
+    /** SUP-2 (MCP parity) — a CRLF title via set_settings is rejected, not stored (it would DoS recovery mail). */
+    public function test_set_rejects_a_title_with_control_characters(): void
+    {
+        $writer = $this->tokens->create('W', ['settings:write']);
+
+        // Raw JSON strings carry CRLF; trim() strips only the ends, so it would
+        // survive to the mail subject without the validator's control-char check.
+        $crlf = $this->structured($this->call('set_settings', ['settings' => ['site.title' => "Nimbus\r\nX"]], $writer));
+        self::assertSame('invalid', $crlf['error']['code']);
+
+        $ctrl = $this->structured($this->call('set_settings', ['settings' => ['site.title' => "Nimbus\x01"]], $writer));
+        self::assertSame('invalid', $ctrl['error']['code']);
+
+        self::assertArrayNotHasKey('site.title', (new SettingsRepository($this->db))->all());
+    }
+
     /** Every write is audited via API_MANAGEMENT_WRITTEN (checked at the toolset). */
     public function test_set_settings_is_audited(): void
     {
