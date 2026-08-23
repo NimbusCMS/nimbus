@@ -30,6 +30,7 @@ Priority counts: **P0 0 · P1 1 · P2 3 · P3 2**.
 - **Effort:** M
 
 ### DATA-2 · Invalid `published_at` throws an uncaught exception → HTTP 500 instead of a 422 validation error
+- **✅ RESOLVED** (Slice F, 2026-08-23) — `Publication::isValidTime` guard in `EntryService::save` → structured 422; `isLive` also tolerant so the admin re-render can't 500.
 - **Priority:** P2
 - **Type:** error-handling
 - **Where:** `src/Content/Publication.php:100-113` (`resolvePublishedAt` → `new DateTimeImmutable($requested)`), reached from `src/Content/EntryService.php:77`, `src/Api/EntryOperations.php:295` (`inputFrom` passes the raw string through), `src/Admin/EntriesController.php:323-327`
@@ -39,6 +40,7 @@ Priority counts: **P0 0 · P1 1 · P2 3 · P3 2**.
 - **Effort:** S
 
 ### DATA-3 · No length/size validation on stored values → over-long input 500s under strict MySQL; JSON blob and relation/media counts unbounded
+- **✅ RESOLVED** (Slice F, 2026-08-23) — title/slug length + slug suffix-headroom; `maxlength` field option (text 255 / textarea 50k) + a universal 100k scalar ceiling in the Validator (covers url/email); relation cardinality cap (100) before any DB write. Media cap deferred (single-value today).
 - **Priority:** P2
 - **Type:** error-handling (secondary: product-gap / DoS)
 - **Where:** `src/Content/Validator.php:23-46` (no length rules), `src/Content/FieldTypes/TextType.php` / `TextareaType.php` (no `validate`), `src/Content/EntryRepository.php:122-147` (title `VARCHAR(255)`, slug `VARCHAR(191)`), `src/Content/EntryService.php:147-153` (unbounded relation/media sync)

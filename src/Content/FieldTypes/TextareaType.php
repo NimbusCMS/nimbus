@@ -29,4 +29,14 @@ class TextareaType extends BaseType
             $this->e((string) $value),
         );
     }
+
+    public function validate(Field $field, mixed $value): ?string
+    {
+        // Generous default for prose, well under max_allowed_packet; a `maxlength`
+        // option can lower it. Bounds the JSON `data` column (DoS backstop).
+        if (is_string($value) && mb_strlen($value) > ($max = $this->maxLength($field, 50_000))) {
+            return "{$field->label} must be {$max} characters or fewer.";
+        }
+        return null;
+    }
 }

@@ -31,6 +31,21 @@ abstract class BaseType implements FieldType
         return null;
     }
 
+    /**
+     * A hard ceiling every scalar string value is bounded by, regardless of type
+     * or field option — the DoS backstop for the JSON `data` column. A field's
+     * `maxlength` option can only *lower* the effective limit, never raise it past
+     * this, so a `collections:manage` token can't set `maxlength: 10^9`.
+     */
+    protected const MAX_FIELD_LENGTH = 100_000;
+
+    /** The effective max length for a text-ish field: the `maxlength` option (if set) or $default, clamped to {@see MAX_FIELD_LENGTH}. */
+    protected function maxLength(Field $field, int $default): int
+    {
+        $option = (int) $field->option('maxlength', 0);
+        return min($option > 0 ? $option : $default, self::MAX_FIELD_LENGTH);
+    }
+
     public function toApi(Field $field, mixed $value): mixed
     {
         return $value;

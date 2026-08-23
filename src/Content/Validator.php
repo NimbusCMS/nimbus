@@ -12,6 +12,9 @@ namespace Nimbus\Content;
  */
 final class Validator
 {
+    /** Hard ceiling on any scalar string field value (DoS backstop; a field's maxlength can only lower it). */
+    private const MAX_SCALAR_LENGTH = 100_000;
+
     public function __construct(private FieldTypeRegistry $types)
     {
     }
@@ -30,6 +33,16 @@ final class Validator
                 if ($field->required) {
                     $errors[$field->handle] = FieldError::required($field->label . ' is required.');
                 }
+                continue;
+            }
+
+            // Type-agnostic hard ceiling on any scalar STRING value — the DoS
+            // backstop for the JSON `data` column, covering field types with a
+            // custom validate() that has no length rule of its own (e.g. url,
+            // email). Only strings are checked, so number/boolean/relation are
+            // untouched; text/textarea narrow this further in their own validate().
+            if (is_string($value) && mb_strlen($value) > self::MAX_SCALAR_LENGTH) {
+                $errors[$field->handle] = FieldError::invalid($field->label . ' is too long.');
                 continue;
             }
 

@@ -62,6 +62,7 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Effort:** S
 
 ### ADMIN-6 · Malformed `published_at` in an entry save → uncaught exception → 500
+- **✅ RESOLVED** (Slice F, 2026-08-23) — same guard as DATA-2; admin form re-renders with the `published_at` field error, blank (not 1970).
 - **Priority:** P2
 - **Type:** error-handling
 - **Where:** `src/Admin/EntriesController.php:322-327` (`publishedAtInput()` passes the raw string), `src/Content/Publication.php:84-96` (`resolvePublishedAt` → `new DateTimeImmutable($requested)` throws)

@@ -56,7 +56,7 @@ response shapes, not on any PHP class. What is promised:
   (404), `invalid` (422), `missing_provider` (422), `precondition_required`
   (428), `precondition_failed` (412), `rate_limited` (429).
 - **Structured validation errors** — a `422` carries `fields`, a map of the
-  submitted input name (a collection field handle, or `title`/`slug`) to a
+  submitted input name (a collection field handle, or `title`/`slug`/`published_at`) to a
   `{ code, message }` object, so a client — human or agent — branches on the
   per-field `code` and shows the `message`. Per-field codes: `required`,
   `invalid` (a type/format/choice failure). A `missing_provider` failure (a field
@@ -80,6 +80,12 @@ response shapes, not on any PHP class. What is promised:
   needs the collection's `write` scope; a `PATCH`/`DELETE` needs `If-Match`
   carrying the entry's current `ETag` (a read returns it) — absent is `428`,
   stale is `412`, so machine clients cannot silently overwrite each other.
+  Values are **bounded** (a violation is a `422`, never a `500`): `title` ≤ 255,
+  an explicit `slug` ≤ 191, a scalar text field to its `maxlength` field option
+  (default 255 text / 50 000 textarea, and every scalar string to a hard ceiling),
+  a relation field to 100 targets, and `published_at` must parse. The request
+  body itself is bounded by your PHP/MySQL deployment config (`post_max_size`,
+  `max_allowed_packet`), not the app.
 - **OpenAPI** — `GET /api/v1/openapi.json` returns an OpenAPI 3.0 document
   generated from the live content model (behind the same bearer auth), **scoped to
   the presenting token**: it describes only the collections that token can read

@@ -46,7 +46,9 @@ final class Publication
      */
     public static function isLive(string $status, ?string $publishedAt, ?DateTimeImmutable $now = null): bool
     {
-        if ($status !== self::PUBLISHED || $publishedAt === null || $publishedAt === '') {
+        if ($status !== self::PUBLISHED || $publishedAt === null || $publishedAt === '' || !self::isValidTime($publishedAt)) {
+            // An unparseable time is never "live" — so the state resolver can run on
+            // a rejected value during a form re-render without throwing (→ 500).
             return false;
         }
         $now = $now ?? new DateTimeImmutable();
@@ -93,5 +95,25 @@ final class Publication
             return $current;
         }
         return ($now ?? new DateTimeImmutable())->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * Would this string parse as a publish time? Callers validate the requested
+     * value at the input edge with this, so {@see resolvePublishedAt}'s
+     * `new DateTimeImmutable($requested)` can never throw into the write path (a
+     * malformed value is a 422 field error, not a 500). An empty value is valid
+     * here — it means "no explicit time", handled by resolvePublishedAt.
+     */
+    public static function isValidTime(string $value): bool
+    {
+        if (trim($value) === '') {
+            return true;
+        }
+        try {
+            new DateTimeImmutable($value);
+            return true;
+        } catch (\Exception) {
+            return false;
+        }
     }
 }

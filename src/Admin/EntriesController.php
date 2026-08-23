@@ -295,7 +295,14 @@ final class EntriesController extends Controller
     /** A stored "Y-m-d H:i:s" as the "Y-m-d\TH:i" a datetime-local input expects. */
     private function toDatetimeLocal(?string $stored): string
     {
-        return $stored !== null && $stored !== '' ? date('Y-m-d\TH:i', (int) strtotime($stored)) : '';
+        if ($stored === null || $stored === '') {
+            return '';
+        }
+        // An unparseable value re-renders blank (with its field error) rather than
+        // as 1970-01-01 (strtotime false → 0) — the datetime-local input can't hold
+        // the raw invalid string anyway.
+        $ts = strtotime($stored);
+        return $ts === false ? '' : date('Y-m-d\TH:i', $ts);
     }
 
     /** Build the typed input object from the request (with normalized values). */
