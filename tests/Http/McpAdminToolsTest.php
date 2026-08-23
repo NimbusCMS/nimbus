@@ -6,7 +6,10 @@ namespace Nimbus\Tests\Http;
 
 use Nimbus\Api\ApiTokenRepository;
 use Nimbus\Auth\Password;
+use Nimbus\Auth\RoleRepository;
+use Nimbus\Auth\RoleSeeder;
 use Nimbus\Auth\UserRepository;
+use Nimbus\Content\CollectionRepository;
 use Nimbus\Http\Request;
 
 /**
@@ -19,12 +22,26 @@ final class McpAdminToolsTest extends HttpTestCase
 {
     private ApiTokenRepository $tokens;
     private UserRepository $users;
+    private RoleRepository $roles;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->tokens = new ApiTokenRepository($this->db);
         $this->users  = new UserRepository($this->db);
+        $this->roles  = new RoleRepository($this->db);
+    }
+
+    /** Seed the three system roles (admin/editor/author) — user tools need them. */
+    private function seedRoles(): void
+    {
+        (new RoleSeeder($this->db, $this->roles, new CollectionRepository($this->db)))->seed();
+    }
+
+    /** @return list<string> the names of the roles assigned to a user */
+    private function roleNames(int $userId): array
+    {
+        return array_map(static fn ($r): string => $r->name, $this->roles->rolesForUser($userId));
     }
 
     /**
@@ -67,49 +84,147 @@ final class McpAdminToolsTest extends HttpTestCase
         self::assertNotContains('create_user', $this->toolNames($content));
         self::assertSame(-32602, $this->call('create_user', ['email' => 'x@y.z'], $content)['error']['code']);
         self::assertContains('create_user', $this->toolNames($admin));
+        self::assertContains('list_roles', $this->toolNames($admin));
     }
 
-    public function test_create_user_with_and_without_a_password(): void
+    public function test_create_user_assigns_a_real_role_not_the_legacy_column(): void
     {
-        $token = $this->tokens->create('U', ['users:write']);
+        $this->seedRoles();
+        $token = $this->tokens->create('A', ['admin']); // holds everything → may grant any role
 
-        // Given password: stored hashed.
+        // Given password: the user gets the editor ROLE (real capabilities), and
+        // the legacy column is a neutral placeholder, never the granted role.
         $this->call('create_user', ['email' => 'ed@site.test', 'password' => 's3cretpass', 'role' => 'editor'], $token);
         $ed = $this->users->findByEmail('ed@site.test');
         self::assertNotNull($ed);
-        self::assertSame('editor', $ed->role);
+        self::assertSame(['editor'], $this->roleNames($ed->id), 'assigned the editor role');
+        self::assertContains('*:read', $this->roles->capabilitiesForUser($ed->id), 'the role confers real capabilities');
+        self::assertSame('author', $ed->role, 'legacy column stays a least-privilege placeholder');
 
         // Omitted password: a strong one is generated and returned once, and works.
         $made = $this->structured($this->call('create_user', ['email' => 'au@site.test', 'role' => 'author'], $token));
         self::assertArrayHasKey('generated_password', $made);
+        self::assertSame(['author'], $made['user']['roles']);
         $hash = $this->db->selectOne('SELECT password FROM nb_users WHERE email = :e', ['e' => 'au@site.test'])['password'];
         self::assertTrue(Password::verify($made['generated_password'], (string) $hash), 'the generated password logs in');
     }
 
     public function test_create_user_rejects_bad_input(): void
     {
-        $token = $this->tokens->create('U', ['users:write']);
+        $this->seedRoles();
+        $token = $this->tokens->create('A', ['admin']);
         $this->call('create_user', ['email' => 'dup@site.test', 'password' => 'goodpass1'], $token);
 
-        self::assertSame('invalid', $this->call('create_user', ['email' => 'dup@site.test', 'password' => 'goodpass1'], $token)['result']['structuredContent']['error']['code'], 'duplicate email');
-        self::assertSame('invalid', $this->call('create_user', ['email' => 'bad@site.test', 'role' => 'wizard'], $token)['result']['structuredContent']['error']['code'], 'unknown role');
-        self::assertSame('invalid', $this->call('create_user', ['email' => 'weak@site.test', 'password' => 'short'], $token)['result']['structuredContent']['error']['code'], 'weak password');
+        self::assertSame('invalid', $this->structured($this->call('create_user', ['email' => 'dup@site.test', 'password' => 'goodpass1'], $token))['error']['code'], 'duplicate email');
+        self::assertSame('invalid', $this->structured($this->call('create_user', ['email' => 'bad@site.test', 'role' => 'wizard'], $token))['error']['code'], 'unknown role');
+        self::assertSame('invalid', $this->structured($this->call('create_user', ['email' => 'weak@site.test', 'password' => 'short'], $token))['error']['code'], 'weak password');
     }
 
-    public function test_set_role_but_never_the_last_admin(): void
+    public function test_create_user_cannot_grant_authority_the_caller_lacks(): void
     {
+        // The escalation guard (the High). A users:write token holds neither admin
+        // nor the editor role's capabilities, so it can grant neither.
+        $this->seedRoles();
         $token = $this->tokens->create('U', ['users:write']);
-        $this->call('create_user', ['email' => 'boss@site.test', 'password' => 'goodpass1', 'role' => 'admin'], $token);
 
-        // Only admin → cannot be demoted.
-        $blocked = $this->call('set_role', ['email' => 'boss@site.test', 'role' => 'editor'], $token);
-        self::assertSame('invalid', $blocked['result']['structuredContent']['error']['code']);
-        self::assertSame('admin', $this->users->findByEmail('boss@site.test')?->role);
+        $asAdmin = $this->structured($this->call('create_user', ['email' => 'evil@site.test', 'role' => 'admin', 'password' => 'Known-Pass-1'], $token));
+        self::assertSame('forbidden', $asAdmin['error']['code'], 'cannot mint an admin');
+        self::assertNull($this->users->findByEmail('evil@site.test'), 'no user created on a rejected escalation');
 
-        // With a second admin, the demotion is allowed.
-        $this->call('create_user', ['email' => 'boss2@site.test', 'password' => 'goodpass1', 'role' => 'admin'], $token);
-        self::assertFalse($this->call('set_role', ['email' => 'boss@site.test', 'role' => 'editor'], $token)['result']['isError']);
-        self::assertSame('editor', $this->users->findByEmail('boss@site.test')?->role);
+        $asEditor = $this->structured($this->call('create_user', ['email' => 'ed2@site.test', 'role' => 'editor'], $token));
+        self::assertSame('forbidden', $asEditor['error']['code'], 'users:write does not hold *:read/media, so cannot grant editor');
+        self::assertNull($this->users->findByEmail('ed2@site.test'));
+
+        // A custom god-role (no literal "admin" string) is blocked on its first
+        // un-held management capability.
+        $this->roles->create('Super', ['schema:write', 'users:write', 'tokens:write', 'settings:write'], false);
+        $asSuper = $this->structured($this->call('create_user', ['email' => 'sup@site.test', 'role' => 'Super'], $token));
+        self::assertSame('forbidden', $asSuper['error']['code']);
+        self::assertNull($this->users->findByEmail('sup@site.test'));
+    }
+
+    public function test_set_role_reassigns_through_roles(): void
+    {
+        $this->seedRoles();
+        $token = $this->tokens->create('A', ['admin']);
+        $this->call('create_user', ['email' => 'p@site.test', 'password' => 'goodpass1', 'role' => 'editor'], $token);
+        $id = $this->users->findByEmail('p@site.test')->id;
+
+        self::assertFalse($this->call('set_role', ['email' => 'p@site.test', 'role' => 'author'], $token)['result']['isError']);
+        self::assertSame(['author'], $this->roleNames($id), 'assignment replaced, via nb_user_roles');
+    }
+
+    public function test_set_role_cannot_strip_a_role_the_caller_could_not_grant(): void
+    {
+        // Both-directions subset-only: a manager who does not hold `admin` cannot
+        // demote an admin, even to a role it *can* grant — no sabotage of a superior.
+        $this->seedRoles();
+        $adminRole = $this->roles->findByName('admin');
+
+        // Two admins, so the last-admin guard is not what blocks us.
+        $a1 = $this->users->create('A1', 'a1@site.test', Password::hash('x'), 'author');
+        $a2 = $this->users->create('A2', 'a2@site.test', Password::hash('x'), 'author');
+        $this->roles->syncUserRoles($a1, [$adminRole->id]);
+        $this->roles->syncUserRoles($a2, [$adminRole->id]);
+
+        // Token holds editor's caps (so the *new* role passes) but not admin.
+        $token = $this->tokens->create('M', ['users:write', '*:read', 'media:read', 'media:write']);
+        $res   = $this->structured($this->call('set_role', ['email' => 'a1@site.test', 'role' => 'editor'], $token));
+
+        self::assertSame('forbidden', $res['error']['code']);
+        self::assertSame(['admin'], $this->roleNames($a1), 'the superior keeps the admin role');
+    }
+
+    public function test_set_role_never_demotes_the_last_admin_counted_by_role_not_the_legacy_column(): void
+    {
+        // AUTH-4: an admin whose LEGACY column is 'author' (as the admin UI leaves
+        // it) is still counted — the guard reads nb_user_roles, not nb_users.role.
+        $this->seedRoles();
+        $adminRole = $this->roles->findByName('admin');
+        $uiAdmin   = $this->users->create('UI', 'ui-admin@site.test', Password::hash('x'), 'author');
+        $this->roles->syncUserRoles($uiAdmin, [$adminRole->id]); // the only admin
+
+        $token   = $this->tokens->create('A', ['admin']);
+        $blocked = $this->structured($this->call('set_role', ['email' => 'ui-admin@site.test', 'role' => 'editor'], $token));
+        self::assertSame('invalid', $blocked['error']['code'], 'the only (role-held) admin cannot be demoted');
+        self::assertSame(['admin'], $this->roleNames($uiAdmin));
+
+        // A second admin frees the demotion.
+        $this->roles->syncUserRoles($this->users->create('B', 'b@site.test', Password::hash('x'), 'author'), [$adminRole->id]);
+        self::assertFalse($this->call('set_role', ['email' => 'ui-admin@site.test', 'role' => 'editor'], $token)['result']['isError']);
+        self::assertSame(['editor'], $this->roleNames($uiAdmin));
+    }
+
+    public function test_list_users_reports_assigned_roles(): void
+    {
+        $this->seedRoles();
+        $token = $this->tokens->create('A', ['admin']);
+        $this->call('create_user', ['email' => 'r@site.test', 'password' => 'goodpass1', 'role' => 'editor'], $token);
+
+        $rows = $this->structured($this->call('list_users', [], $token))['data'];
+        $row  = array_values(array_filter($rows, static fn ($u): bool => $u['email'] === 'r@site.test'))[0];
+        self::assertSame(['editor'], $row['roles']);
+        self::assertArrayNotHasKey('role', $row, 'no misleading legacy role string');
+    }
+
+    public function test_list_roles_lists_assignable_roles(): void
+    {
+        $this->seedRoles();
+        $token = $this->tokens->create('U', ['users:write']);
+
+        $names = array_column($this->structured($this->call('list_roles', [], $token))['data'], 'name');
+        self::assertContains('admin', $names);
+        self::assertContains('editor', $names);
+    }
+
+    public function test_user_tools_require_seeded_roles(): void
+    {
+        // No seedRoles(): an unseeded install fails closed with a clear message.
+        $token = $this->tokens->create('A', ['admin']);
+        $res   = $this->structured($this->call('create_user', ['email' => 'x@site.test', 'role' => 'editor'], $token));
+        self::assertSame('invalid', $res['error']['code']);
+        self::assertStringContainsString('roles:seed', $res['error']['message']);
+        self::assertNull($this->users->findByEmail('x@site.test'));
     }
 
     // ------------------------------------------------------------------ tokens

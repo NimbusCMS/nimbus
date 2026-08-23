@@ -8,6 +8,7 @@ use Nimbus\Api\ApiToken;
 use Nimbus\Api\ApiTokenRepository;
 use Nimbus\Api\EntryOpContext;
 use Nimbus\Api\TokenPrincipal;
+use Nimbus\Auth\Authorizer;
 use Nimbus\Auth\RoleRepository;
 use Nimbus\Support\CoreEvents;
 use Nimbus\Support\EventDispatcher;
@@ -184,11 +185,7 @@ final class TokensToolset implements Toolset
     /** May this principal grant $scope? (admin grants anything; otherwise it must hold it.) */
     private function holds(TokenPrincipal $principal, string $scope): bool
     {
-        if ($scope === 'admin') {
-            return in_array('admin', $principal->scopes, true);
-        }
-        $parts = explode(':', $scope, 2);
-        return count($parts) === 2 && $parts[1] !== '' && $principal->can($parts[0], $parts[1]);
+        return Authorizer::holds(array_values($principal->scopes), $scope);
     }
 
     private function validScope(string $scope): bool

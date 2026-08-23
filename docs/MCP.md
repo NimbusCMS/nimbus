@@ -100,13 +100,23 @@ filename), the stored name is random, and the size is capped. `delete_media` is
 
 ### Users (`users:write`) and tokens (`tokens:write`)
 
-- `list_users`, `create_user`, `set_role`
+- `list_users` (id, email, name, assigned **roles**), `list_roles`, `create_user`, `set_role`
 - `list_tokens`, `mint_token`, `revoke_token`, `pause_token`, `resume_token`
 
-`mint_token` can only grant **scopes the minter already holds** — no privilege
-escalation. Minted token secrets and generated passwords are returned **once** in
-the result and never persisted, logged or audited. `set_role` will not demote the
-last admin.
+Users are authorized by the **roles** system: `create_user` and `set_role` take a
+**role name** (see `list_roles` for the assignable names + their capabilities) and
+assign it in `nb_user_roles` — the legacy `nb_users.role` string is not the
+authority. `create_user` defaults to the `editor` role; `set_role` replaces a
+user's role assignments. Both tools require the roles system to be seeded
+(`roles:seed`).
+
+Like `mint_token`, they are **subset-only** — you can only assign a role whose
+every capability your token already holds, so a `users:write` token cannot mint or
+promote an admin. `set_role` checks this in **both directions**: it also refuses to
+change a role the target already holds that you could not grant, so a lesser
+manager cannot strip a superior. Generated passwords are returned **once** and
+never persisted, logged or audited. `set_role` will not demote the last holder of
+the `admin` role (counted by role assignment).
 
 ### Settings (`settings:read` / `settings:write`)
 

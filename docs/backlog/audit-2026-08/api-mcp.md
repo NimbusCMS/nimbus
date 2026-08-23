@@ -22,6 +22,7 @@ Counts: **P0 0 · P1 3 · P2 2 · P3 3.**
 ---
 
 ### API-1 · MCP user tools are desynced from the roles system (grant no real authority)
+- **✅ RESOLVED** (Slice A, 2026-08-23) — MCP user tools rebuilt on `nb_user_roles`; see decision + security ledgers.
 - **Priority:** P1
 - **Type:** correctness / product-gap (also ADR-0009 "one backend" violation)
 - **Where:** `src/Mcp/UsersToolset.php:84-153` (`createUser`, `setRole`, `listUsers`), calling `Nimbus\Auth\UserRepository::create/setRole/countByRole` — contrast `src/Admin/UsersController.php:108-167` (the admin path).
@@ -35,6 +36,7 @@ Counts: **P0 0 · P1 3 · P2 2 · P3 3.**
 - **Effort:** M
 
 ### API-2 · MCP create_user / set_role has no subset-only escalation guard (latent High)
+- **✅ RESOLVED** (Slice A, 2026-08-23) — subset-only guard via `Authorizer::holds`, both-directions on `set_role`; regression tests in `McpAdminToolsTest`.
 - **Priority:** P1
 - **Type:** security
 - **Severity (security):** Medium now, **latent High** (becomes High the moment API-1 is fixed)

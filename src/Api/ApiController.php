@@ -78,7 +78,7 @@ final class ApiController
         $this->mcpServer = new McpServer(
             new SchemaToolset($this->collections, new CollectionService($db, $this->collections), $types, $events),
             new MediaToolset($mediaRepo, $uploader, new MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $events),
-            new UsersToolset(new UserRepository($db), $events),
+            new UsersToolset(new UserRepository($db), new RoleRepository($db), $db, $events),
             new TokensToolset(new ApiTokenRepository($db), new RoleRepository($db), $events),
             new SettingsToolset($settings, $settingsRegistry, $events),
             new ContentToolset($this->collections, $types, $this->ops),

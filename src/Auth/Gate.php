@@ -68,11 +68,15 @@ final class Gate
      */
     public function holds(string $capability): bool
     {
+        // Seeded: one shared predicate over the user's capability union.
+        if ($this->seeded()) {
+            return Authorizer::holds($this->capabilities(), $capability);
+        }
+        // Unseeded legacy fallback: structural authority was administrators-only,
+        // so a user holds a capability iff they are a legacy admin.
         if ($capability === 'admin') {
             $user = $this->auth->user();
-            return $this->seeded()
-                ? in_array('admin', $this->capabilities(), true)
-                : ($user !== null && Permissions::isAdmin($user));
+            return $user !== null && Permissions::isAdmin($user);
         }
         $parts = explode(':', $capability, 2);
         return count($parts) === 2 && $parts[1] !== '' && $this->can($parts[0], $parts[1]);

@@ -99,13 +99,15 @@ The same rules apply wherever authority is granted:
 | Surface | Grants / mints | Subset-only |
 |---|---|---|
 | **Admin UI** — Roles, Users, API tokens | roles, role assignments, tokens | yes ([`RolesController`], [`UsersController`], [`TokensController`]) |
-| **MCP** — `mint_token` (and role param) | tokens | yes ([`TokensToolset`]) |
+| **MCP** — `mint_token` (role param), `create_user` / `set_role` (role assignment) | tokens, role assignments | yes ([`TokensToolset`], [`UsersToolset`]) — one shared predicate ([`Authorizer::holds`]) |
 | **CLI** — `nimbus token:create --role=` | tokens | no — the CLI is a **trusted local operator**, not an attack surface |
 
 [`RolesController`]: ../src/Admin/RolesController.php
 [`UsersController`]: ../src/Admin/UsersController.php
 [`TokensController`]: ../src/Admin/TokensController.php
 [`TokensToolset`]: ../src/Mcp/TokensToolset.php
+[`UsersToolset`]: ../src/Mcp/UsersToolset.php
+[`Authorizer::holds`]: ../src/Auth/Authorizer.php
 
 ## Authorization matrix
 
