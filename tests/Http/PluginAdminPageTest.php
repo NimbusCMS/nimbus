@@ -75,6 +75,36 @@ final class PluginAdminPageTest extends HttpTestCase
         self::assertStringContainsString('nb-side', $response->body, 'inside the admin shell');
     }
 
+    public function test_a_handler_receives_the_csp_nonce_as_its_second_argument(): void
+    {
+        $this->actingAs('admin');
+        $seen    = null;
+        $handler = function (\Nimbus\Http\Request $req, string $nonce) use (&$seen): string {
+            $seen = $nonce;
+            return '<h1>Charts</h1>';
+        };
+        $router = $this->pluginRouter($this->registry($handler));
+        $router->dispatch($this->request('GET', '/admin/analytics'));
+
+        self::assertSame(\Nimbus\Http\Csp::nonce(), $seen, 'the page handler is passed the request CSP nonce');
+        self::assertTrue(\Nimbus\Http\Csp::isValid((string) $seen), 'and it is a well-formed nonce');
+    }
+
+    public function test_a_one_argument_handler_still_works(): void
+    {
+        // The nonce arg is additive: a handler declaring only the Request keeps
+        // working (PHP ignores the extra argument).
+        $this->actingAs('admin');
+        $handler  = static fn (\Nimbus\Http\Request $req): string => '<h1>Legacy</h1>';
+        $router   = $this->pluginRouter($this->registry($handler));
+        $response = $router->dispatch($this->request('GET', '/admin/analytics'));
+
+        self::assertNotNull($response);
+        /** @var Response $response */
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('<h1>Legacy</h1>', $response->body);
+    }
+
     public function test_a_handler_may_return_a_full_response(): void
     {
         $this->actingAs('admin');

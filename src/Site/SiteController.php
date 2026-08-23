@@ -12,6 +12,7 @@ use Nimbus\Content\EntryView;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Database\Connection;
+use Nimbus\Http\Csp;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
@@ -283,7 +284,7 @@ final class SiteController
         return $this->renderPage($this->specialize('collection', $collection->handle), [
             'title'       => $collection->name,
             'meta'        => $this->meta($request->path, $collection->name, $this->describe(null, $collection), 'website'),
-            'head'        => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, $collection->name, $this->title(), null, $info)),
+            'head'        => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, $collection->name, $this->title(), Csp::nonce(), null, $info)),
             'collection'  => $info,
             'entries'     => $this->view->many($collection, $rows),
             'page'        => $page,
@@ -305,7 +306,7 @@ final class SiteController
         return $this->renderPage($this->specialize('entry', $collection->handle), [
             'title'      => (string) $row['title'],
             'meta'       => $this->meta($request->path, (string) $row['title'], $this->describe($entry, $collection), 'article'),
-            'head'       => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, (string) $row['title'], $this->title(), $entry, $info)),
+            'head'       => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, (string) $row['title'], $this->title(), Csp::nonce(), $entry, $info)),
             'collection' => $info,
             'entry'      => $entry,
         ]);

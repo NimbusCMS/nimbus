@@ -56,3 +56,12 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **What:** a user-defined field with handle `published_at`/`title`/`slug` collides in the flat `{code,message}` error map, so its error could be shadowed by (or shadow) the entry-level one.
 - **Fix:** reserve `title`/`slug`/`published_at` (with the `Authorizer::MANAGEMENT` names from FU-4) as disallowed field/collection handles at schema-create — one allow-list check, closes both families.
 - **Effort:** S
+
+### FU-7 · Hosted-analytics beacons need a CSP `connect-src` (or the proxy pattern documented)
+- **Priority:** P3
+- **Type:** product-gap / security (scope decision)
+- **Discovered:** Slice H reviews (HTTP-1 / PLUG-5).
+- **Where:** `src/Http/SecurityHeaders.php` CSP (`default-src 'self'`, no `connect-src`); the analytics head-contribution use case (PLUG-5).
+- **What:** Slice H exposed the nonce so a plugin can emit a nonce'd analytics `<script>` — and under CSP L2+ a nonce'd external `<script src>` *loads* regardless of origin. But the site CSP has no `connect-src`, so the loaded script's `fetch`/`sendBeacon` to a third-party endpoint (Plausible/Fathom/GA event APIs) is blocked: the script runs, the event never sends. Self-hosted or reverse-proxied analytics (served from `'self'`) works fully today; GA additionally needs `'strict-dynamic'` for its chained injects.
+- **Fix (decide, own review):** either an operator-config CSP source extension (an env allow-list feeding `connect-src`/`script-src`, opt-in, off by default — needs a security review of its own), or document the reverse-proxy pattern (Plausible's official proxy) as the supported path and leave the CSP tight. Do NOT widen the CSP without that review.
+- **Effort:** S (docs) / M (config-driven CSP)

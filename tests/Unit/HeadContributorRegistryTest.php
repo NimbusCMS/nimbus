@@ -29,7 +29,7 @@ final class HeadContributorRegistryTest extends TestCase
 
     private function page(): PageContext
     {
-        return new PageContext('entry', 'https://example.test/posts/hello', 'Hello', 'Site');
+        return new PageContext('entry', 'https://example.test/posts/hello', 'Hello', 'Site', 'AAAAAAAAAAAAAAAAAAAAAA==');
     }
 
     public function test_contributions_render_in_registration_order(): void

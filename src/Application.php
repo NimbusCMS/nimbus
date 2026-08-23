@@ -127,6 +127,9 @@ final class Application
         // Any content write flushes the page cache. Full-flush is deliberate: one
         // edit can change an index, a relation, or a shared block elsewhere, so
         // clearing everything is simpler and safer than tracking dependencies.
+        // This is also security-load-bearing: a cached page's CSP nonce is stable
+        // for the entry's life, and the flush is what rotates it on every write —
+        // so a payload written knowing the old nonce never meets it (see Csp).
         $flush = function (): void {
             $this->pageCache->flush();
         };
@@ -268,7 +271,11 @@ final class Application
             if ($cacheKey !== null) {
                 $hit = $this->pageCache->get($cacheKey);
                 if ($hit !== null) {
-                    return Response::html($hit);
+                    // Re-emit the nonce baked into the cached HTML so the CSP
+                    // header matches it — otherwise every inline script on a
+                    // cached page would be blocked by the fresh per-request nonce.
+                    Csp::adopt($hit['nonce']);
+                    return Response::html($hit['html']);
                 }
             }
 
@@ -278,7 +285,7 @@ final class Application
                 ?? $this->notice('Not found', 'Nothing lives at <code>' . View::e($request->path) . '</code>.', 404);
 
             if ($cacheKey !== null && $response->status === 200 && str_contains((string) $response->header('Content-Type'), 'text/html')) {
-                $this->pageCache->put($cacheKey, $response->body);
+                $this->pageCache->put($cacheKey, $response->body, Csp::nonce());
             }
 
             return $response;

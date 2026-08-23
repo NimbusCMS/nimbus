@@ -12,9 +12,11 @@ use Nimbus\Auth\Authorizer;
  * The admin-page capability, as a plugin sees it.
  *
  * A plugin registers a page under `/admin/{slug}`: a sidebar label + icon and a
- * handler. The handler receives the Request and returns either HTML — which core
- * wraps in the authenticated admin shell (sidebar, top bar) — or a full Response.
- * The page is shown in the sidebar like a core section.
+ * handler. The handler receives the Request and the page's CSP nonce, and returns
+ * either HTML — which core wraps in the authenticated admin shell (sidebar, top
+ * bar) — or a full Response. The nonce argument is additive: a handler that only
+ * declares the Request keeps working. The page is shown in the sidebar like a
+ * core section.
  *
  * By default a page is **login-only** (any signed-in user). A page that does
  * privileged work may require a capability: pass `admin` or a core management
@@ -37,7 +39,8 @@ final class AdminPageRegistrar
     }
 
     /**
-     * @param callable(\Nimbus\Http\Request):(string|\Nimbus\Http\Response) $handler
+     * @param callable(\Nimbus\Http\Request,string):(string|\Nimbus\Http\Response) $handler
+     *     receives the Request and the CSP nonce; a 1-argument handler is still valid
      * @param ?string $capability null = login-only; else `admin` or a core
      *                            management `{resource}:{read|write}`
      */

@@ -109,4 +109,63 @@ final class CacheRoutesTest extends HttpTestCase
 
         self::assertNull($cache->get('/admin'), 'admin is per-user; never cache it');
     }
+
+    // ------------------------------------------------- nonce × cache (HTTP-1)
+
+    /** The nonce baked into a directive of the CSP header, or '' if absent. */
+    private function headerNonce(\Nimbus\Http\Response $r, string $directive): string
+    {
+        preg_match("/{$directive} 'self' 'nonce-([^']+)'/", (string) $r->header('Content-Security-Policy'), $m);
+        return $m[1] ?? '';
+    }
+
+    public function test_a_cache_hit_reemits_the_stored_nonce(): void
+    {
+        $c = $this->makeCollection('posts');
+        $this->seedLive($c, 'Cached Hello', 'hello');
+
+        $cache = new PageCache($this->dir, 300);
+        $app   = $this->appUsing($cache);
+
+        // Miss: rendered fresh, then stored WITH the nonce it was rendered under.
+        // The response header carries that same nonce (as it always did within a
+        // single request).
+        $miss   = $app->handle($this->request('GET', '/posts'));
+        $stored = $cache->get('/posts')['nonce'] ?? '';
+        self::assertTrue(\Nimbus\Http\Csp::isValid($stored), 'the page is stored with its nonce');
+        self::assertSame($stored, $this->headerNonce($miss, 'script-src'));
+        self::assertSame($stored, $this->headerNonce($miss, 'style-src'));
+
+        // Hit: served from the file. handle() rotates a fresh nonce, but the
+        // cache path must ADOPT the stored one, so the header re-emits exactly the
+        // nonce the cached body was rendered under — the HTTP-1 regression. Before
+        // Slice H the header carried the freshly-rotated (mismatched) nonce and
+        // every inline script/style on the cached page was blocked.
+        $hit = $app->handle($this->request('GET', '/posts'));
+        self::assertSame($miss->body, $hit->body, 'a hit is a byte-identical replay');
+        self::assertSame($stored, $this->headerNonce($hit, 'script-src'), 'script-src re-emits the stored nonce');
+        self::assertSame($stored, $this->headerNonce($hit, 'style-src'), 'style-src re-emits it too');
+    }
+
+    public function test_a_content_write_rotates_the_cached_nonce(): void
+    {
+        // The invariant the stable-nonce safety argument rests on: a write flushes
+        // the cache, so the next render mints a FRESH nonce. A payload stored
+        // knowing the old nonce therefore never meets it in a live header.
+        $this->actingAs('admin');
+        $c = $this->makeCollection('posts');
+        $this->seedLive($c, 'Hello', 'hello');
+
+        $app = $this->appUsing(new PageCache($this->dir, 300));
+        $first = $app->handle($this->request('GET', '/posts'));
+        $before = $this->headerNonce($first, 'script-src');
+        self::assertNotSame('', $before);
+
+        $app->handle($this->request('POST', '/admin/collections/posts/entries', [], [
+            'title' => 'Another', 'status' => 'draft', '_token' => Csrf::token(),
+        ]));
+
+        $after = $this->headerNonce($app->handle($this->request('GET', '/posts')), 'script-src');
+        self::assertNotSame($before, $after, 'the write flushed the cache and the re-render rotated the nonce');
+    }
 }

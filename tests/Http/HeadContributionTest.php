@@ -67,6 +67,42 @@ final class HeadContributionTest extends HttpTestCase
         self::assertSame('Hello', $entry['title'] ?? null, 'the entry view-model is in the context');
     }
 
+    public function test_a_contributor_can_nonce_a_script_matching_the_page_csp(): void
+    {
+        // PLUG-5: the page's CSP nonce reaches a head contributor, so a plugin
+        // (e.g. an analytics snippet) can emit an inline <script nonce> that runs
+        // under the page's content-security-policy. The nonce it gets is exactly
+        // the one SecurityHeaders bakes into the CSP header (Csp::nonce()).
+        $contributor = new class () implements HeadContributor {
+            public ?string $seenNonce = null;
+
+            public function head(PageContext $page): string
+            {
+                $this->seenNonce = $page->cspNonce;
+                return '<script nonce="' . \Nimbus\View\View::e($page->cspNonce) . '">analytics()</script>';
+            }
+        };
+
+        $registry = new HeadContributorRegistry();
+        $registry->add($contributor, 'nimbuscms.analytics');
+
+        $c = $this->makeCollection('posts');
+        $this->seedLive($c, 'Hello', 'hello');
+
+        $router = new Router();
+        (new SiteController($this->db, new FieldTypeRegistry(), null, null, $registry))->routes($router);
+        $response = $router->dispatch($this->request('GET', '/posts/hello'));
+
+        self::assertNotNull($response);
+        /** @var Response $response */
+        self::assertSame(\Nimbus\Http\Csp::nonce(), $contributor->seenNonce, 'the contributor gets the request CSP nonce');
+        self::assertStringContainsString(
+            '<script nonce="' . \Nimbus\Http\Csp::nonce() . '">analytics()</script>',
+            $response->body,
+            'the nonced script reaches <head>',
+        );
+    }
+
     public function test_no_contributors_leaves_the_head_unchanged(): void
     {
         $c = $this->makeCollection('posts');
