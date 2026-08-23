@@ -165,7 +165,17 @@ final class EntryService
             $value = $input->values[$field->handle] ?? null;
             if ($field->type === 'relation') {
                 $ids = is_array($value) ? $value : ($value !== null && $value !== '' ? [$value] : []);
-                $relations[$field->id] = array_values(array_filter(array_map('intval', $ids), static fn (int $i): bool => $i > 0));
+                $ids = array_values(array_filter(array_map('intval', $ids), static fn (int $i): bool => $i > 0));
+                // Relation-value integrity (DATA-1): keep only ids that belong to
+                // the field's declared target collection — a `posts` relation must
+                // never silently store a `secret` entry. An unknown/empty target
+                // yields no members (fail closed). Submitted order is preserved;
+                // ids outside the target (or nonexistent) are dropped, uniformly
+                // with absent ids — never a 500. The read side re-checks the real
+                // collection, so retargeting the field can't re-open the leak.
+                $target = (string) $field->option('target', '');
+                $valid  = $target !== '' ? $this->entries->idsInCollection($target, $ids) : [];
+                $relations[$field->id] = array_values(array_filter($ids, static fn (int $id): bool => in_array($id, $valid, true)));
             } else {
                 $data[$field->handle] = $value;
                 // A media field's value is stored in the JSON like any other, but

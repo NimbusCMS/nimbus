@@ -19,6 +19,42 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice C — relation cross-collection scope-confusion closed (DATA-1)
+- **Status:** fixed. Design reviewed via a **Fable two-skill burst** (green conditional on the
+  must-ships, all shipped). Resolves audit **DATA-1** (Medium — cross-collection read leak +
+  integrity). Catalog #1 (object-level authz) / #2 (scope confusion). Completes the relation
+  half the Slice B ledger entry deferred here.
+- **Surface:** `src/Content/EntryService.php` (`splitValues`), `src/Content/EntryRepository.php`
+  (`idsInCollection`), `src/Content/RelationRepository.php` (`liveTargets`/`sync`),
+  `src/Content/EntryView.php` (`one`).
+- **Closed:** a `posts:write` token (or admin) could store a relation `to_entry_id` from any
+  collection; on read-back a `posts:read` token without `secret:read` got a live `secret`
+  entry's `{id,slug,title}` because expansion gated on the *declared* target, not the entry's
+  real collection.
+- **Controls shipped (each a regression test in `RelationIntegrityTest`):**
+  1. **Write constraint** — `idsInCollection` (bound per-id IN-list + empty-list short-circuit,
+     `:target` bound; MediaRepository precedent) filters each relation field's ids to its target
+     collection before `sync`, on the one shared write path (admin/API/MCP). Order preserved by
+     set-intersection.
+  2. **Read filter** — `liveTargets` (required `targetHandle` + collection JOIN) so a stored
+     cross-collection row expands to nothing — permanent protection against field *retargeting*
+     and any write path that bypasses the service (e.g. in-process plugin SQL, catalog #12).
+  3. **Retained** `EntryView::one`'s `canRead($declaredTarget)` scope gate — a field legitimately
+     targeting an unreadable collection is still hidden from a token lacking that read scope
+     (the two guards are independent: rows ⊆ declared target ∧ declared target readable).
+  4. **Uniform silent drop** — cross-collection ≡ nonexistent ≡ non-live, all indistinguishable
+     no-ops; this **closed an incidental entry-id existence oracle** (a nonexistent id used to
+     `500` via the `to_entry_id` FK on the PATCH echo-back).
+- **Severity:** the closed leak was **Medium** (integrity unconditional; confidentiality capped
+  because "live" == public on the shipped PHP-theme install — verified `SiteController` serves
+  every collection's live entries anonymously). No Critical/High; no risk-acceptance ADR.
+  Reachability note: the read gate becomes the *only* reader control if a no-public-site
+  deployment mode ever ships.
+- **Leaves open (filed, Low):** `sync` remains an unconstrained primitive (now docblock-guarded;
+  the read filter neutralizes any violation); `incoming` reverse-lookup is dead code (apply the
+  same discipline if ever consumed); ADMIN-14 target-handle validation at schema-create (the
+  fail-closed empty-target defuses its integrity sting); the media-field equivalent.
+
 ### 2026-08-23 · Slice B — read-boundary / non-enumeration closed on admin + OpenAPI
 - **Status:** fixed. Design reviewed via a **Fable two-skill burst** (green conditional on the
   two must-ship shape fixes, both shipped). Resolves audit **ADMIN-1** + **API-3** (Medium

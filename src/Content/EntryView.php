@@ -56,12 +56,17 @@ final class EntryView
                 // expand at this edge to {id,slug,title} objects — the consumer
                 // gets a usable link without a second request, and only the live
                 // set is exposed (a link to a draft resolves to nothing).
+                // Two independent guards (DATA-1): the scope gate — the caller may
+                // not read the *declared* target collection — and the integrity
+                // filter inside liveTargets — a stored link must actually be in
+                // that collection. Expanded rows are ⊆ the declared target ∧ the
+                // declared target is readable.
                 $target = (string) $field->option('target', '');
                 $fields[$field->handle] = ($canRead !== null && !$canRead($target))
                     // Out of the caller's scope: contribute nothing, not even the
                     // targets' existence — exactly as a link to a non-live entry.
                     ? []
-                    : $this->relations->liveTargets($id, $field->id);
+                    : $this->relations->liveTargets($id, $field->id, $target);
                 continue;
             }
 
