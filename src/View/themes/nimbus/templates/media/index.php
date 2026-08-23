@@ -62,7 +62,7 @@ $human = static function (int $bytes): string {
                     <span class="nb-muted">
                         <?= $human($item->size) ?><?php if ($item->width !== null): ?> · <?= (int) $item->width ?>×<?= (int) $item->height ?><?php endif; ?>
                     </span>
-                    <form method="post" action="/admin/media/<?= (int) $item->id ?>/delete" onsubmit="return confirm('Delete this file?');">
+                    <form method="post" action="/admin/media/<?= (int) $item->id ?>/delete" data-confirm="Delete this file?">
                         <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
                         <button type="submit" class="nb-link-danger">Delete</button>
                     </form>

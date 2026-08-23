@@ -98,8 +98,9 @@ final class SiteController
         $this->view             = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
         $this->themeDir         = $themePath ?? Config::themePath();
         $this->render           = new View($this->themeDir, [
-            'appName' => Config::appName(),
-            'menus'   => Config::menus(),
+            'appName'  => Config::appName(),
+            'menus'    => Config::menus(),
+            'cspNonce' => \Nimbus\Http\Csp::nonce(),
         ]);
         $this->home             = $home;
         $this->settings         = $settings;

@@ -98,7 +98,7 @@ $summary = static function (array $caps) use ($e): string {
                 <td class="nb-row-actions">
                     <?php if ($role->name !== 'admin'): ?><a class="nb-link" href="/admin/roles?edit=<?= (int) $role->id ?>">Edit</a><?php endif; ?>
                     <?php if (!$role->isSystem): ?>
-                        <form method="post" action="/admin/roles/<?= (int) $role->id ?>/delete" onsubmit="return confirm('Delete this role? Users assigned it will lose these capabilities.');">
+                        <form method="post" action="/admin/roles/<?= (int) $role->id ?>/delete" data-confirm="Delete this role? Users assigned it will lose these capabilities.">
                             <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
                             <button type="submit" class="nb-link-danger">Delete</button>
                         </form>

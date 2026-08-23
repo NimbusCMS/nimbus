@@ -152,7 +152,7 @@ $access = static function (\Nimbus\Api\ApiToken $t) use ($roleNames): string {
                             </form>
                         <?php endif; ?>
                         <?php if (!$t->isRevoked()): ?>
-                            <form method="post" action="/admin/tokens/<?= (int) $t->id ?>/revoke" onsubmit="return confirm('Revoke this token? This cannot be undone.');">
+                            <form method="post" action="/admin/tokens/<?= (int) $t->id ?>/revoke" data-confirm="Revoke this token? This cannot be undone.">
                                 <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
                                 <button type="submit" class="nb-link-danger">Revoke</button>
                             </form>

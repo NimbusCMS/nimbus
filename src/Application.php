@@ -23,6 +23,7 @@ use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Database\MigrationRegistry;
 use Nimbus\Http\Cors;
+use Nimbus\Http\Csp;
 use Nimbus\Http\HttpException;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
@@ -211,6 +212,10 @@ final class Application
      */
     public function handle(Request $request): Response
     {
+        // Fresh CSP nonce per request, before anything renders — so the value in
+        // every inline <script nonce> matches the script-src directive.
+        Csp::rotate();
+
         // A browser CORS preflight carries no token, so it is answered before
         // routing/auth. Every actual API response is annotated afterwards; both
         // only act when the Origin is on the configured allow-list.

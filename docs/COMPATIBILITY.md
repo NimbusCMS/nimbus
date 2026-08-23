@@ -147,6 +147,11 @@ else — no services, no repositories, no database:
 - `$e($value)` — escape a value for output.
 - `$partial($name, $data = [])` — include another template from the same theme
   (a shared `header`, `footer`, `nav`), returning rendered HTML.
+- `$cspNonce` — the per-request CSP nonce. **An inline `<script>` must carry
+  `nonce="<?= $e($cspNonce) ?>"` or it will not run** — the Content-Security-Policy
+  `script-src` is nonce-only (no `'unsafe-inline'`). Prefer external files under
+  `assets/`. Inline `<style>`/`style=` are still allowed (`style-src` keeps
+  `'unsafe-inline'`).
 
 The active theme is named in `config/theme.php`. Templates rendered today:
 `layout` (the shell), `collection`, `entry`, and an optional `404`. A theme may

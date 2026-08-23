@@ -80,7 +80,7 @@ $err         = static fn (string $k): string => isset($errors[$k])
 
 <template id="nb-field-template"><?php $i = '__i__'; $f = null; include __DIR__ . '/_field_row.php'; ?></template>
 
-<script>
+<script nonce="<?= $e($cspNonce) ?>">
 (function () {
     var choiceTypes   = <?= json_encode($choiceTypes) ?>;
     var relationTypes = <?= json_encode($relationTypes) ?>;

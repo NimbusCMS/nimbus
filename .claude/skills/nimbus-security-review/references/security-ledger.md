@@ -450,3 +450,15 @@ Template for an accepted risk:
   - **Delivery failure surfaced to the admin** (`msg=invited-nomail`) — safe because invitation is admin-initiated (no enumeration concern, unlike the public reset flow which stays silent).
 - **Regression tests:** `tests/Http/UserInvitationTest.php` (11 — invite issues a usable token + creates a passwordless user; direct-create fallback; no pre-accept login; accept activates; **invite-token-rejected-at-reset**; **reset-doesn't-kill-invite**; single-use; **subset-only role guard**; accept CSRF; delivery-failure reported; no-referrer). Reset suite unchanged and green after the `AccountTokenService` refactor.
 - **Threat-catalog (new standing check):** purpose-scoped shared tokens — one table serving multiple credential flows must filter by purpose on *every* read/consume/invalidate, or the classes become interchangeable.
+
+### 2026-08-22 · Nonce-based CSP (script-src) — security-green
+- **Status:** shipped (`feat/csp-nonce`). Hardening the CSP itself; the risk is getting it WRONG (false protection). No Critical/High.
+- **Controls (each tested/verified):**
+  - **Nonce quality:** `base64(random_bytes(16))` = 128-bit CSPRNG; `Http\Csp::rotate()` at `Application::handle()` top → fresh per request (incl. error/404, since `SecurityHeaders::apply` wraps every response); test asserts two requests differ.
+  - **`'unsafe-inline'` removed from `script-src`** (the crux) — a regression test asserts `script-src` has a `nonce-…` and NO `'unsafe-inline'`, so it can't silently rot; a browser ignoring a stray `'unsafe-inline'` can no longer mask a missed block.
+  - **Header/render match:** a test asserts the CSP-header nonce equals the `nonce=""` on a rendered admin `<script>`; live smoke confirmed a nonced inline script executed and produced zero console CSP violations.
+  - **Nonce only in safe sinks:** CSP header + `nonce=""` on server-rendered `<script>` (`$e()`-escaped); never logged, in URLs, or user-controlled attributes. The same-response HTML-injection-scrapes-the-nonce case is the inherent CSP-nonce limitation — Nimbus's escape-by-default remains the primary XSS control; CSP is defense-in-depth.
+  - **No control dropped:** the 5 inline `onsubmit` confirms were UX only; delete/revoke routes remain POST + `requireCsrf` + `requireCan`.
+- **Accepted residual (Low, documented):** `style-src 'unsafe-inline'` kept — CSS injection (exfil/defacement, no code exec) and needs an escape failure first; additive to harden later.
+- **Regression tests:** `tests/Http/CspNonceTest.php` (nonce-only-no-unsafe-inline; fresh-per-request; header-matches-rendered-script; destructive forms use `data-confirm` not inline `onsubmit`).
+- **Threat-catalog (new standing check):** CSP nonce hygiene — CSPRNG + per-request + `'unsafe-inline'` removed — for any future CSP change.
