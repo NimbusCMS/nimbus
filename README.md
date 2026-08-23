@@ -163,10 +163,15 @@ Architecture decisions are recorded in [docs/adr](docs/adr).
 ## Development
 
 ```bash
-docker compose exec app composer check   # PHPStan level 6 + the full test suite
+docker compose exec app composer check   # dependency audit + PHPStan level 7 + the full test suite
 docker compose exec app composer test    # tests only
+docker compose exec app composer audit   # dependency vulnerability scan (also runs in CI)
 docker compose exec app tests/smoke.sh   # install from empty + CRUD over HTTP
 ```
+
+`composer audit` fails on a known advisory in the committed `composer.lock`. If a
+dev-only dependency is ever flagged with no fix available, scope the exception at
+the audit step (severity/advisory id) rather than dropping the check.
 
 ## License
 

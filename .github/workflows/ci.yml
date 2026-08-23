@@ -36,6 +36,15 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      # Fail on a known advisory in the committed lockfile. `--locked` audits
+      # exactly what ships (not a fresh resolve); `--abandoned=report` pins the
+      # policy so a dependency becoming abandoned warns without breaking CI on a
+      # Composer version bump (Composer >= 2.7 fails by default). Dev tooling is
+      # in scope on purpose — it runs arbitrary code in CI and on contributors'
+      # machines, so `--no-dev` is deliberately not used.
+      - name: Dependency audit
+        run: composer audit --locked --abandoned=report
+
       # Formatting and static analysis run before the tests: fast, no database,
       # and a good place to fail early.
       - name: Formatting

@@ -92,8 +92,8 @@ repositories, install+CRUD and package-boundary tests — all green.*
 - [ ] Trusted-proxy config for URL generation (already used by sessions + throttling)
 - [ ] Separate field rendering from field domain behaviour (only when alt themes /
   non-HTML editors create real pressure)
-- [ ] Dependency vulnerability scanning · automated release artifacts · semver +
-  CHANGELOG
+- [x] **Dependency vulnerability scanning** — `composer audit --locked --abandoned=report` runs in CI (fails on a known advisory in the committed lockfile) and is folded into `composer check`; dev tooling is in scope (it runs code in CI / on contributors' machines)
+- [ ] Automated release artifacts · semver + CHANGELOG
 
 ---
 

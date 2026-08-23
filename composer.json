@@ -43,9 +43,11 @@
     "scripts": {
         "test": "phpunit",
         "analyse": "phpstan analyse --memory-limit=512M",
+        "audit": "@composer audit --locked --abandoned=report",
         "format": "php-cs-fixer fix",
         "format:check": "php-cs-fixer fix --dry-run --diff",
         "check": [
+            "@audit",
             "@analyse",
             "@test"
         ],
