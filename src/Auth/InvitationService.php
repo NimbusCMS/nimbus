@@ -6,6 +6,7 @@ namespace Nimbus\Auth;
 
 use Nimbus\Mail\Mailer;
 use Nimbus\Mail\MailerException;
+use Nimbus\Settings\Settings;
 use Nimbus\Support\Config;
 use Nimbus\Support\CoreEvents;
 
@@ -28,6 +29,7 @@ final class InvitationService
     public function __construct(
         private AccountTokenService $tokens,
         private Mailer $mailer,
+        private Settings $settings,
     ) {
     }
 
@@ -36,13 +38,14 @@ final class InvitationService
     {
         $token = $this->tokens->issue($userId, PasswordResetRepository::PURPOSE_INVITE, self::TTL_SECONDS);
         $link  = Config::appUrl() . '/admin/accept?token=' . urlencode($token);
+        $site  = $this->settings->title();
 
-        $body = 'You have been invited to ' . Config::appName() . ".\n\n"
+        $body = 'You have been invited to ' . $site . ".\n\n"
             . "Set your password to activate your account (this link is valid for 3 days and can be used once):\n{$link}\n\n"
             . "If you weren't expecting this, you can ignore this email.";
 
         try {
-            $this->mailer->send($toEmail, "You're invited to " . Config::appName(), $body);
+            $this->mailer->send($toEmail, "You're invited to " . $site, $body);
         } catch (MailerException $e) {
             error_log('[nimbus mail] invitation delivery failed: ' . $e->getMessage());
             return false;

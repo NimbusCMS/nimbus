@@ -11,6 +11,7 @@ use Nimbus\Auth\Password;
 use Nimbus\Auth\PasswordResetRepository;
 use Nimbus\Auth\RoleRepository;
 use Nimbus\Auth\UserRepository;
+use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
@@ -18,6 +19,9 @@ use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Mail\Mailer;
 use Nimbus\Mail\MailerFactory;
+use Nimbus\Settings\Settings;
+use Nimbus\Settings\SettingsRegistry;
+use Nimbus\Settings\SettingsRepository;
 use Nimbus\Support\EventDispatcher;
 
 /**
@@ -40,6 +44,7 @@ final class UsersController extends Controller
         $this->invitations = new InvitationService(
             new AccountTokenService($this->users, new PasswordResetRepository($db), $events ?? new EventDispatcher()),
             $mailer ?? MailerFactory::fromConfig(),
+            new Settings(new SettingsRepository($db), new SettingsRegistry(new CollectionRepository($db))),
         );
     }
 

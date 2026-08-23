@@ -6,6 +6,7 @@ namespace Nimbus\Auth;
 
 use Nimbus\Mail\Mailer;
 use Nimbus\Mail\MailerException;
+use Nimbus\Settings\Settings;
 use Nimbus\Support\Config;
 use Nimbus\Support\CoreEvents;
 use Nimbus\Support\EventDispatcher;
@@ -27,6 +28,7 @@ final class PasswordResetService
         private AccountTokenService $tokens,
         private Mailer $mailer,
         private EventDispatcher $events,
+        private Settings $settings,
     ) {
     }
 
@@ -46,12 +48,14 @@ final class PasswordResetService
         // Supersede the user's outstanding reset links, then issue exactly one.
         $token = $this->tokens->issue($user->id, PasswordResetRepository::PURPOSE_RESET, PasswordResetRepository::TTL_SECONDS);
         $link  = Config::appUrl() . '/admin/reset?token=' . urlencode($token);
-        $body = 'Someone asked to reset the password for your ' . Config::appName() . " account.\n\n"
+        // The brand is the editable site title (falls back to the config default).
+        $site  = $this->settings->title();
+        $body  = 'Someone asked to reset the password for your ' . $site . " account.\n\n"
             . "Set a new password (this link is valid for one hour and can be used once):\n{$link}\n\n"
             . "If you didn't request this, you can ignore this email — your password stays the same.";
 
         try {
-            $this->mailer->send($user->email, 'Reset your ' . Config::appName() . ' password', $body);
+            $this->mailer->send($user->email, 'Reset your ' . $site . ' password', $body);
         } catch (MailerException $e) {
             // Never surface a delivery failure to the client (that would leak that
             // the account exists) and never log the token/link — just the reason.

@@ -171,6 +171,17 @@ final class UserInvitationTest extends HttpTestCase
         self::assertNotNull($this->userByEmail('newbie@test.local'), 'the user still exists to re-invite');
     }
 
+    public function test_the_invite_email_uses_the_configured_site_title(): void
+    {
+        (new \Nimbus\Settings\SettingsRepository($this->db))->set('site.title', 'Danmat Studio');
+        $this->actingAs('admin');
+
+        $this->post('/admin/users', ['email' => 'newbie@test.local', 'password' => '']);
+
+        self::assertStringContainsString('Danmat Studio', $this->spy->sent[0]['subject']);
+        self::assertStringContainsString('Danmat Studio', $this->spy->sent[0]['body']);
+    }
+
     public function test_the_accept_page_forbids_the_referer(): void
     {
         $this->actingAs('admin');
