@@ -78,11 +78,8 @@ repositories, install+CRUD and package-boundary tests — all green.*
 - [x] **PHPStan** level 6 in CI — *#7*
 - [x] HTTP-functional tests: CSRF on write routes, permission enforcement,
   cross-collection entry-id isolation — *#8*
-- [ ] **PHP-CS-Fixer**/PHPCS in CI — PHPStan landed, formatting did not. Wanted
-      **before outside contributions arrive**: with several repositories and
-      contributors, formatting noise multiplies and every review starts
-      arguing about whitespace. PSR-12-oriented, small config.
-- [ ] Raise PHPStan above level 6
+- [x] **PHP-CS-Fixer in CI** — `composer format:check` (`php-cs-fixer --dry-run`) runs in `.github/workflows/ci.yml` alongside PHPStan + PHPUnit; `composer format` fixes locally
+- [x] Raise PHPStan above level 6 — now **level 7** (stricter argument/return typing); fixed the ~25 findings (list-return `array_values`, `false`-from-builtin guards, precise param types)
 - [x] Entry-list **pagination** — admin entry list pages at 25/entry (search-aware count, clamp-to-range), mobile pager
 - [x] Collection-index **N+1 count** query fix — grouped `fieldCounts()`/`entryCounts()` (2N+1 → 3 queries)
 - [ ] Migration-upgrade tests · upload-security tests · permission-matrix tests

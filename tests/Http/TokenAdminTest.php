@@ -62,7 +62,7 @@ final class TokenAdminTest extends HttpTestCase
 
         self::assertSame(1, preg_match('/nbt_[0-9a-f]{40}/', $response->body, $m), 'the plaintext is shown once');
         // The shown secret is the real, working token.
-        $token = $this->tokens->findByPlaintext($m[0]);
+        $token = $this->tokens->findByPlaintext($m[0] ?? '');
         self::assertNotNull($token);
         self::assertSame('CI pipeline', $token->name);
     }
@@ -326,6 +326,6 @@ final class TokenAdminTest extends HttpTestCase
     private function extractSecret(string $body): string
     {
         self::assertSame(1, preg_match('/nbt_[0-9a-f]{40}/', $body, $m), 'expected a minted secret in the response');
-        return $m[0];
+        return $m[0] ?? '';
     }
 }

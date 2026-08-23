@@ -45,7 +45,7 @@ final class ApiResponse
      * A single entity, wrapped like ok() but with an explicit status — 201 for a
      * create, 200 for an update.
      *
-     * @param array<string,mixed> $data
+     * @param array<array-key,mixed> $data
      */
     public static function entity(array $data, int $status = 200): Response
     {

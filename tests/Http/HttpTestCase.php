@@ -242,6 +242,7 @@ abstract class HttpTestCase extends IntegrationTestCase
         self::assertSame($to, $response->header('Location'), $message);
     }
 
+    /** @param non-empty-string $prefix */
     protected function assertRedirectsTo(?Response $response, string $prefix): void
     {
         self::assertNotNull($response);

@@ -30,7 +30,7 @@ final class AdminListingTest extends HttpTestCase
     {
         // Each entry row links to its edit page; count those anchors.
         return substr_count($body, '/entries/') > 0
-            ? preg_match_all('#/entries/\d+/edit"><strong>#', $body)
+            ? (int) preg_match_all('#/entries/\d+/edit"><strong>#', $body)
             : 0;
     }
 

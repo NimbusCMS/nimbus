@@ -25,10 +25,10 @@ final class CollectionRoutesTest extends HttpTestCase
      */
     private function fields(array ...$rows): array
     {
-        return ['fields' => array_map(
+        return ['fields' => array_values(array_map(
             static fn (array $r): array => ['label' => $r[0], 'handle' => $r[1], 'type' => $r[2] ?? 'text'],
             $rows,
-        )];
+        ))];
     }
 
     // ------------------------------------------------------------- reading

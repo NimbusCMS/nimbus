@@ -25,7 +25,7 @@ define('NB_TEST_DB', [
     'port' => (int) (getenv('TEST_DB_PORT') ?: 3306),
     'name' => getenv('TEST_DB_NAME') ?: 'nimbus_test',
     'user' => getenv('TEST_DB_USER') ?: 'root',
-    'pass' => getenv('TEST_DB_PASS') !== false ? getenv('TEST_DB_PASS') : 'root',
+    'pass' => ($p = getenv('TEST_DB_PASS')) !== false ? $p : 'root',
 ]);
 
 $pdo = new PDO(

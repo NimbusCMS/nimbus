@@ -150,7 +150,7 @@ final class ResponseContractTest extends HttpTestCase
     public function test_every_registered_route_accepts_the_request_first(): void
     {
         foreach ($this->router->routes() as $route) {
-            $params = (new ReflectionFunction($route->handler()))->getParameters();
+            $params = (new ReflectionFunction(\Closure::fromCallable($route->handler())))->getParameters();
 
             self::assertNotEmpty($params, $this->label($route) . ' takes no arguments');
             self::assertSame(
