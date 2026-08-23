@@ -11,6 +11,7 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\Url;
 use Nimbus\Plugin\PluginStatus;
 
 /**
@@ -77,7 +78,7 @@ final class AdminController extends Controller
     private function loginForm(?string $error = null, ?string $notice = null): Response
     {
         if ($this->auth->check()) {
-            return $this->redirect('/admin');
+            return $this->redirect(Url::to('admin.dashboard'));
         }
         return $this->bare('login', ['error' => $error, 'notice' => $notice, 'csrf' => Csrf::token()]);
     }
@@ -97,7 +98,7 @@ final class AdminController extends Controller
 
         if ($this->auth->attempt((string) $req->input('email'), (string) $req->input('password'))) {
             $throttle->clear($key);
-            return $this->redirect('/admin');
+            return $this->redirect(Url::to('admin.dashboard'));
         }
 
         $throttle->recordFailure($key);
@@ -115,7 +116,7 @@ final class AdminController extends Controller
             }
             session_destroy();
         }
-        return $this->redirect('/admin/login');
+        return $this->redirect(Url::to('admin.login'));
     }
 
     private function dashboardPage(): Response

@@ -18,6 +18,7 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\Url;
 use Nimbus\Mail\Mailer;
 use Nimbus\Settings\Settings;
 use Nimbus\Settings\SettingsRegistry;
@@ -111,7 +112,7 @@ final class PasswordResetController extends Controller
         $outcome = $this->service->reset($token, $password, $req->ip());
 
         return match ($outcome) {
-            PasswordResetOutcome::Ok           => $this->redirect('/admin/login?reset=1'),
+            PasswordResetOutcome::Ok           => $this->redirect(Url::to('admin.login') . '?reset=1'),
             PasswordResetOutcome::WeakPassword => $this->bare('reset', [
                 'valid' => true,
                 'token' => $token,
@@ -151,7 +152,7 @@ final class PasswordResetController extends Controller
         $outcome = $this->invitations->accept($token, $password, $req->ip());
 
         return match ($outcome) {
-            PasswordResetOutcome::Ok           => $this->redirect('/admin/login?welcome=1'),
+            PasswordResetOutcome::Ok           => $this->redirect(Url::to('admin.login') . '?welcome=1'),
             PasswordResetOutcome::WeakPassword => $this->bare('accept', [
                 'valid' => true,
                 'token' => $token,

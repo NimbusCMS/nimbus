@@ -16,6 +16,7 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\Url;
 use Nimbus\Support\Str;
 
 /**
@@ -74,17 +75,17 @@ final class CollectionsController extends Controller
 
     private function form(?int $id): Response
     {
-        $this->requireCan('schema', 'write', '/admin/collections');
+        $this->requireCan('schema', 'write', Url::to('admin.collections.index'));
         $collection = $id !== null ? $this->collections->find($id) : null;
         if ($id !== null && $collection === null) {
-            return $this->redirect('/admin/collections');
+            return $this->redirect(Url::to('admin.collections.index'));
         }
         return $this->renderCollectionForm($collection, $this->draftFromCollection($collection), []);
     }
 
     private function store(Request $req): Response
     {
-        $this->requireCan('schema', 'write', '/admin/collections');
+        $this->requireCan('schema', 'write', Url::to('admin.collections.index'));
         $this->requireCsrf($req);
 
         $draft  = $this->draftFromRequest($req);
@@ -100,7 +101,7 @@ final class CollectionsController extends Controller
                     $this->options($req),
                     $this->fieldDefs($req),
                 );
-                return $this->redirect('/admin/collections?msg=created');
+                return $this->redirect(Url::to('admin.collections.index') . '?msg=created');
             } catch (DuplicateHandle $e) {
                 $errors['handle'] = 'The handle “' . $e->handle . '” is already taken. Pick another.';
             }
@@ -111,12 +112,12 @@ final class CollectionsController extends Controller
 
     private function update(Request $req, int $id): Response
     {
-        $this->requireCan('schema', 'write', '/admin/collections');
+        $this->requireCan('schema', 'write', Url::to('admin.collections.index'));
         $this->requireCsrf($req);
 
         $collection = $this->collections->find($id);
         if ($collection === null) {
-            return $this->redirect('/admin/collections');
+            return $this->redirect(Url::to('admin.collections.index'));
         }
 
         $draft  = $this->draftFromRequest($req);
@@ -126,7 +127,7 @@ final class CollectionsController extends Controller
         }
 
         $this->collectionService->update($id, $draft['name'], $draft['icon'], $draft['description'], $this->options($req), $this->fieldDefs($req));
-        return $this->redirect('/admin/collections?msg=updated');
+        return $this->redirect(Url::to('admin.collections.index') . '?msg=updated');
     }
 
     /**
@@ -208,10 +209,10 @@ final class CollectionsController extends Controller
 
     private function destroy(Request $req, int $id): Response
     {
-        $this->requireCan('schema', 'write', '/admin/collections');
+        $this->requireCan('schema', 'write', Url::to('admin.collections.index'));
         $this->requireCsrf($req);
         $this->collectionService->delete($id);
-        return $this->redirect('/admin/collections?msg=deleted');
+        return $this->redirect(Url::to('admin.collections.index') . '?msg=deleted');
     }
 
     // =============================================================== helpers

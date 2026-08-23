@@ -12,6 +12,7 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\Url;
 
 /**
  * Managing roles (ADR 0011): named bundles of capabilities an admin composes and
@@ -75,55 +76,55 @@ final class RolesController extends Controller
     private function store(Request $req): Response
     {
         $this->requireCan('roles', 'write');
-        $this->requireCsrf($req, '/admin/roles');
+        $this->requireCsrf($req, Url::to('admin.roles.index'));
 
         $name = trim((string) $req->input('name'));
         if ($name === '') {
-            return $this->redirect('/admin/roles?err=' . rawurlencode('A role needs a name.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('A role needs a name.'));
         }
         if ($this->roles->findByName($name) !== null) {
-            return $this->redirect('/admin/roles?err=' . rawurlencode("A role named \"{$name}\" already exists."));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("A role named \"{$name}\" already exists."));
         }
 
         $caps      = $this->capabilitiesFrom($req);
         $ungranted = $this->firstUnheld($caps);
         if ($ungranted !== null) {
-            return $this->redirect('/admin/roles?err=' . rawurlencode("You cannot grant a capability you do not hold: {$ungranted}."));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("You cannot grant a capability you do not hold: {$ungranted}."));
         }
 
         $this->roles->create($name, $caps, false);
-        return $this->redirect('/admin/roles?msg=created');
+        return $this->redirect(Url::to('admin.roles.index') . '?msg=created');
     }
 
     private function update(Request $req, int $id): Response
     {
         $this->requireCan('roles', 'write');
-        $this->requireCsrf($req, '/admin/roles');
+        $this->requireCsrf($req, Url::to('admin.roles.index'));
 
         $role = $this->roles->find($id);
         if ($role === null) {
-            return $this->redirect('/admin/roles?err=' . rawurlencode('No such role.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('No such role.'));
         }
         // The admin role is the built-in super-grant; keep it intact so an install
         // can never edit away its own administrator.
         if ($role->name === 'admin') {
-            return $this->redirect('/admin/roles?err=' . rawurlencode('The admin role cannot be edited.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('The admin role cannot be edited.'));
         }
         // Subset-only, both ways: you cannot edit a role that already grants more
         // than you hold (no nerf-by-edit / no touching a superior role), and you
         // cannot grant a capability you do not hold.
         $existing = $this->firstUnheld($role->capabilities);
         if ($existing !== null) {
-            return $this->redirect('/admin/roles?err=' . rawurlencode("You cannot edit a role that grants a capability beyond your own: {$existing}."));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("You cannot edit a role that grants a capability beyond your own: {$existing}."));
         }
         $caps      = $this->capabilitiesFrom($req);
         $ungranted = $this->firstUnheld($caps);
         if ($ungranted !== null) {
-            return $this->redirect('/admin/roles?err=' . rawurlencode("You cannot grant a capability you do not hold: {$ungranted}."));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("You cannot grant a capability you do not hold: {$ungranted}."));
         }
 
         $this->roles->setCapabilities($id, $caps);
-        return $this->redirect('/admin/roles?msg=updated');
+        return $this->redirect(Url::to('admin.roles.index') . '?msg=updated');
     }
 
     /**
@@ -144,18 +145,18 @@ final class RolesController extends Controller
     private function destroy(Request $req, int $id): Response
     {
         $this->requireCan('roles', 'write');
-        $this->requireCsrf($req, '/admin/roles');
+        $this->requireCsrf($req, Url::to('admin.roles.index'));
 
         $role = $this->roles->find($id);
         if ($role === null) {
-            return $this->redirect('/admin/roles?err=' . rawurlencode('No such role.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('No such role.'));
         }
         if ($role->isSystem) {
-            return $this->redirect('/admin/roles?err=' . rawurlencode('The built-in roles cannot be deleted.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('The built-in roles cannot be deleted.'));
         }
 
         $this->roles->delete($id); // assignments cascade away
-        return $this->redirect('/admin/roles?msg=deleted');
+        return $this->redirect(Url::to('admin.roles.index') . '?msg=deleted');
     }
 
     /**

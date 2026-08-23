@@ -17,6 +17,7 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\Url;
 use Nimbus\Mail\Mailer;
 use Nimbus\Mail\MailerFactory;
 use Nimbus\Settings\Settings;
@@ -83,21 +84,21 @@ final class UsersController extends Controller
     private function store(Request $req): Response
     {
         $this->requireCan('users', 'write');
-        $this->requireCsrf($req, '/admin/users');
+        $this->requireCsrf($req, Url::to('admin.users.index'));
 
         $email = strtolower(trim((string) $req->input('email')));
         if ($email === '' || !str_contains($email, '@')) {
-            return $this->redirect('/admin/users?err=' . rawurlencode('A valid email is required.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('A valid email is required.'));
         }
         if ($this->users->emailExists($email)) {
-            return $this->redirect('/admin/users?err=' . rawurlencode("A user with email \"{$email}\" already exists."));
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode("A user with email \"{$email}\" already exists."));
         }
         // Blank password → email an invite (the user sets their own); a typed
         // password → direct create (the fallback, e.g. a no-mail install).
         $password = (string) $req->input('password');
         $invite   = trim($password) === '';
         if (!$invite && Password::isWeak($password)) {
-            return $this->redirect('/admin/users?err=' . rawurlencode('Choose a password of at least 8 non-default characters.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('Choose a password of at least 8 non-default characters.'));
         }
         $name = trim((string) $req->input('name'));
         if ($name === '') {
@@ -107,7 +108,7 @@ final class UsersController extends Controller
         $roleIds     = $this->roleIdsFrom($req);
         $ungrantable = $this->firstUngrantableRole($roleIds);
         if ($ungrantable !== null) {
-            return $this->redirect('/admin/users?err=' . rawurlencode("You cannot assign the \"{$ungrantable}\" role — it grants more than you hold."));
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode("You cannot assign the \"{$ungrantable}\" role — it grants more than you hold."));
         }
 
         // An invited account gets a random, unusable password: no plaintext ever
@@ -122,20 +123,20 @@ final class UsersController extends Controller
 
         if ($invite) {
             $sent = $this->invitations->sendInvite($id, $email);
-            return $this->redirect('/admin/users?msg=' . ($sent ? 'invited' : 'invited-nomail'));
+            return $this->redirect(Url::to('admin.users.index') . '?msg=' . ($sent ? 'invited' : 'invited-nomail'));
         }
 
-        return $this->redirect('/admin/users?msg=created');
+        return $this->redirect(Url::to('admin.users.index') . '?msg=created');
     }
 
     private function update(Request $req, int $id): Response
     {
         $this->requireCan('users', 'write');
-        $this->requireCsrf($req, '/admin/users');
+        $this->requireCsrf($req, Url::to('admin.users.index'));
 
         $user = $this->users->find($id);
         if ($user === null) {
-            return $this->redirect('/admin/users?err=' . rawurlencode('No such user.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('No such user.'));
         }
 
         $roleIds = $this->roleIdsFrom($req);
@@ -147,7 +148,7 @@ final class UsersController extends Controller
         $ungrantable = $this->firstUngrantableRole($roleIds)
             ?? $this->firstUngrantableRole(array_map(static fn ($r): int => $r->id, $this->roles->rolesForUser($id)));
         if ($ungrantable !== null) {
-            return $this->redirect('/admin/users?err=' . rawurlencode("You cannot grant or change the \"{$ungrantable}\" role — it grants more than you hold."));
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode("You cannot grant or change the \"{$ungrantable}\" role — it grants more than you hold."));
         }
 
         // Never let the last admin be stripped of the admin role.
@@ -156,7 +157,7 @@ final class UsersController extends Controller
             && !in_array($adminRole->id, $roleIds, true)
             && $this->userHasRole($id, $adminRole->id)
             && $this->roles->assignedUserCount($adminRole->id) <= 1) {
-            return $this->redirect('/admin/users?err=' . rawurlencode('This is the only admin — give another user the admin role first.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('This is the only admin — give another user the admin role first.'));
         }
 
         $name = trim((string) $req->input('name'));
@@ -165,7 +166,7 @@ final class UsersController extends Controller
         }
         $this->roles->syncUserRoles($id, $roleIds);
 
-        return $this->redirect('/admin/users?msg=updated');
+        return $this->redirect(Url::to('admin.users.index') . '?msg=updated');
     }
 
     /**

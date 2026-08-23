@@ -194,6 +194,7 @@ abstract class HttpTestCase extends IntegrationTestCase
     protected function rebuildRouter(): void
     {
         $this->router = (new Application($this->db, $this->auth))->routes();
+        \Nimbus\Http\Url::bind($this->router); // so directly-dispatched routes can generate URLs
     }
 
     // -------------------------------------------------------- fixtures

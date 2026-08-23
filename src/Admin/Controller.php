@@ -14,6 +14,7 @@ use Nimbus\Http\HttpException;
 use Nimbus\Http\Middleware\AuthMiddleware;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
+use Nimbus\Http\Url;
 use Nimbus\Settings\Settings;
 use Nimbus\Settings\SettingsRegistry;
 use Nimbus\Settings\SettingsRepository;
@@ -51,25 +52,25 @@ abstract class Controller
         // per-collection write). Administration sections appear only to holders of
         // the capability that gates them (ADR 0011), so there are no dead links.
         $items = [
-            ['key' => 'dashboard',   'label' => 'Dashboard',   'url' => '/admin',             'icon' => '✦'],
-            ['key' => 'collections', 'label' => 'Collections', 'url' => '/admin/collections', 'icon' => '❑'],
+            ['key' => 'dashboard',   'label' => 'Dashboard',   'url' => Url::to('admin.dashboard'),             'icon' => '✦'],
+            ['key' => 'collections', 'label' => 'Collections', 'url' => Url::to('admin.collections.index'), 'icon' => '❑'],
         ];
         if ($this->gate->can('media', 'read')) {
-            $items[] = ['key' => 'media', 'label' => 'Media', 'url' => '/admin/media', 'icon' => '❖'];
+            $items[] = ['key' => 'media', 'label' => 'Media', 'url' => Url::to('admin.media.index'), 'icon' => '❖'];
         }
         if ($this->gate->can('users', 'write')) {
-            $items[] = ['key' => 'users', 'label' => 'Users', 'url' => '/admin/users', 'icon' => '☾'];
+            $items[] = ['key' => 'users', 'label' => 'Users', 'url' => Url::to('admin.users.index'), 'icon' => '☾'];
         }
         if ($this->gate->can('roles', 'write')) {
-            $items[] = ['key' => 'roles', 'label' => 'Roles', 'url' => '/admin/roles', 'icon' => '⛨'];
+            $items[] = ['key' => 'roles', 'label' => 'Roles', 'url' => Url::to('admin.roles.index'), 'icon' => '⛨'];
         }
         if ($this->gate->can('tokens', 'write')) {
-            $items[] = ['key' => 'tokens', 'label' => 'API tokens', 'url' => '/admin/tokens', 'icon' => '⚿'];
+            $items[] = ['key' => 'tokens', 'label' => 'API tokens', 'url' => Url::to('admin.tokens.index'), 'icon' => '⚿'];
         }
         if ($this->gate->holds('admin')) {
             $items[] = ['key' => 'plugins', 'label' => 'Plugins', 'url' => '/admin/plugins', 'icon' => '⚡'];
         }
-        $items[] = ['key' => 'settings', 'label' => 'Settings', 'url' => '/admin/settings', 'icon' => '⚙'];
+        $items[] = ['key' => 'settings', 'label' => 'Settings', 'url' => Url::to('admin.settings'), 'icon' => '⚙'];
         // Plugin-registered pages sit below the core sections; one that declared a
         // capability appears only to holders (no dead links) — the route enforces it too.
         foreach ($this->adminPages?->all() ?? [] as $page) {

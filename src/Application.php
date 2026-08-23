@@ -29,6 +29,7 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\SecurityHeaders;
+use Nimbus\Http\Url;
 use Nimbus\Mail\Mailer;
 use Nimbus\Mail\MailerFactory;
 use Nimbus\Plugin\PluginCapabilities;
@@ -265,7 +266,9 @@ final class Application
                 }
             }
 
-            $response = $this->routes()->dispatch($request)
+            $router = $this->routes();
+            Url::bind($router); // named-route URL generation for controller redirects
+            $response = $router->dispatch($request)
                 ?? $this->notice('Not found', 'Nothing lives at <code>' . View::e($request->path) . '</code>.', 404);
 
             if ($cacheKey !== null && $response->status === 200 && str_contains((string) $response->header('Content-Type'), 'text/html')) {

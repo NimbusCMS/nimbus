@@ -18,6 +18,7 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\Url;
 use Nimbus\Media\MediaRepository;
 use Nimbus\Support\EventDispatcher;
 
@@ -123,7 +124,7 @@ final class EntriesController extends Controller
         // collection reads as missing rather than being editable from here.
         $entry = $id !== null ? $this->entries->find($collection->id, $id) : null;
         if ($id !== null && $entry === null) {
-            return $this->redirect("/admin/collections/{$handle}/entries");
+            return $this->redirect(Url::to('admin.entries.index', ['handle' => $handle]));
         }
         return $this->renderForm($collection, $this->modelFromEntry($collection, $entry), []);
     }
@@ -144,7 +145,7 @@ final class EntriesController extends Controller
         $this->requireCsrf($req);
 
         if ($this->entries->find($collection->id, $id) === null) {
-            return $this->redirect("/admin/collections/{$handle}/entries");
+            return $this->redirect(Url::to('admin.entries.index', ['handle' => $handle]));
         }
         return $this->save($collection, $req, $id);
     }
@@ -157,12 +158,12 @@ final class EntriesController extends Controller
 
         // Singletons aren't deleted as entries — there's always exactly one.
         if ($collection->isSingle() || $this->entries->find($collection->id, $id) === null) {
-            return $this->redirect("/admin/collections/{$handle}/entries");
+            return $this->redirect(Url::to('admin.entries.index', ['handle' => $handle]));
         }
         // The redirect is the same either way — the user asked for it gone and
         // it is gone. Only the event needs to know whether a row really went.
         $this->entryService->delete($collection, $id);
-        return $this->redirect("/admin/collections/{$handle}/entries?msg=deleted");
+        return $this->redirect(Url::to('admin.entries.index', ['handle' => $handle]) . '?msg=deleted');
     }
 
     /**
@@ -180,7 +181,7 @@ final class EntriesController extends Controller
 
         $entry = $this->entries->find($collection->id, $id);
         if ($entry === null || $collection->isSingle()) {
-            return $this->redirect("/admin/collections/{$handle}/entries");
+            return $this->redirect(Url::to('admin.entries.index', ['handle' => $handle]));
         }
 
         // Rebuild the input from what is stored, changing only the status.
@@ -194,7 +195,7 @@ final class EntriesController extends Controller
         $result = $this->entryService->save($collection, $input, $id, $this->auth->user()?->id);
 
         $msg = $result->successful ? ($status === Publication::PUBLISHED ? 'published' : 'unpublished') : 'error';
-        return $this->redirect("/admin/collections/{$handle}/entries?msg={$msg}");
+        return $this->redirect(Url::to('admin.entries.index', ['handle' => $handle]) . '?msg=' . $msg);
     }
 
     /** Request -> EntryInput -> EntryService; re-render with errors, or redirect. */
@@ -210,7 +211,7 @@ final class EntriesController extends Controller
             return $this->renderForm($collection, $this->modelFromInput($input, $id), $result->messages(), null, $result->message);
         }
         $msg = $id === null ? 'created' : ($collection->isSingle() ? 'saved' : 'updated');
-        return $this->redirect("/admin/collections/{$collection->handle}/entries?msg={$msg}");
+        return $this->redirect(Url::to('admin.entries.index', ['handle' => $collection->handle]) . '?msg=' . $msg);
     }
 
     // ================================================================ helpers
@@ -347,7 +348,7 @@ final class EntriesController extends Controller
     {
         $collection = $this->collections->findByHandle($handle);
         if ($collection === null) {
-            $this->abortTo('/admin/collections');
+            $this->abortTo(Url::to('admin.collections.index'));
         }
         return $collection;
     }

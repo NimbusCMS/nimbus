@@ -9,6 +9,7 @@ use Nimbus\Database\Connection;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\Url;
 
 /**
  * Routes the admin pages plugins registered.
@@ -55,7 +56,7 @@ final class PluginPagesController extends Controller
     private function render(string $slug, callable $handler, ?string $capability, Request $request): Response
     {
         if ($capability !== null && !$this->gate->holds($capability)) {
-            $this->abortTo('/admin');
+            $this->abortTo(Url::to('admin.dashboard'));
         }
 
         $result = $handler($request);
