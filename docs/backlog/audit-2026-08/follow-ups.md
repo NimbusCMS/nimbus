@@ -38,3 +38,21 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **What:** a collection named `media`/`users`/`tokens`/`settings`/`roles`/`schema` (or `admin`/`*`) is treated by `Authorizer` as a management resource — no content wildcard, no write⇒read — so `reads()`/`manages()`/the API judge it by management rules (a `*:read` role is denied it; a `media:read` holder is granted content-read of a collection named `media`). Pre-existing via `manages()`; Slice B extends it to reads.
 - **Fix:** reject `Authorizer::MANAGEMENT ∪ {admin, *}` as collection handles at creation (admin form + `SchemaToolset`), one validation line each — closes the class for reads/manages/API at once.
 - **Effort:** S
+
+### FU-5 · No app-level request-body-size bound
+- **Priority:** P3
+- **Type:** security (DoS, defense-in-depth)
+- **Discovered:** Slice F security review.
+- **Where:** `src/Http/Request.php` `json()` (`file_get_contents('php://input')`, no cap).
+- **What:** the entire request body is read + JSON-decoded before app validation runs. Slice F bounds what reaches the DB (per-field length, relation cardinality, column widths), but parse-time memory/CPU is guarded only by PHP `post_max_size` / MySQL `max_allowed_packet` — deployment config, not app.
+- **Fix:** document the deployment ceiling (done in COMPATIBILITY), and optionally a small app-level body-size guard in the kernel if evidence warrants (proportionality: don't build a body-size middleware speculatively).
+- **Effort:** S
+
+### FU-6 · A field handle can collide with a reserved error-map key
+- **Priority:** P3
+- **Type:** correctness
+- **Discovered:** Slice F platform review (relates to FU-4 / ADMIN-14 reserve-names family).
+- **Where:** the entry error map keys `title`/`slug`/`published_at` alongside field handles; nothing reserves those names at schema-create (`CollectionsController::validateDraft`, `SchemaToolset`).
+- **What:** a user-defined field with handle `published_at`/`title`/`slug` collides in the flat `{code,message}` error map, so its error could be shadowed by (or shadow) the entry-level one.
+- **Fix:** reserve `title`/`slug`/`published_at` (with the `Authorizer::MANAGEMENT` names from FU-4) as disallowed field/collection handles at schema-create — one allow-list check, closes both families.
+- **Effort:** S

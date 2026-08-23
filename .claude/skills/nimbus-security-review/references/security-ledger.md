@@ -19,6 +19,36 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice F — entry-write unbounded-input DoS + input-edge 500s closed (DATA-2/DATA-3/ADMIN-6)
+- **Status:** fixed. Fable two-skill burst, security-green conditional on the must-ships (all
+  shipped). Catalog: unbounded-input / write-amplification (first sighting — watch for a 2nd to
+  promote), input-edge availability. No Critical.
+- **Surface:** `src/Content/EntryService.php` (`save`, `uniqueSlug`), `src/Content/Validator.php`,
+  `src/Content/FieldTypes/{Base,Text,Textarea,Relation}Type.php`, `src/Content/Publication.php`.
+- **Closed:**
+  - **Write-amplification DoS (was High while unfixed):** a `{handle}:write` token POSTing 100k
+    relation ids = 100k inserts + a 100k-param IN clause per request. Cap (100) in
+    `RelationType::validate` fires in the Validator **before** `splitValues`/`idsInCollection`, so
+    the oversized list never reaches a DB query. Reject, not truncate (visible). Test asserts
+    **zero** rows persisted.
+  - **Unbounded JSON `data` sink (Medium):** per-field `maxlength` (text 255 / textarea 50k) +
+    a **universal 100k scalar-string ceiling in the `Validator`** — the latter closes the `url`
+    (`filter_var`, no length) and `email` uncapped-scalar sinks the per-type approach missed (A3).
+    Clamped: a `maxlength` option can only *lower* the ceiling, so `collections:manage` can't set
+    `maxlength:10^9` to re-open it.
+  - **Input-edge 500s (Medium, availability — no disclosure):** malformed `published_at` and
+    over-long title/slug were uncaught exceptions → the `\Throwable` boundary (ref-id only, no
+    leak; rate-limited) → now structured `422 invalid`. The slug **suffix headroom** in
+    `uniqueSlug` is the real fix — trimming the base so `base+suffix ≤191` (truncation alone was
+    defeated by the disambiguation suffix on a long-title collision).
+- **Verified:** structured-error parity ({code,message}, additive `invalid`, no new vocabulary,
+  static messages — no SQL/exception text); the fix covers **every** write entrypoint (all route
+  through `save`; no revision-restore write path exists). Error boundary shows only a ref id.
+- **Leaves open (Low, recorded):** no app-level request-body-size bound (deployment config is the
+  only guard on parse-time memory — documented in COMPATIBILITY); media cardinality is
+  defensive-only until the multi-file field; field-handle-vs-reserved-key collision → reserve-names
+  follow-up.
+
 ### 2026-08-23 · Slice E — audit-trail blinding via best-effort event starvation closed (SUP-3/PLUG-3)
 - **Status:** fixed. Fable two-skill burst, security-green, no Critical/High (Low — audit-loss).
   `EventDispatcher::emitBestEffort` caught around the whole loop, so a plugin listener throwing

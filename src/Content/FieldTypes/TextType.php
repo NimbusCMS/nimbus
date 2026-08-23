@@ -24,6 +24,23 @@ class TextType extends BaseType
         return 'text';
     }
 
+    /** Default single-line length cap; a `maxlength` field option overrides (clamped to the ceiling). */
+    protected function defaultMaxLength(): int
+    {
+        return 255;
+    }
+
+    public function validate(Field $field, mixed $value): ?string
+    {
+        if (is_string($value)) {
+            $max = $this->maxLength($field, $this->defaultMaxLength());
+            if (mb_strlen($value) > $max) {
+                return "{$field->label} must be {$max} characters or fewer.";
+            }
+        }
+        return null;
+    }
+
     public function renderInput(Field $field, mixed $value): string
     {
         return sprintf(

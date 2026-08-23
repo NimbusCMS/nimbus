@@ -101,9 +101,10 @@ $heading = $single ? $e($collection->name) : ($editing ? 'Edit' : 'New') . ' · 
                 <option value="archived" <?= $model['status'] === 'archived' ? 'selected' : '' ?>>Archived</option>
             </select>
         </div>
-        <div class="nb-field">
+        <div class="nb-field <?= isset($errors['published_at']) ? 'has-error' : '' ?>">
             <label>Publish at <small class="nb-muted">— a future time schedules it</small></label>
             <input type="datetime-local" name="published_at" value="<?= $e($model['published_at_input'] ?? '') ?>">
+            <?php if (isset($errors['published_at'])): ?><span class="nb-field-error"><?= $e($errors['published_at']) ?></span><?php endif; ?>
         </div>
     </div>
     <?php if (($model['state'] ?? '') === 'scheduled'): ?>

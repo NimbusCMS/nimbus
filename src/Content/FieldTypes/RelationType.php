@@ -36,6 +36,9 @@ class RelationType extends BaseType
         return $ids === [] ? '—' : count($ids) . ' linked';
     }
 
+    /** The most targets one relation field may link — bounds the per-save insert count (DoS). */
+    public const MAX_TARGETS = 100;
+
     /** @return int[] */
     public function normalize(mixed $input): mixed
     {
@@ -43,6 +46,17 @@ class RelationType extends BaseType
             return array_values(array_filter(array_map('intval', $input), static fn (int $i): bool => $i > 0));
         }
         return ($input !== null && $input !== '') ? [(int) $input] : [];
+    }
+
+    public function validate(Field $field, mixed $value): ?string
+    {
+        // Cardinality cap. Runs in the Validator (before splitValues/idsInCollection),
+        // so an oversized id list is a 422 that never reaches a DB query or the
+        // insert loop — the write-amplification DoS bound.
+        if (is_array($value) && count($value) > self::MAX_TARGETS) {
+            return 'Too many linked entries (maximum ' . self::MAX_TARGETS . ').';
+        }
+        return null;
     }
 
     public function toApi(Field $field, mixed $value): mixed

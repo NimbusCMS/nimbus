@@ -22,6 +22,10 @@ final class EntryService
     /** Deterministic slug for singletons — with UNIQUE(collection_id, slug) it guarantees one row. */
     public const SINGLETON_SLUG = '__singleton';
 
+    /** Column widths (nb_entries): validated at the input edge so an over-long value is a 422, not a 1406/500. */
+    private const TITLE_MAX = 255;
+    private const SLUG_MAX  = 191;
+
     private Validator $validator;
     private MediaUsageRepository $mediaUsage;
 
@@ -59,10 +63,25 @@ final class EntryService
         }
 
         $errors = $this->validator->validate($collection, $input->values);
-        if (!$collection->isSingle() && trim($input->title) === '') {
-            // `title` is a writable input alongside the collection's fields, so it
-            // keys into the same error map (no more `__title` pseudo-field).
-            $errors['title'] = FieldError::required('Title is required.');
+        if (!$collection->isSingle()) {
+            // `title`/`slug` are writable inputs alongside the collection's fields,
+            // so they key into the same error map (no more `__title` pseudo-field).
+            if (trim($input->title) === '') {
+                $errors['title'] = FieldError::required('Title is required.');
+            } elseif (mb_strlen($input->title) > self::TITLE_MAX) {
+                $errors['title'] = FieldError::invalid('Title must be ' . self::TITLE_MAX . ' characters or fewer.');
+            }
+            // An explicit slug over the column width is rejected (a *derived* slug is
+            // truncated instead — see uniqueSlug — so a long title never 500s).
+            if (trim($input->slug) !== '' && mb_strlen($input->slug) > self::SLUG_MAX) {
+                $errors['slug'] = FieldError::invalid('Slug must be ' . self::SLUG_MAX . ' characters or fewer.');
+            }
+        }
+        // Reject an unparseable publish time before it reaches DateTimeImmutable
+        // (which would throw a DateMalformedStringException → 500, not a 422).
+        if ($input->status === Publication::PUBLISHED
+            && !Publication::isValidTime((string) $input->publishedAt)) {
+            $errors['published_at'] = FieldError::invalid('Enter a valid publish date and time.');
         }
         if ($errors !== []) {
             return SaveEntryResult::invalid($errors, $input);
@@ -205,11 +224,22 @@ final class EntryService
 
     private function uniqueSlug(int $collectionId, string $slug, int $exceptId): string
     {
+        // The slug column is VARCHAR(SLUG_MAX); trim so the base plus any
+        // disambiguating suffix (`-2`, `-3`, …) can never overflow it → no 1406/500
+        // on a long or colliding title.
+        $slug = $this->trimSlug($slug, self::SLUG_MAX);
         $base = $slug;
         $n    = 2;
         while ($this->entries->slugExists($collectionId, $slug, $exceptId)) {
-            $slug = $base . '-' . $n++;
+            $suffix = '-' . $n++;
+            $slug   = $this->trimSlug($base, self::SLUG_MAX - strlen($suffix)) . $suffix;
         }
         return $slug;
+    }
+
+    /** Trim a slug to at most $max characters without leaving a trailing hyphen. */
+    private function trimSlug(string $slug, int $max): string
+    {
+        return mb_strlen($slug) > $max ? rtrim(mb_substr($slug, 0, max(0, $max)), '-') : $slug;
     }
 }
