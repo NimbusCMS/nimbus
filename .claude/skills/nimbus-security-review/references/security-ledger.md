@@ -19,6 +19,20 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice E — audit-trail blinding via best-effort event starvation closed (SUP-3/PLUG-3)
+- **Status:** fixed. Fable two-skill burst, security-green, no Critical/High (Low — audit-loss).
+  `EventDispatcher::emitBestEffort` caught around the whole loop, so a plugin listener throwing
+  before the audit-log listener suppressed its `API_ACCESS_DENIED`/`API_MANAGEMENT_WRITTEN`
+  record (a buggy plugin, or a subtly hostile one throwing selectively to blind the trail).
+- **Control:** per-listener try/catch + continue (log with the provider id). Closes the buggy
+  case fully and removes a hostile plugin's *quietest* blinding tool; remaining tools
+  (`exit()`/fatal/direct DB writes) are loud or outside the event layer's threat model (ADR
+  0001 contract-not-sandbox). Per-listener isolation is the proportionate control — audit-first
+  ordering / a core audit sink would be drift. Test: `EventDispatcherTest` first-throws→second-runs.
+- **Verified:** the logged exception text is operator-only (`error_log`; nothing routes it to a
+  response; api.* payloads never carry the token secret). Leaves open (Low, recorded): shared-
+  payload tampering by an earlier listener (A3, pre-existing); uncatchable termination (A2).
+
 ### 2026-08-23 · Slice D — plugin migration isolation (PLUG-1), availability DoS closed
 - **Status:** fixed. Design reviewed via a **Fable two-skill burst** (green, no Critical/High,
   conditional on four must-ships — all shipped). Resolves audit **PLUG-1** (availability: one

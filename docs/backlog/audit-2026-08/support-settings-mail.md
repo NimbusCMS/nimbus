@@ -32,6 +32,7 @@ silently dropping later listeners (audit records included) when an earlier one t
 - **Effort:** S
 
 ### SUP-3 · `emitBestEffort` isolates the *dispatch*, not each *listener* — one throwing subscriber suppresses every later one, audit records included
+- **✅ RESOLVED** (Slice E, 2026-08-23) — per-listener try/catch in `emitBestEffort` (logs the provider, continues); `dispatch()` still propagates for entry events. Test added (closes the SUP-9(3) gap).
 - **Priority:** P2
 - **Type:** error-handling
 - **Severity (if security):** Low

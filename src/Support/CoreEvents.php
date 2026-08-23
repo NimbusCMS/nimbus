@@ -20,12 +20,16 @@ namespace Nimbus\Support;
  * - **Truthful.** An event fires only when the state change really occurred.
  *   Deleting an absent entry dispatches nothing.
  * - **Synchronous, in registration order.** A slow listener slows the request.
- * - **Exceptions propagate.** A throwing listener surfaces through the
- *   application error boundary: logged with a reference id, generic 500 to the
- *   client. Failures are loud rather than swallowed. Since dispatch is
- *   post-commit, a failing listener cannot roll the write back — it can only
- *   fail the response. Isolating or queueing delivery is deliberately deferred
- *   until a real consumer needs it.
+ * - **Post-commit entry events propagate (loud).** For the `entry.*` events
+ *   below — dispatched via {@see EventDispatcher::dispatch()} — a throwing
+ *   listener surfaces through the application error boundary: logged with a
+ *   reference id, generic 500 to the client. Failures are loud rather than
+ *   swallowed. Since dispatch is post-commit, a failing listener cannot roll the
+ *   write back — it can only fail the response. The **best-effort** events
+ *   (below) instead go through {@see EventDispatcher::emitBestEffort()}, which
+ *   isolates each listener: a throw is logged (with the plugin id) and delivery
+ *   continues, so one buggy plugin can't starve another's audit/analytics record.
+ *   Queueing/async delivery is deliberately deferred until a real consumer needs it.
  *
  * Payloads are arrays today. They are not frozen; the shapes will be settled
  * before the plugin API is declared stable.
