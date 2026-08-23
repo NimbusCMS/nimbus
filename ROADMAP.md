@@ -82,7 +82,7 @@ repositories, install+CRUD and package-boundary tests — all green.*
 - [x] Raise PHPStan above level 6 — now **level 7** (stricter argument/return typing); fixed the ~25 findings (list-return `array_values`, `false`-from-builtin guards, precise param types)
 - [x] Entry-list **pagination** — admin entry list pages at 25/entry (search-aware count, clamp-to-range), mobile pager
 - [x] Collection-index **N+1 count** query fix — grouped `fieldCounts()`/`entryCounts()` (2N+1 → 3 queries)
-- [ ] Migration-upgrade tests · upload-security tests · permission-matrix tests
+- [x] Migration-upgrade tests · upload-security tests · permission-matrix tests — core-migration idempotency + core-tables-exist (`CoreMigrationTest`); upload SVG-rejection added to `MediaUploaderTest` (content-sniff/size/random-name/disguised-executable already covered); the permission matrix is `AuthorizerTest` (admin/exact/deny/write⇒read/management-exact/wildcard)
 - [ ] **Structured validation errors** (before freezing the public API error contract)
 - [ ] Consume named routes in controllers — URL generation exists and is tested, but
   every controller still builds paths as strings, so the names are not yet load-bearing

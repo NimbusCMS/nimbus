@@ -121,6 +121,21 @@ final class MediaUploaderTest extends IntegrationTestCase
         $this->uploader->store($this->fakeImageUpload());
     }
 
+    public function test_an_svg_is_rejected_even_when_well_formed(): void
+    {
+        // SVG is deliberately excluded — it can carry <script>, so it's an XSS
+        // vector served inline. A real, valid SVG must still be refused.
+        $svg  = '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="1" height="1">'
+            . '<script>alert(1)</script></svg>';
+        $path = $this->tmpDir . '/' . bin2hex(random_bytes(4));
+        file_put_contents($path, $svg);
+        $file = ['name' => 'logo.svg', 'type' => 'image/svg+xml', 'tmp_name' => $path, 'error' => UPLOAD_ERR_OK, 'size' => strlen($svg)];
+
+        $this->expectException(UploadError::class);
+        $this->expectExceptionMessageMatches('/not allowed/');
+        $this->uploader->store($file);
+    }
+
     public function test_a_file_over_the_cap_is_rejected(): void
     {
         $file         = $this->pngUpload();
