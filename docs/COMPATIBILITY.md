@@ -108,7 +108,9 @@ response shapes, not on any PHP class. What is promised:
   `null`. A `relation` field is a JSON array of `{ id, slug, title }` objects, in
   link order — and only the *live* targets: a relation to a draft, a not-yet-due
   scheduled entry, or an archived one contributes nothing, so a relation never
-  reveals an unpublished entry. A dangling reference reads as absent, never a 500.
+  reveals an unpublished entry. A relation only ever yields entries **in its
+  declared target collection**: an id outside that collection (or nonexistent) is
+  dropped on write and never expands — uniformly with an absent id, never a 500.
 
 `v1` is the stability boundary. Additive changes (new optional query params, new
 fields in a response object) are minor. A breaking change to `v1`'s shapes ships

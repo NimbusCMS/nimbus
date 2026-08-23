@@ -72,6 +72,39 @@ final class EntryRepository
     }
 
     /**
+     * Of the given entry ids, those that belong to collection `$handle` — the
+     * membership test behind relation-value integrity (DATA-1): a relation field
+     * may only store links into its declared target collection. Membership only,
+     * **status-agnostic** (an editor may link a draft; the live filter is applied
+     * later, at read/expansion time). An empty input short-circuits (no `IN ()`).
+     *
+     * @param list<int> $ids
+     * @return list<int> the subset that belongs (order not significant — the caller re-imposes submitted order)
+     */
+    public function idsInCollection(string $handle, array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+        // Named placeholders — Connection binds by name (mirrors MediaRepository::findMany).
+        $params = ['h' => $handle];
+        foreach (array_values($ids) as $i => $id) {
+            $params["i{$i}"] = $id;
+        }
+        $in = implode(',', array_map(static fn (int $i): string => ":i{$i}", array_keys(array_values($ids))));
+
+        return array_values(array_map(
+            static fn (array $r): int => (int) $r['id'],
+            $this->db->select(
+                "SELECT e.id FROM nb_entries e
+                 JOIN nb_collections c ON c.id = e.collection_id
+                 WHERE c.handle = :h AND e.id IN ({$in})",
+                $params,
+            ),
+        ));
+    }
+
+    /**
      * The single entry of a collection (for singletons), or null.
      *
      * @return array<string,mixed>|null

@@ -43,18 +43,26 @@ final class RelationRepository
      * never leak an unpublished entry's slug or title. "Live" is the same
      * predicate the entry queries use (published, publish time arrived).
      *
+     * Also constrained to `$targetHandle` — the field's declared target
+     * collection (DATA-1): a stored link into some other collection (a legacy
+     * row, or one written after the field was retargeted) expands to nothing, so
+     * a `posts` relation only ever yields `posts` entries. The handle is
+     * **required** (an empty handle matches no collection → nothing): there is no
+     * "unfiltered" mode, so no caller can accidentally re-open the leak.
+     *
      * @return list<array{id:int,slug:string,title:string}>
      */
-    public function liveTargets(int $fromEntryId, int $fieldId): array
+    public function liveTargets(int $fromEntryId, int $fieldId, string $targetHandle): array
     {
         $rows = $this->db->select(
             "SELECT e.id, e.slug, e.title
              FROM nb_relations r
              JOIN nb_entries e ON e.id = r.to_entry_id
-             WHERE r.from_entry_id = :f AND r.field_id = :fl
+             JOIN nb_collections c ON c.id = e.collection_id
+             WHERE r.from_entry_id = :f AND r.field_id = :fl AND c.handle = :target
                AND e.status = 'published' AND e.published_at IS NOT NULL AND e.published_at <= NOW()
              ORDER BY r.sort, r.id",
-            ['f' => $fromEntryId, 'fl' => $fieldId],
+            ['f' => $fromEntryId, 'fl' => $fieldId, 'target' => $targetHandle],
         );
 
         return array_values(array_map(
@@ -69,6 +77,12 @@ final class RelationRepository
 
     /**
      * Replace the links for one entry's relation field.
+     *
+     * INVARIANT: `$toIds` MUST already be constrained to the field's declared
+     * target collection — this primitive does not check membership. The single
+     * caller ({@see \Nimbus\Content\EntryService::save}) filters via
+     * `EntryRepository::idsInCollection` first (DATA-1). `liveTargets` re-imposes
+     * the constraint at read time as defense-in-depth.
      *
      * @param int[] $toIds
      */

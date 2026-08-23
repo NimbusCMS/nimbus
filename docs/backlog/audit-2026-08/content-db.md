@@ -19,6 +19,7 @@ Priority counts: **P0 0 · P1 1 · P2 3 · P3 2**.
 ---
 
 ### DATA-1 · Relation values are not constrained to the field's declared target collection
+- **✅ RESOLVED** (Slice C, 2026-08-23) — constrained at write (`EntryRepository::idsInCollection`) + read (`liveTargets` real-collection filter); retained the `canRead` scope gate.
 - **Priority:** P1
 - **Type:** correctness (secondary: security)
 - **Severity (if security):** Medium
@@ -65,6 +66,7 @@ Priority counts: **P0 0 · P1 1 · P2 3 · P3 2**.
 - **Effort:** M
 
 ### DATA-6 · Thin validation coverage for the relation/media/number wire round-trips (test-gap)
+- **✅ PARTIAL** (Slice C, 2026-08-23) — the relation round-trip is now covered by `RelationIntegrityTest` (write-constraint, order, read-gate, scope, lazy-clean). Media/number round-trips remain.
 - **Priority:** P3
 - **Type:** test-gap
 - **Where:** `tests/Unit/ValidatorTest.php`, `tests/Integration/EntryServiceTest.php`, `tests/Http/ApiWriteTest.php`
