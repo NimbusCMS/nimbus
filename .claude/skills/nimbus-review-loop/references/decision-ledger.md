@@ -13,6 +13,13 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-23 · Slice E — per-listener isolation in emitBestEffort [Core] · resolves SUP-3 + PLUG-3
+- **Status:** accepted + built. First P2 of the burn-down. Fable two-skill burst — both **green** (small, prescribed; the code catches up to a docblock that already promised per-listener isolation).
+- **Fixed:** `emitBestEffort` wrapped the whole dispatch loop in one try/catch, so the first throwing listener starved every later one — including a plugin audit-log's `API_ACCESS_DENIED`/`API_MANAGEMENT_WRITTEN` records and analytics' `request.handled`. A buggy (or subtly hostile) plugin could blind the audit trail.
+- **Fix:** per-listener try/catch inside `emitBestEffort` — logs `[nimbus {event}] {provider|core}: …` (matches the `HeadContributorRegistry` precedent) and **continues**. `dispatch()` is byte-identical (post-commit `entry.*` listeners are allowed to matter and must propagate — asymmetry test-locked).
+- **Reviews confirmed:** inline over a `dispatchIsolated()` (no second consumer); log the provider (attribution is the point); the sink is operator-only (`error_log`; verified nothing routes it to a response — same posture as Slice D's `MigrationReport.error`); per-listener isolation is the *proportionate* control (audit-first ordering or a core audit sink would be drift — a hostile in-process plugin has blunter tools per ADR 0001).
+- **DoD met:** `emitBestEffort` per-listener; `CoreEvents` class docblock scoped (entry events propagate; best-effort isolates) + stale "isolating is deferred" clause removed; `EventDispatcherTest` +3 (isolation red-first, never-propagates, dispatch-still-propagates asymmetry lock); SUP-3+PLUG-3 resolved, SUP-9(3) test-gap closed; PHPStan L7. Leaves open (Low, recorded): A2 uncatchable-termination + A3 shared-payload tamper — pre-existing, trust-model-bounded.
+
 ### 2026-08-23 · Slice D — plugin migration isolation [Core] · resolves PLUG-1 (+PLUG-10)
 - **Status:** accepted + built. The **last audit P1**. Design-first via a **Fable two-skill burst**; both **green** after folding in the split-contract (core throws / plugins isolate) and the structural core/plugin distinction.
 - **Fixed:** a failing plugin migration wedged `nimbus migrate` for the WHOLE install (MySQL DDL auto-commits, `nb_migrations` recorded only on full success, no per-provider isolation) — one broken plugin starved every other plugin and blocked core upgrades.

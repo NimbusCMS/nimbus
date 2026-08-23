@@ -33,6 +33,7 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Effort:** S
 
 ### PLUG-3 · Best-effort events isolate the event, not each listener — one broken plugin starves another's audit trail
+- **✅ RESOLVED** (Slice E, 2026-08-23) — same fix as SUP-3: per-listener isolation in `EventDispatcher::emitBestEffort`.
 - **Priority:** P2
 - **Type:** error-handling
 - **Severity (if security):** Low (audit-loss angle)

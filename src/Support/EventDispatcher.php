@@ -49,21 +49,24 @@ final class EventDispatcher
     }
 
     /**
-     * Fire an observation event that must never affect the caller: nothing is
-     * dispatched when no one is listening, and a listener that throws is caught
-     * and logged rather than propagated. For best-effort events like
-     * request.handled and the api.* failure events — not for post-commit entry
-     * events, whose listeners are allowed to matter.
+     * Fire an observation event that must never affect the caller — and never let
+     * one listener starve another. Each listener runs in its own try/catch: a
+     * throw is logged (with the provider id, so the operator knows which plugin)
+     * and delivery **continues** to the rest. For best-effort events like
+     * request.handled and the api.* audit events — not for post-commit entry
+     * events, whose listeners are allowed to matter and so go through
+     * {@see dispatch()}, which propagates.
      */
     public function emitBestEffort(string $event, mixed $payload = null): void
     {
-        if (!$this->hasListeners($event)) {
-            return;
-        }
-        try {
-            $this->dispatch($event, $payload);
-        } catch (\Throwable $e) {
-            error_log("[nimbus {$event}] " . $e);
+        foreach ($this->listeners[$event] ?? [] as $entry) {
+            try {
+                ($entry['listener'])($payload, $event);
+            } catch (\Throwable $e) {
+                // Isolated per listener: one buggy plugin can't blind another's
+                // audit/analytics record for the same event.
+                error_log("[nimbus {$event}] " . ($entry['provider'] ?? 'core') . ': ' . $e);
+            }
         }
     }
 
