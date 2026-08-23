@@ -13,6 +13,15 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-23 · Trusted-proxy URL handling — env-authoritative, diagnostic not derivation [Core]
+- **Status:** accepted. Design reviewed by a **Fable two-skill burst** (the new default: parallel `general-purpose`+`model:fable` agents, one per skill) — both green-to-build.
+- **The decision:** the ROADMAP item "trusted-proxy config for URL generation" is resolved by *not* deriving URLs from the request. Every absolute link (reset/invite email, OAuth redirect, canonical/sitemap) stays built from `APP_URL`; a forwarded `Host`/`X-Forwarded-Host` is **client-spoofable even behind a correct proxy** (proxies pass it through), so deriving links from it re-opens reset-link account-takeover. Env stays the single authority.
+- **What shipped instead:** `Request::viaTrustedProxy()` (trusted-peer signal only) + `Support\DeploymentCheck` → a misconfiguration warning on the admin Plugins page when `APP_URL` is still localhost, or `http://` while the request is HTTPS-via-proxy. Non-spoofable signals only; **no forwarded-host accessor** (the security burst flagged it as a standing footgun a future dev would mint links from).
+- **Crown-jewel guard:** `TrustedProxyUrlTest` — a forged `X-Forwarded-Host` through a trusted proxy does NOT change the reset link (asserted APP_URL-host, never `evil.example`); OAuth redirect URI stays APP_URL-derived. Makes the security ledger's standing "reset-link poisoning" watch executable.
+- **Trims the review forced:** dropped `baseUrl()` (no consumer) and a `nimbus doctor` command (can't see a live request — gold-plating); accessor not added to COMPATIBILITY's public surface.
+- **Deferred (recorded per the standing MCP check):** an MCP `health`/diagnostics tool exposing the same `DeploymentCheck` warnings to an agent operator — revisit when ≥3 static checks justify a shared health surface (`nimbus doctor` + MCP tool over one check set).
+- **DoD met:** `viaTrustedProxy()`; `DeploymentCheck`; Plugins-page banner (escaped, warn style); `DeploymentCheckTest` (7) + `TrustedProxyUrlTest` (2); docs (`.env.example`, COMPATIBILITY "Deployment behind a proxy", ROADMAP reworded); PHPStan L7; no change to any security-sensitive link (diff-provable).
+
 ### 2026-08-22 · OAuth SSO — Phase 1 [Core] · ADR 0012
 - **Status:** accepted. Both skills before code (platform loop = detailed design review; [security loop](../../nimbus-security-review/references/security-ledger.md) = green-to-build with the listed controls). Dan: "this is huge — a detailed design for the reviewers," then "Build ADR 0012 + Phase 1 now."
 - **Classification: Core** (auth is foundational-for-many; the plugin boundary deliberately excludes routes + auth hooks, so "SSO as a plugin" would force opening far riskier speculative surfaces for one consumer). Passes the drift guard: general admin auth, not a Restaurant/Food-Store/Packkit shape — would recommend absent all three.

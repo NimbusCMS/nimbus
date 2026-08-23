@@ -7,12 +7,13 @@ namespace Nimbus\Http;
 /**
  * Baseline security response headers, applied to every response by the kernel.
  *
- * `script-src` is **nonce-only** ({@see Csp}) — no 'unsafe-inline', so an
- * injected inline `<script>` cannot run. `style-src` still allows 'unsafe-inline'
- * (a deferred, lower-severity call — CSS injection is not code execution, and a
- * dynamic theme swatch uses an inline style attribute). The CSP also blocks
- * external scripts, objects, framing, base-uri hijacking and cross-origin posts.
- * Never re-add 'unsafe-inline' to script-src — it would negate the nonce.
+ * Both `script-src` and `style-src` are **nonce-only** ({@see Csp}) — no
+ * 'unsafe-inline' on either, so an injected inline `<script>` or `<style>`/`style=`
+ * cannot run. Every server-rendered inline `<style>`/`<script>` carries the
+ * per-request nonce; inline `style=` attributes are not permitted (they cannot be
+ * nonce'd) and are refactored to classes. The CSP also blocks external scripts,
+ * objects, framing, base-uri hijacking and cross-origin posts. Never re-add
+ * 'unsafe-inline' to either directive — it would negate the nonce.
  */
 final class SecurityHeaders
 {
@@ -22,12 +23,11 @@ final class SecurityHeaders
         $csp = implode('; ', [
             "default-src 'self'",
             "img-src 'self' data:",
-            // style-src keeps 'unsafe-inline' (deferred): CSS injection is low
-            // severity and a dynamic swatch uses an inline style attribute.
-            "style-src 'self' 'unsafe-inline'",
-            // script-src is nonce-only — 'unsafe-inline' is REMOVED (a browser
-            // ignores it once a nonce is present, so leaving it would mask a
-            // missed block). Only server-rendered <script nonce="…"> runs.
+            // Both directives are nonce-only — 'unsafe-inline' is REMOVED (a
+            // browser ignores it once a nonce is present, so leaving it would
+            // mask a missed block). Only server-rendered <script nonce="…"> /
+            // <style nonce="…"> run; inline style= attributes are disallowed.
+            "style-src 'self' 'nonce-" . Csp::nonce() . "'",
             "script-src 'self' 'nonce-" . Csp::nonce() . "'",
             "object-src 'none'",
             "base-uri 'self'",

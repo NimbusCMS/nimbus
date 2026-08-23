@@ -4,6 +4,7 @@
  *
  * @var \Nimbus\Plugin\PluginStatus[] $plugins  every discovered package
  * @var \Nimbus\Plugin\PluginStatus[] $problems the subset that need attention
+ * @var list<string> $warnings deployment misconfiguration warnings (may be empty)
  */
 use Nimbus\Plugin\PluginStatus;
 use Nimbus\View\View;
@@ -20,12 +21,16 @@ $badgeClass = static fn (PluginStatus $p): string => match ($p->state) {
     <h1>Plugins</h1>
 </div>
 
-<p class="nb-muted" style="margin:-8px 0 20px;max-width:60ch">
+<p class="nb-muted nb-page-intro">
     Everything Composer has installed as a NimbusCMS plugin. This page is a
     diagnostic view, not an installer — plugins are added and removed with
     <code>composer require</code> and <code>composer remove</code>, and enabled
     or disabled in <code>config/plugins.php</code>.
 </p>
+
+<?php foreach ($warnings as $warning): ?>
+    <div class="nb-alert nb-alert-warn"><?= $e($warning) ?></div>
+<?php endforeach; ?>
 
 <?php if ($problems !== []): ?>
     <div class="nb-alert nb-alert-error">

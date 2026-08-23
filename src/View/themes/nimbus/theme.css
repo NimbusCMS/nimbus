@@ -244,6 +244,7 @@ body.nb {
 .nb-content { padding: 28px; max-width: 1200px; width: 100%; }
 
 .nb-page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+.nb-page-intro { margin: -8px 0 20px; max-width: 60ch; }
 .nb-page-head h1 { font-size: 24px; position: relative; padding-bottom: 6px; }
 .nb-page-head h1::after {
   content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: 44px; border-radius: 999px;
@@ -322,6 +323,7 @@ body.nb {
 .nb-alert { padding: 11px 14px; border-radius: var(--nb-radius-m); margin-bottom: 16px; font-weight: 500; }
 .nb-alert-error { background: var(--nb-danger-bg); color: var(--nb-danger-text); }
 .nb-alert-ok { background: var(--nb-ok-bg); color: var(--nb-ok-text); }
+.nb-alert-warn { background: var(--nb-warn-bg); color: var(--nb-warn-text); }
 .nb-muted { color: var(--nb-muted); }
 
 .nb-centered { align-items: center; justify-content: center; }
@@ -471,6 +473,14 @@ body.nb-night::before {
 .nb-theme-card:has(input:checked) { border-color: var(--nb-brand); box-shadow: var(--nb-focus); }
 .nb-theme-card:has(input:focus-visible) { outline: var(--nb-focus-ring); outline-offset: 2px; }
 .nb-swatch { width: 44px; height: 44px; border-radius: 8px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+/* Per-theme swatch previews. Kept in CSS (not an inline style=) so style-src can
+   stay nonce-only; the slug is the AdminTheme allow-list key. */
+.nb-swatch--nimbus   { background: linear-gradient(180deg,#1b1547,#2c1e63); }
+.nb-swatch--nocturne { background: linear-gradient(180deg,#0b0920,#1b1547); }
+.nb-swatch--daybreak { background: linear-gradient(180deg,#123f74,#2d7bd0); }
+.nb-swatch--grimoire { background: linear-gradient(180deg,#17251d,#274a38); }
+.nb-swatch--auto     { background: linear-gradient(135deg,#2c1e63 0%,#2c1e63 49%,#0b0920 51%,#0b0920 100%); }
+.nb-swatch--owl      { background: linear-gradient(135deg,#000 0%,#000 49%,#fff 51%,#fff 100%); }
 .nb-theme-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .nb-theme-meta small { color: var(--nb-muted); }
 

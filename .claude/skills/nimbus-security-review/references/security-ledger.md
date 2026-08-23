@@ -19,6 +19,34 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · style-src nonce-only — CSP deferral finished, security-green
+- **Status:** shipped. **Supersedes the accepted residual in the 2026-08-22
+  "Nonce-based CSP (script-src)" entry** ("`style-src 'unsafe-inline'` kept").
+  Reviewed design-first via a **Fable two-skill burst** (green-to-build). No
+  Critical/High — this closes a defense-in-depth CSS-injection gap (exfil via
+  attribute-selectors / UI redressing, only reachable after a prior escape
+  failure), it does not close an open hole.
+- **Surface:** `src/Http/SecurityHeaders.php` (catalog: CSP nonce hygiene — the
+  standing check from the script-src entry now applied to style-src).
+- **Controls (all fail-closed — a missed nonce = visibly broken CSS, never an
+  injection hole; regression-tested in `tests/Http/CspNonceTest.php`):**
+  1. `style-src 'self' 'nonce-…'`, `'unsafe-inline'` **removed** — test asserts a
+     `nonce-…` present and no `'unsafe-inline'` on style-src (can't silently rot).
+  2. Same per-request `Csp::nonce()` as script-src (128-bit CSPRNG, rotated at
+     `Application::handle()`); header nonce == rendered admin `<style nonce>`
+     (test).
+  3. All 5 admin/auth `<style>` blocks nonce'd; the **only** 2 inline `style=`
+     attributes refactored to classes (swatch gradients moved into `theme.css`,
+     the `gradient` key dropped from `AdminTheme::THEMES` — single source; static
+     plugins-intro margin → class). Test asserts **no `style="` remains** in
+     `src/View/themes/nimbus/templates/`.
+- **What it leaves open (documented, not blocking):** the inherent
+  same-response nonce-scrape limitation (escape-by-default stays the primary XSS
+  control); content-borne inline `style=` (Markdown/raw-HTML entry bodies) goes
+  inert on public pages (deliberate — also makes content CSS-injection inert);
+  the PageCache×inline-nonce caveat for third-party public themes (cached pages
+  must use external CSS) — both recorded in COMPATIBILITY.
+
 ### 2026-08-22 · OAuth SSO Phase 1 — design review, security-green to build
 - **Status:** built with all mandated controls; no open Critical/High. Reviewed
   design-first (highest-stakes auth surface yet: account takeover / full

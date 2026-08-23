@@ -1,6 +1,6 @@
 <?php
 /**
- * @var array<string,array{name:string,mood:string,gradient:string}> $themes
+ * @var array<string,array{name:string,mood:string}> $themes
  * @var string  $current the active theme slug
  * @var ?string $flash
  * @var string  $csrf
@@ -93,7 +93,7 @@ $e = static fn (?string $v): string => View::e($v);
             <?php foreach ($themes as $slug => $t): ?>
                 <label class="nb-theme-card">
                     <input type="radio" name="theme" value="<?= $e($slug) ?>"<?= $slug === $current ? ' checked' : '' ?>>
-                    <span class="nb-swatch" style="background: <?= $e($t['gradient']) ?>"></span>
+                    <span class="nb-swatch nb-swatch--<?= $e($slug) ?>"></span>
                     <span class="nb-theme-meta">
                         <strong><?= $e($t['name']) ?></strong>
                         <small><?= $e($t['mood']) ?></small>

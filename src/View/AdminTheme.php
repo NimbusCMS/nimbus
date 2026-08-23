@@ -21,41 +21,37 @@ final class AdminTheme
 
     /**
      * The selectable themes: slug => display metadata for the picker. The keys
-     * are the allow-list. Add a theme here and give it a `[data-theme]` block in
-     * `theme.css`; nothing else changes.
+     * are the allow-list. Add a theme here, give it a `[data-theme]` block in
+     * `theme.css`, and a `.nb-swatch--{slug}` swatch rule there (the swatch
+     * colour lives in CSS, not here, so `style-src` can stay nonce-only with no
+     * inline `style=`); nothing else changes.
      *
-     * @var array<string,array{name:string,mood:string,gradient:string}>
+     * @var array<string,array{name:string,mood:string}>
      */
     public const THEMES = [
         'nimbus'   => [
-            'name'     => 'Nimbus',
-            'mood'     => 'Night sky & gold — the default.',
-            'gradient' => 'linear-gradient(180deg,#1b1547,#2c1e63)',
+            'name' => 'Nimbus',
+            'mood' => 'Night sky & gold — the default.',
         ],
         'nocturne' => [
-            'name'     => 'Nocturne',
-            'mood'     => 'The observatory at 2 a.m. — full dark.',
-            'gradient' => 'linear-gradient(180deg,#0b0920,#1b1547)',
+            'name' => 'Nocturne',
+            'mood' => 'The observatory at 2 a.m. — full dark.',
         ],
         'daybreak' => [
-            'name'     => 'Daybreak',
-            'mood'     => 'The broom at dawn — high blue & sun-gold.',
-            'gradient' => 'linear-gradient(180deg,#123f74,#2d7bd0)',
+            'name' => 'Daybreak',
+            'mood' => 'The broom at dawn — high blue & sun-gold.',
         ],
         'grimoire' => [
-            'name'     => 'Grimoire',
-            'mood'     => 'A candlelit spellbook library — parchment & brass.',
-            'gradient' => 'linear-gradient(180deg,#17251d,#274a38)',
+            'name' => 'Grimoire',
+            'mood' => 'A candlelit spellbook library — parchment & brass.',
         ],
         'auto'     => [
-            'name'     => 'Auto',
-            'mood'     => 'Follows your device — Nimbus by day, Nocturne at night.',
-            'gradient' => 'linear-gradient(135deg,#2c1e63 0%,#2c1e63 49%,#0b0920 51%,#0b0920 100%)',
+            'name' => 'Auto',
+            'mood' => 'Follows your device — Nimbus by day, Nocturne at night.',
         ],
         'owl'      => [
-            'name'     => 'Owl',
-            'mood'     => 'High contrast — stark black-on-white for maximum legibility.',
-            'gradient' => 'linear-gradient(135deg,#000 0%,#000 49%,#fff 51%,#fff 100%)',
+            'name' => 'Owl',
+            'mood' => 'High contrast — stark black-on-white for maximum legibility.',
         ],
     ];
 
