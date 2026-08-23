@@ -23,9 +23,11 @@ use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Database\MigrationRegistry;
+use Nimbus\Http\ApiRateLimiter;
 use Nimbus\Http\Cors;
 use Nimbus\Http\Csp;
 use Nimbus\Http\HttpException;
+use Nimbus\Http\Middleware\RateLimitMiddleware;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
@@ -86,6 +88,11 @@ final class Application
 
     private PageCache $pageCache;
 
+    /** The per-IP API flood guard — built once here, used for the CORS preflight
+     *  (HTTP-4) and injected into ApiController for the /api group, so the two
+     *  share one config and one DB-backed `ip:` bucket. */
+    private RateLimitMiddleware $apiFlood;
+
     /** @var list<PluginDiagnostic> */
     private array $pluginDiagnostics = [];
 
@@ -123,6 +130,15 @@ final class Application
         $this->oauthProviders   = $oauthProviders ?? \Nimbus\Auth\OAuth\OAuthProviders::fromConfig();
         $this->redirects  = $redirects ?? Config::redirects();
         $this->pageCache  = $pageCache ?? new PageCache(Config::pageCachePath(), Config::pageCacheTtl());
+        // The per-IP flood guard: one instance, keyed `ip:{ip}`, shared by the
+        // preflight branch and the /api group (via ApiController) so a preflight
+        // and a real request count into the same bucket.
+        $this->apiFlood   = new RateLimitMiddleware(
+            new ApiRateLimiter($this->db),
+            Config::apiFloodLimit(),
+            Config::apiRateWindow(),
+            static fn (Request $req): string => 'ip:' . $req->ip(),
+        );
 
         // Any content write flushes the page cache. Full-flush is deliberate: one
         // edit can change an index, a relation, or a shared block elsewhere, so
@@ -208,7 +224,12 @@ final class Application
     {
         // The one place globals are read. Everything downstream shares this instance.
         $request = Request::fromGlobals();
-        $this->startSession($request->isSecure());
+        // The API is bearer-only and never reads $_SESSION, so don't mint a
+        // session cookie for it (or for the CORS preflight, which is an /api
+        // OPTIONS) — it would be an unused ambient credential (HTTP-3).
+        if (!Cors::isApiPath($request->path)) {
+            $this->startSession($request->isSecure());
+        }
         $this->handle($request)->send();
     }
 
@@ -227,12 +248,31 @@ final class Application
         Csp::rotate();
 
         // A browser CORS preflight carries no token, so it is answered before
-        // routing/auth. Every actual API response is annotated afterwards; both
-        // only act when the Origin is on the configured allow-list.
-        $response = Cors::isApiPreflight($request)
-            ? Cors::preflight($request)
-            : $this->respond($request);
+        // routing/auth. It still passes the per-IP flood guard (HTTP-4) so it is
+        // not an uncounted request class — but fail-open: the guard hits the DB,
+        // and the preflight runs before respond()'s try/catch and the readiness
+        // gates, so a DB outage or not-yet-installed site must still answer 204
+        // rather than throw (a real API request 503s pre-limiter anyway).
+        if (Cors::isApiPreflight($request)) {
+            try {
+                $limited = ($this->apiFlood)($request);
+            } catch (\Throwable $e) {
+                $ref = bin2hex(random_bytes(4));
+                error_log("[nimbus {$ref}] preflight flood-guard skipped: " . $e);
+                $limited = null;
+            }
+            $response = $limited ?? Cors::preflight($request);
+        } else {
+            $response = $this->respond($request);
+        }
+
         $response = Cors::decorate(SecurityHeaders::apply($response), $request);
+        // A HEAD reply carries the GET's status and headers but no body (RFC 9110).
+        // Strip it here — after the headers are set, before notifyHandled — so
+        // request.handled listeners see exactly what is sent.
+        if ($request->method === 'HEAD') {
+            $response = $response->withoutBody();
+        }
         $this->notifyHandled($request, $response);
         return $response;
     }
@@ -323,7 +363,7 @@ final class Application
         // Plugin admin pages, after the core admin controllers so a plugin slug
         // can never shadow a core /admin route.
         (new PluginPagesController($this->db, $this->auth, $this->adminPages))->routes($router);
-        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth, $this->events))->routes($router);
+        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth, $this->events, $this->apiFlood))->routes($router);
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.

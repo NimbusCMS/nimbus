@@ -84,13 +84,43 @@ final class RouterTest extends TestCase
         self::assertSame($seen[0], $seen[1], 'middleware and handler operate on one request');
     }
 
-    public function test_no_match_returns_null(): void
+    public function test_an_unmatched_path_returns_null(): void
     {
         $router = new Router();
         $router->get('/admin', fn (Request $req, array $p): Response => Response::html('x'));
 
-        self::assertNull($router->dispatch($this->request('GET', '/nope')));
-        self::assertNull($router->dispatch($this->request('POST', '/admin'))); // wrong method
+        self::assertNull($router->dispatch($this->request('GET', '/nope')), 'no route at this path → 404');
+    }
+
+    public function test_a_matched_path_with_the_wrong_method_is_a_405_with_allow(): void
+    {
+        $router = new Router();
+        $router->get('/admin', fn (Request $req, array $p): Response => Response::html('x'));
+        $router->post('/admin', fn (Request $req, array $p): Response => Response::html('x'));
+
+        $response = $router->dispatch($this->request('DELETE', '/admin'));
+
+        self::assertNotNull($response);
+        /** @var Response $response */
+        self::assertSame(405, $response->status);
+        $allow = (string) $response->header('Allow');
+        self::assertStringContainsString('GET', $allow);
+        self::assertStringContainsString('POST', $allow);
+        self::assertStringContainsString('HEAD', $allow, 'HEAD is offered wherever GET is');
+    }
+
+    public function test_head_is_served_by_the_get_route(): void
+    {
+        $router = new Router();
+        $router->get('/page', fn (Request $req, array $p): Response => Response::html('body'));
+
+        $response = $router->dispatch($this->request('HEAD', '/page'));
+
+        self::assertNotNull($response);
+        /** @var Response $response */
+        self::assertSame(200, $response->status, 'HEAD matches the GET route');
+        // The kernel strips the body; dispatch itself returns the GET response.
+        self::assertSame('body', $response->body);
     }
 
     public function test_named_route_url_generation(): void

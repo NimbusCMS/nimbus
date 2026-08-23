@@ -91,6 +91,16 @@ final class Response
         return new self($this->status, $this->body, $headers);
     }
 
+    /**
+     * The same response with its body removed — the reply to a HEAD request:
+     * identical status and headers as the GET would return, no body. (RFC 9110
+     * §9.3.2.) The kernel applies this after building the GET response.
+     */
+    public function withoutBody(): self
+    {
+        return new self($this->status, '', $this->headers);
+    }
+
     /** Case-insensitive header lookup. */
     public function header(string $name): ?string
     {

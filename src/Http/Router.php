@@ -64,19 +64,45 @@ final class Router
         array_pop($this->middlewareStack);
     }
 
-    /** Dispatch a request. Returns the Response, or null when nothing matched. */
+    /**
+     * Dispatch a request. Returns the matched route's Response; a 405 (with an
+     * `Allow` header) when the path matches a route but not its method; or null
+     * when nothing matched at all (→ the kernel's 404).
+     *
+     * HEAD is served by the GET route (RFC 9110 §9.3.2) — the kernel strips the
+     * body afterwards. `Allow` lists the methods that do match the path, plus HEAD
+     * wherever GET is offered.
+     */
     public function dispatch(Request $request): ?Response
     {
+        $effectiveMethod = $request->method === 'HEAD' ? 'GET' : $request->method;
+
+        /** @var array<string,true> $allowed methods whose route matched the path */
+        $allowed = [];
         foreach ($this->routes as $route) {
-            if ($route->method !== $request->method) {
+            $params = $route->match($request->path);
+            if ($params === null) {
                 continue;
             }
-            $params = $route->match($request->path);
-            if ($params !== null) {
+            if ($route->method === $effectiveMethod) {
                 return $route->run($request, $params);
             }
+            $allowed[$route->method] = true;
         }
-        return null;
+
+        if ($allowed === []) {
+            return null; // no route matches this path → 404
+        }
+
+        // The path exists but not for this method → 405. HEAD is served wherever
+        // GET is, so advertise it too.
+        $methods = array_keys($allowed);
+        if (isset($allowed['GET']) && !isset($allowed['HEAD'])) {
+            $methods[] = 'HEAD';
+        }
+
+        return Response::file('Method not allowed', 'text/plain; charset=UTF-8', 405)
+            ->withHeader('Allow', implode(', ', $methods));
     }
 
     /**

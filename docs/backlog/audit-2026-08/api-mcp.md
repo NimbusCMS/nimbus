@@ -75,7 +75,8 @@ Counts: **P0 0 · P1 3 · P2 2 · P3 3.**
 - **Fix:** make it a compare-and-swap: add `AND version = :expected` to the UPDATE and treat affected-rows = 0 as `PreconditionOutcome::Failed` (412); or wrap read+check+save in a transaction with `SELECT … FOR UPDATE`. The contract lives in this domain even though the query is in `Content` — coordinate with the content-db agent on the repository change.
 - **Effort:** M
 
-### API-5 · CORS preflight advertises only GET/OPTIONS — cross-origin writes & MCP blocked
+### API-5 · CORS preflight advertises only GET/OPTIONS — cross-origin writes & MCP blocked ✅ RESOLVED
+- **Resolved:** Slice J. `Cors::preflight()` now advertises `Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS` and `Access-Control-Allow-Headers: Authorization, Content-Type, If-Match`, so a browser app on an allow-listed origin can perform ADR 0007 writes and `POST /mcp` cross-origin. Confirmed **not** a security change (both lenses): bearer auth, no cookies, no `Access-Control-Allow-Credentials`, and the origin is still allow-list-gated + echoed only when approved — widening the advertised methods changes what the browser permits, not what the server authorizes. Test: `ApiCorsTest::test_a_preflight_advertises_the_write_methods_and_if_match` (+ asserts no Allow-Credentials).
 - **Priority:** P2
 - **Type:** product-gap / correctness (contract consistency)
 - **Where:** `src/Http/Cors.php:33-38` (`preflight()`), reachable for the whole `/api/` surface.

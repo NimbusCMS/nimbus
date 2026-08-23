@@ -55,11 +55,14 @@ final class ApiController
     private RateLimitMiddleware $ipFlood;
     private RateLimitMiddleware $tokenQuota;
 
+    /** @param RateLimitMiddleware $ipFlood the per-IP flood guard, built once by
+     *  the kernel and shared with the CORS preflight so both count one `ip:` bucket. */
     public function __construct(
         Connection $db,
         FieldTypeRegistry $types,
         ApiAuthContext $authContext,
         EventDispatcher $events,
+        RateLimitMiddleware $ipFlood,
     ) {
         $this->collections = new CollectionRepository($db);
         $this->types       = $types;
@@ -88,9 +91,9 @@ final class ApiController
 
         $limiter = new ApiRateLimiter($db);
         $window  = Config::apiRateWindow();
-        // Before auth: a per-IP flood guard — catches no-token / invalid-token
-        // floods (each a different bogus token, bucketable only by IP).
-        $this->ipFlood = new RateLimitMiddleware($limiter, Config::apiFloodLimit(), $window, static fn (Request $req): string => 'ip:' . $req->ip());
+        // Before auth: the per-IP flood guard — built by the kernel and shared with
+        // the CORS preflight (HTTP-4) so both count into the same `ip:` bucket.
+        $this->ipFlood = $ipFlood;
         // After auth: a per-token quota, keyed by the principal the auth
         // middleware just established.
         $this->tokenQuota = new RateLimitMiddleware($limiter, Config::apiRateLimit(), $window, fn (Request $req): ?string => ($p = $authContext->principal()) !== null ? 'tok:' . $p->tokenId : null);
