@@ -6,6 +6,7 @@ namespace Nimbus\Admin;
 
 use Nimbus\Auth\Auth;
 use Nimbus\Database\Connection;
+use Nimbus\Http\Csp;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
@@ -52,6 +53,10 @@ final class PluginPagesController extends Controller
      * capability is gated here (the route, not just the nav) — the declared cap
      * is validated at registration to be `admin` or a management capability, so
      * it is wildcard-immune.
+     *
+     * The handler is passed the CSP nonce as a second argument, so a page that
+     * emits an inline `<script nonce>` can run under the admin CSP. It is additive:
+     * a handler declaring only the Request ignores the extra argument.
      */
     private function render(string $slug, callable $handler, ?string $capability, Request $request): Response
     {
@@ -59,7 +64,7 @@ final class PluginPagesController extends Controller
             $this->abortTo(Url::to('admin.dashboard'));
         }
 
-        $result = $handler($request);
+        $result = $handler($request, Csp::nonce());
 
         return $result instanceof Response ? $result : $this->shell($slug, (string) $result);
     }

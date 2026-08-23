@@ -163,16 +163,24 @@ else — no services, no repositories, no database:
   are nonce-only** (no `'unsafe-inline'`): an inline `<script>` *or* `<style>`
   must carry `nonce="<?= $e($cspNonce) ?>"` or it will not run. **Inline `style=`
   attributes cannot be nonce'd and are blocked** — use a class or a CSS custom
-  property instead. Prefer external files under `assets/`.
-  - *Caveat — page cache:* the nonce is minted fresh per request while
-    `PageCache` stores HTML only, so a cached page's embedded nonce won't match
-    the next response's header. If you run with `PAGE_CACHE_TTL > 0`, a cached
-    public page **must** use external CSS/JS under `assets/`, not inline
-    nonce'd `<style>`/`<script>`.
-  - *Note — user content:* after this change, inline `style=` attributes inside
-    rendered entry bodies (e.g. Markdown/raw HTML) no longer apply on public
-    pages. This is deliberate (it also makes CSS injection via content inert);
-    style content with classes/theme CSS, not inline attributes.
+  property instead. External files under `assets/` are also fine.
+  - *Page cache:* inline nonce'd `<script>`/`<style>` work on cached pages too.
+    When `PAGE_CACHE_TTL > 0`, the nonce is stored with the page and re-emitted on
+    every hit, so the header and the cached body always agree. The nonce is then
+    **stable for that cache entry's life** (a cached public page is identical for
+    all viewers, and is re-rendered with a fresh nonce on any content write or at
+    TTL expiry) — safe, and it is the only per-request value the cache manages, so
+    a theme must not bake other per-visitor state (a CSRF token, an A/B bucket)
+    into a cacheable public page.
+  - *External analytics beacons:* a nonce'd external `<script src>` **loads**, but
+    the site CSP has no `connect-src`, so a hosted analytics script's `fetch`/
+    `sendBeacon` to a third-party endpoint is still blocked (the script runs, the
+    event doesn't send). Self-hosted or reverse-proxied analytics (served from
+    your own origin, i.e. `'self'`) works fully today.
+  - *Note — user content:* inline `style=` attributes inside rendered entry
+    bodies (e.g. Markdown/raw HTML) do not apply on public pages. This is
+    deliberate (it also makes CSS injection via content inert); style content with
+    classes/theme CSS, not inline attributes.
 
 The active theme is named in `config/theme.php`. Templates rendered today:
 `layout` (the shell), `collection`, `entry`, and an optional `404`. A theme may

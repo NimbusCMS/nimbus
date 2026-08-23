@@ -19,6 +19,43 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice H — CSP nonce persisted with the page cache + exposed to plugins (HTTP-1/PLUG-5)
+- **Status:** fixed. Fable two-skill burst — **security-green conditional on one must-fix (shipped)**.
+  No Critical/High; no risk ADR needed. Catalog: security-control-through-a-cache (nonce reuse) —
+  first sighting, watch for a 2nd; and untrusted-persistence-into-a-security-header.
+- **Surface:** `src/Support/PageCache.php` (parse/format — the A1 site), `src/Http/Csp.php`
+  (`adopt`/`isValid`), `src/Application.php` (hit-adopt/miss-store + the flush coupling, now
+  security-load-bearing), `src/Site/PageContext.php` (`$cspNonce`), `src/Admin/PluginPagesController.php`
+  (handler 2nd arg).
+- **A1 (Medium, fixed) — legacy/corrupt cache entry → CSP header corruption:** on upgrade, an old
+  `timestamp\nHTML` entry read by the new 3-part parse yields the HTML's first line as the "nonce",
+  which `adopt()` would emit into `script-src 'nonce-…'` (policy-token injection; no CR/LF so it
+  passes header validation) and serve a decapitated body. **Control:** `get()` validates the stored
+  nonce against `^[A-Za-z0-9+/]{22}==$` and treats any mismatch (legacy, truncated, tampered) as a
+  **miss** (unlink); `adopt()` falls back to a fresh nonce on an invalid value; `put()` refuses to
+  persist a non-shape nonce. Guard: `PageCacheTest::test_a_legacy_pre_nonce_entry_is_treated_as_a_miss`,
+  `test_an_entry_with_a_non_base64_nonce_is_a_miss`; `CspTest` adopt-rejects-invalid.
+- **Q2 verdict (no finding) — stable-per-entry nonce on public cached pages is SAFE:** header-nonce ==
+  body-nonce == a byte-identical replay of one server render an attacker cannot write into. The known-
+  nonce stored-injection sequence (A3) is **structurally impossible**: every content write flushes the
+  cache (`Application.php` `ENTRY_SAVED`/`ENTRY_DELETED` → `flush()`), so the write that plants a
+  payload destroys the entry whose nonce it stole; re-render mints a fresh nonce. **This safety is
+  architectural, not local** — it rests on: (i) body+nonce stored atomically from one render;
+  (ii) flush-on-every-content-write (now a security invariant, guarded by
+  `CacheRoutesTest::test_a_content_write_rotates_the_cached_nonce`); (iii) cache = public anon GET 200
+  HTML only, no per-user variance; (iv) nonce charset has no newline/quote/space. Revisit if cache
+  keying/invalidation changes (HTTP-6).
+- **PLUG-5 (no severity):** the nonce was already reachable in-process (`Csp::nonce()` is public
+  static); `PageContext::$cspNonce` + the handler arg formalize the supported path, grant no new
+  capability, and the nonce is in the served HTML anyway. `PageContext` docblock marks `$cspNonce` the
+  one trusted-to-embed value (still `View::e()`-safe).
+- **A7 (Low, documented):** `SecurityHeaders::apply` is fill-only, so a page setting its OWN CSP would,
+  on a hit, serve that policy with the adopted nonce mismatched — no such public response exists today;
+  recorded as a constraint (a cacheable page must not set its own CSP).
+- **Left open:** hosted-analytics beacon egress still blocked by `default-src`/absent `connect-src`
+  (FU-7 — separate review before any CSP widening); the inherent same-response nonce-scrape limitation
+  (escape-by-default remains the primary XSS control, unchanged).
+
 ### 2026-08-23 · Slice F — entry-write unbounded-input DoS + input-edge 500s closed (DATA-2/DATA-3/ADMIN-6)
 - **Status:** fixed. Fable two-skill burst, security-green conditional on the must-ships (all
   shipped). Catalog: unbounded-input / write-amplification (first sighting — watch for a 2nd to

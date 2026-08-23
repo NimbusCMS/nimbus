@@ -17,7 +17,8 @@ decision were both verified to still hold.
 
 ---
 
-### HTTP-1 · Page cache serves stale CSP nonce → inline scripts blocked on cached public pages
+### HTTP-1 · Page cache serves stale CSP nonce → inline scripts blocked on cached public pages ✅ RESOLVED
+- **Resolved:** Slice H (branch `slice-h-csp-nonce-cache`). `PageCache` now stores the nonce with the entry (`timestamp\nnonce\nHTML`) and `Application::respond` calls `Csp::adopt($hit['nonce'])` on a hit, so the header re-emits the nonce the cached body was rendered under (both `script-src` and `style-src`). Chose persist-and-re-emit over drop-the-nonce (both reviews agreed) so inline nonce'd scripts/styles keep working on cached pages — the PLUG-5 analytics path. A must-fix caught in review: `get()` validates the stored nonce against the exact emitted shape (`^[A-Za-z0-9+/]{22}==$`) and treats any mismatch — a pre-upgrade `timestamp\nHTML` entry included — as a miss, so a legacy/corrupt entry can never feed arbitrary text into the CSP header. Regression tests: `CacheRoutesTest::test_a_cache_hit_reemits_the_stored_nonce`, `test_a_content_write_rotates_the_cached_nonce` (the flush-rotates-nonce invariant the safety argument rests on), `PageCacheTest` legacy/invalid-entry-is-a-miss, `CspTest` adopt/isValid. Follow-up filed (FU-7: hosted-analytics `connect-src`).
 - **Priority:** P2
 - **Type:** correctness
 - **Severity (if security):** Low (availability of legit scripts, not an XSS bypass)
