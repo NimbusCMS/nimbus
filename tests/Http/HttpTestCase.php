@@ -33,6 +33,9 @@ abstract class HttpTestCase extends IntegrationTestCase
     /** Optional mail transport for a test to capture outgoing mail; null → the configured default. */
     protected ?\Nimbus\Mail\Mailer $mailer = null;
 
+    /** Optional SSO providers for a test to drive OAuth with a fake; null → configured (off in tests). */
+    protected ?\Nimbus\Auth\OAuth\OAuthProviders $oauthProviders = null;
+
     protected function setUp(): void
     {
         parent::setUp(); // truncates every nb_ table
@@ -119,7 +122,7 @@ abstract class HttpTestCase extends IntegrationTestCase
      */
     protected function throughKernel(Request $request): Response
     {
-        return (new Application($this->db, $this->auth, mailer: $this->mailer))->handle($request);
+        return (new Application($this->db, $this->auth, mailer: $this->mailer, oauthProviders: $this->oauthProviders))->handle($request);
     }
 
     // -------------------------------------------------------------- users

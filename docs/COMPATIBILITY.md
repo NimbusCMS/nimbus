@@ -213,6 +213,24 @@ flushed on every content write, and the TTL bounds staleness for time-based
 changes such as a scheduled entry becoming live. The on-disk cache format under
 `storage/` is internal and may change without notice.
 
+## SSO providers
+
+SSO ("Sign in with Google / GitHub", [ADR 0012](adr/0012-oauth-sso.md)) is a
+**core** subsystem, optional and **off by default** — it is not a plugin
+capability, and there is no way to register a provider from a plugin yet. The
+built-in providers are Google and GitHub, enabled per-provider by setting
+`OAUTH_<PROVIDER>_CLIENT_ID` and `OAUTH_<PROVIDER>_CLIENT_SECRET`.
+
+The `Nimbus\Auth\OAuth\OAuthProvider` interface (and the `OAuthIdentity` it
+returns) is the seam the two built-in adapters implement. It is **internal and
+not frozen** — a `0.x` release may change its methods. Do not depend on it from
+outside core.
+
+The callback (redirect) URL you register with each provider is derived from
+`APP_URL`, not the request Host header: it is always
+`<APP_URL>/admin/oauth/<provider>/callback`. If `APP_URL` is wrong, the flow
+fails. This path is stable within `0.x`.
+
 ## Versioning
 
 [Semantic Versioning](https://semver.org). Against the **public plugin API**

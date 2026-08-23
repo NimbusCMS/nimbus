@@ -39,6 +39,20 @@ final class Auth
         return true;
     }
 
+    /**
+     * Establish a session for a user WITHOUT a password — for verified external
+     * logins (SSO, ADR 0012). The caller must have already proven the identity
+     * (a linked provider subject); this only starts the session. Rotates the id
+     * for session-fixation parity with {@see attempt()}.
+     */
+    public function login(int $userId): void
+    {
+        session_regenerate_id(true);
+        $_SESSION[self::SESSION_KEY] = $userId;
+        $this->cached   = null;
+        $this->resolved = false;
+    }
+
     public function logout(): void
     {
         unset($_SESSION[self::SESSION_KEY]);
