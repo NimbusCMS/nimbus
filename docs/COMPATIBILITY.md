@@ -81,8 +81,12 @@ response shapes, not on any PHP class. What is promised:
   carrying the entry's current `ETag` (a read returns it) — absent is `428`,
   stale is `412`, so machine clients cannot silently overwrite each other.
 - **OpenAPI** — `GET /api/v1/openapi.json` returns an OpenAPI 3.0 document
-  generated from the live content model (behind the same bearer auth); `nimbus
-  openapi` prints the same for build pipelines. See [ADR 0008](adr/0008-openapi.md).
+  generated from the live content model (behind the same bearer auth), **scoped to
+  the presenting token**: it describes only the collections that token can read
+  (write operations only where it can write), so the spec can't enumerate what the
+  endpoints hide. For the **full** document (all collections), use `nimbus openapi`
+  — the CLI is a trusted local operator — or present an `admin`/`*:read` token. See
+  [ADR 0008](adr/0008-openapi.md).
 - **MCP** — `POST /api/v1/mcp` (and stdio `nimbus mcp`) exposes the CMS to agents
   over JSON-RPC 2.0, gated by the same scoped tokens. The **tool set is generated
   from the live model and the token's scopes**, so — like the content shape

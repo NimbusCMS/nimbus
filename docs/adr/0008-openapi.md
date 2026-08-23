@@ -50,10 +50,20 @@ by a mapping table that drifts from them.
 - **`GET /api/v1/openapi.json`** — the live spec, always current, **behind the
   same bearer auth** as the rest of the API (it is a contract for authenticated
   clients; the schema is metadata, not content). It sits inside the rate-limited
-  API group. The full model is shown; a scope-filtered per-token spec is a later
-  refinement, not v1 (it would vary per caller and break caching).
-- **`nimbus openapi`** — a CLI that prints the same document, for build pipelines
-  that commit a snapshot or run SDK codegen offline.
+  API group.
+  - **Amended (Slice B, 2026-08-23):** the HTTP spec is now **scoped to the
+    presenting token** — it lists only the collections the token can `read`, with
+    write operations only where it can `write`. The original "full model is shown;
+    a scope-filtered per-token spec is a later refinement" decision is
+    **superseded**: an unfiltered spec let a single-collection token enumerate the
+    whole content model, defeating the non-enumeration guarantee (`403==404`) the
+    rest of the surface enforces. The spec now varies per caller (so it is
+    per-token, not cache-shared — use `Vary: Authorization` if fronted by a cache);
+    the full document remains available via the CLI below.
+- **`nimbus openapi`** — a CLI that prints the **full** document (`generateFull()`),
+  for build pipelines that commit a snapshot or run SDK codegen offline. The CLI is
+  a trusted local operator (it already holds the database), so it is not
+  scope-limited — matching the CLI token-mint exemption in ROLES.md.
 
 ## Consequences
 

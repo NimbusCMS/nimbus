@@ -11,6 +11,7 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 ---
 
 ### ADMIN-1 · Admin content browsing ignores `{handle}:read` — ADR 0011's deny-by-default read gate does not exist
+- **✅ RESOLVED** (Slice B, 2026-08-23) — `Gate::reads` + read-gate in `EntriesController::mustFind` (unreadable == missing) + filtered collections index.
 - **Priority:** P1
 - **Type:** security
 - **Severity (if security):** Medium
@@ -42,6 +43,7 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Effort:** S
 
 ### ADMIN-4 · Singleton collection: a non-manager gets an infinite redirect loop instead of a denial
+- **✅ RESOLVED** (Slice B, 2026-08-23) — `requireManage` aborts to the collections index; singleton link gated on `manages()`.
 - **Priority:** P2
 - **Type:** correctness
 - **Where:** `src/Admin/EntriesController.php:90-94` (`index()` singleton branch) + `:356-361` (`requireManage()` aborts to the entries index URL)

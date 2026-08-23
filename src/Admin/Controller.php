@@ -48,9 +48,11 @@ abstract class Controller
     /** @return array<int,array<string,mixed>> */
     protected function nav(string $active): array
     {
-        // Content sections are visible to any signed-in user (the pages enforce
-        // per-collection write). Administration sections appear only to holders of
-        // the capability that gates them (ADR 0011), so there are no dead links.
+        // Content sections link to pages that enforce per-collection read/write
+        // (ADR 0011): the Collections index lists only readable collections, and a
+        // direct hit on an unreadable one 404-equivalents. Administration sections
+        // appear only to holders of the capability that gates them, so there are
+        // no dead links.
         $items = [
             ['key' => 'dashboard',   'label' => 'Dashboard',   'url' => Url::to('admin.dashboard'),             'icon' => '✦'],
             ['key' => 'collections', 'label' => 'Collections', 'url' => Url::to('admin.collections.index'), 'icon' => '❑'],

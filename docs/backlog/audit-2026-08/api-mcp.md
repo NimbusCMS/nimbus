@@ -50,6 +50,7 @@ Counts: **P0 0 · P1 3 · P2 2 · P3 3.**
 - **Effort:** S (once API-1's role plumbing exists)
 
 ### API-3 · OpenAPI document leaks the full content model to any scoped token
+- **✅ RESOLVED** (Slice B, 2026-08-23) — `generateFor(TokenPrincipal)` scope-filters; HTTP `openapi()` is fail-closed via the 401-guarding principal; CLI keeps `generateFull()`.
 - **Priority:** P1
 - **Type:** security / product-gap (contract consistency)
 - **Severity (security):** Medium

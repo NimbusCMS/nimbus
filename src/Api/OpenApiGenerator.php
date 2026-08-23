@@ -34,19 +34,57 @@ final class OpenApiGenerator
         $this->title = $title ?? Config::appName();
     }
 
-    /** @return array<string,mixed> */
-    public function generate(): array
+    /**
+     * The **full** document — every collection, read + write. For the CLI
+     * (`nimbus openapi`) and build pipelines: a trusted local operator, like the
+     * CLI token exemption (ROLES.md). Never serve this to an HTTP caller.
+     *
+     * @return array<string,mixed>
+     */
+    public function generateFull(): array
+    {
+        return $this->build(null);
+    }
+
+    /**
+     * The document **scoped to a token** (ADR 0008, amended by Slice B): only the
+     * collections the token can `read`, and write operations only where it can
+     * `write` — so a scoped token's spec cannot enumerate collections it gets
+     * 403==404 on elsewhere. The predicate is `TokenPrincipal::can`, identical to
+     * `EntryOperations`, so the spec never disagrees with the endpoints.
+     *
+     * @return array<string,mixed>
+     */
+    public function generateFor(TokenPrincipal $principal): array
+    {
+        return $this->build($principal);
+    }
+
+    /**
+     * @param TokenPrincipal|null $principal null = the full model (CLI only);
+     *        non-null = filtered to the token's read/write scope.
+     * @return array<string,mixed>
+     */
+    private function build(?TokenPrincipal $principal): array
     {
         $paths   = [];
         $schemas = $this->baseSchemas();
 
         foreach ($this->collections->all() as $collection) {
-            $fields = $this->collections->fields($collection->id);
-            $name   = $this->schemaName($collection->handle);
+            // Skip a collection the token cannot read — its paths AND schema names
+            // (which are the handle) must be absent, so nothing leaks.
+            if ($principal !== null && !$principal->can($collection->handle, 'read')) {
+                continue;
+            }
+            $canWrite = $principal === null || $principal->can($collection->handle, 'write');
+            $fields   = $this->collections->fields($collection->id);
+            $name     = $this->schemaName($collection->handle);
 
-            $schemas['Entry_' . $name]      = $this->entrySchema($fields);
-            $schemas['EntryWrite_' . $name] = $this->writeSchema($fields);
-            $paths += $this->collectionPaths($collection, $name);
+            $schemas['Entry_' . $name] = $this->entrySchema($fields);
+            if ($canWrite) {
+                $schemas['EntryWrite_' . $name] = $this->writeSchema($fields);
+            }
+            $paths += $this->collectionPaths($collection, $name, $canWrite);
         }
 
         return [
@@ -121,71 +159,81 @@ final class OpenApiGenerator
     }
 
     /** @return array<string,mixed> */
-    private function collectionPaths(Collection $collection, string $name): array
+    /**
+     * @param bool $canWrite include the write operations (and their `EntryWrite_`
+     *        ref). A read-only token gets only the GET operations — no write hints.
+     * @return array<string,mixed>
+     */
+    private function collectionPaths(Collection $collection, string $name, bool $canWrite): array
     {
         $handle   = $collection->handle;
         $entryRef = ['$ref' => '#/components/schemas/Entry_' . $name];
         $writeRef = ['$ref' => '#/components/schemas/EntryWrite_' . $name];
         $list     = '/collections/' . $handle . '/entries';
 
-        return [
-            $list => [
-                'get' => [
-                    'summary'    => "List live {$handle} entries",
-                    'parameters' => [['$ref' => '#/components/parameters/page'], ['$ref' => '#/components/parameters/perPage']],
-                    'responses'  => [
-                        '200' => ['description' => 'A page of entries', 'content' => ['application/json' => ['schema' => [
-                            'type'       => 'object',
-                            'properties' => ['data' => ['type' => 'array', 'items' => $entryRef], 'meta' => ['$ref' => '#/components/schemas/EntryMeta']],
-                        ]]]],
-                        '403' => $this->errorResponse('Out of read scope'),
-                    ],
-                ],
-                'post' => [
-                    'summary'     => "Create a {$handle} entry",
-                    'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => $writeRef]]],
-                    'responses'   => [
-                        '201' => ['description' => 'Created', 'headers' => $this->etagHeader() + ['Location' => ['schema' => ['type' => 'string']]], 'content' => ['application/json' => ['schema' => $this->dataWrap($entryRef)]]],
-                        '403' => $this->errorResponse('Out of write scope'),
-                        '422' => $this->errorResponse('Validation failed'),
-                    ],
-                ],
-            ],
-            $list . '/{slug}' => [
-                'parameters' => [['name' => 'slug', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']]],
-                'get'        => [
-                    'summary'   => "Get a {$handle} entry",
-                    'responses' => [
-                        '200' => ['description' => 'The entry', 'headers' => $this->etagHeader(), 'content' => ['application/json' => ['schema' => $this->dataWrap($entryRef)]]],
-                        '404' => $this->errorResponse('Not found'),
-                    ],
-                ],
-                'patch' => [
-                    'summary'     => "Update a {$handle} entry",
-                    'parameters'  => [['$ref' => '#/components/parameters/IfMatch']],
-                    'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => $writeRef]]],
-                    'responses'   => [
-                        '200' => ['description' => 'Updated', 'headers' => $this->etagHeader(), 'content' => ['application/json' => ['schema' => $this->dataWrap($entryRef)]]],
-                        '403' => $this->errorResponse('Out of write scope'),
-                        '404' => $this->errorResponse('Not found'),
-                        '412' => $this->errorResponse('If-Match is stale'),
-                        '422' => $this->errorResponse('Validation failed'),
-                        '428' => $this->errorResponse('If-Match is required'),
-                    ],
-                ],
-                'delete' => [
-                    'summary'    => "Delete a {$handle} entry",
-                    'parameters' => [['$ref' => '#/components/parameters/IfMatch']],
-                    'responses'  => [
-                        '204' => ['description' => 'Deleted'],
-                        '403' => $this->errorResponse('Out of write scope'),
-                        '404' => $this->errorResponse('Not found'),
-                        '412' => $this->errorResponse('If-Match is stale'),
-                        '428' => $this->errorResponse('If-Match is required'),
-                    ],
+        $listItem = [
+            'get' => [
+                'summary'    => "List live {$handle} entries",
+                'parameters' => [['$ref' => '#/components/parameters/page'], ['$ref' => '#/components/parameters/perPage']],
+                'responses'  => [
+                    '200' => ['description' => 'A page of entries', 'content' => ['application/json' => ['schema' => [
+                        'type'       => 'object',
+                        'properties' => ['data' => ['type' => 'array', 'items' => $entryRef], 'meta' => ['$ref' => '#/components/schemas/EntryMeta']],
+                    ]]]],
+                    '403' => $this->errorResponse('Out of read scope'),
                 ],
             ],
         ];
+        if ($canWrite) {
+            $listItem['post'] = [
+                'summary'     => "Create a {$handle} entry",
+                'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => $writeRef]]],
+                'responses'   => [
+                    '201' => ['description' => 'Created', 'headers' => $this->etagHeader() + ['Location' => ['schema' => ['type' => 'string']]], 'content' => ['application/json' => ['schema' => $this->dataWrap($entryRef)]]],
+                    '403' => $this->errorResponse('Out of write scope'),
+                    '422' => $this->errorResponse('Validation failed'),
+                ],
+            ];
+        }
+
+        $slugItem = [
+            'parameters' => [['name' => 'slug', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string']]],
+            'get'        => [
+                'summary'   => "Get a {$handle} entry",
+                'responses' => [
+                    '200' => ['description' => 'The entry', 'headers' => $this->etagHeader(), 'content' => ['application/json' => ['schema' => $this->dataWrap($entryRef)]]],
+                    '404' => $this->errorResponse('Not found'),
+                ],
+            ],
+        ];
+        if ($canWrite) {
+            $slugItem['patch'] = [
+                'summary'     => "Update a {$handle} entry",
+                'parameters'  => [['$ref' => '#/components/parameters/IfMatch']],
+                'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => $writeRef]]],
+                'responses'   => [
+                    '200' => ['description' => 'Updated', 'headers' => $this->etagHeader(), 'content' => ['application/json' => ['schema' => $this->dataWrap($entryRef)]]],
+                    '403' => $this->errorResponse('Out of write scope'),
+                    '404' => $this->errorResponse('Not found'),
+                    '412' => $this->errorResponse('If-Match is stale'),
+                    '422' => $this->errorResponse('Validation failed'),
+                    '428' => $this->errorResponse('If-Match is required'),
+                ],
+            ];
+            $slugItem['delete'] = [
+                'summary'    => "Delete a {$handle} entry",
+                'parameters' => [['$ref' => '#/components/parameters/IfMatch']],
+                'responses'  => [
+                    '204' => ['description' => 'Deleted'],
+                    '403' => $this->errorResponse('Out of write scope'),
+                    '404' => $this->errorResponse('Not found'),
+                    '412' => $this->errorResponse('If-Match is stale'),
+                    '428' => $this->errorResponse('If-Match is required'),
+                ],
+            ];
+        }
+
+        return [$list => $listItem, $list . '/{slug}' => $slugItem];
     }
 
     /** @return array<string,mixed> */

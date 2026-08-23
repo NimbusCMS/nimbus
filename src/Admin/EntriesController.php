@@ -229,7 +229,10 @@ final class EntriesController extends Controller
         foreach ($collection->fields as $field) {
             if ($field->type === 'relation') {
                 $target = (string) $field->option('target', '') !== '' ? $this->collections->findByHandle((string) $field->option('target')) : null;
-                $relationOptions[$field->handle] = $target !== null ? $this->entries->titleMap($target->id) : [];
+                // Read-gate the target: the picker must not leak the titles of a
+                // collection the user can't read (the API gates relation expansion
+                // the same way). Value integrity of the relation is Slice C.
+                $relationOptions[$field->handle] = ($target !== null && $this->gate->reads($target)) ? $this->entries->titleMap($target->id) : [];
             }
             $hasMedia = $hasMedia || $field->type === 'media';
         }
@@ -344,10 +347,19 @@ final class EntriesController extends Controller
         ];
     }
 
+    /**
+     * Resolve a collection for browsing/editing, read-gated (ADR 0011). A
+     * collection the user cannot read is treated **exactly like one that does not
+     * exist** — the same redirect — so an out-of-scope collection cannot be told
+     * apart from a missing one (non-enumeration). This is the one choke point for
+     * every entry route (list, form, store, update, publish, delete); writes are
+     * additionally gated by {@see requireManage()}, and a content write implies
+     * read so every manager passes here.
+     */
     private function mustFind(string $handle): Collection
     {
         $collection = $this->collections->findByHandle($handle);
-        if ($collection === null) {
+        if ($collection === null || !$this->gate->reads($collection)) {
             $this->abortTo(Url::to('admin.collections.index'));
         }
         return $collection;
@@ -356,7 +368,10 @@ final class EntriesController extends Controller
     private function requireManage(Collection $collection): void
     {
         if (!$this->gate->manages($collection)) {
-            $this->abortTo("/admin/collections/{$collection->handle}/entries");
+            // Abort to the collections index, never to this collection's own
+            // entries URL — a singleton's index IS this route, so redirecting
+            // there would loop.
+            $this->abortTo(Url::to('admin.collections.index'));
         }
     }
 }

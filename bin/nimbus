@@ -170,7 +170,7 @@ try {
             $collections = new Nimbus\Content\CollectionRepository($db);
             $settings   = new Nimbus\Settings\Settings(new Nimbus\Settings\SettingsRepository($db), new Nimbus\Settings\SettingsRegistry($collections));
             $generator  = new Nimbus\Api\OpenApiGenerator($collections, $app->fieldTypeRegistry(), $settings->title());
-            echo json_encode($generator->generate(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
+            echo json_encode($generator->generateFull(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . "\n";
             break;
 
         case 'mcp':
