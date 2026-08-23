@@ -33,7 +33,7 @@ final class AdminController extends Controller
     public function routes(Router $r): void
     {
         // Public (no auth middleware).
-        $r->get('/admin/login', fn (Request $req, array $p): Response => $this->loginForm(null, $this->loginNotice($req)))->name('admin.login');
+        $r->get('/admin/login', fn (Request $req, array $p): Response => $this->loginForm($this->loginError($req), $this->loginNotice($req)))->name('admin.login');
         $r->post('/admin/login', fn (Request $req, array $p): Response => $this->login($req));
         $r->post('/admin/logout', fn (Request $req, array $p): Response => $this->logout($req))->name('admin.logout');
 
@@ -75,12 +75,45 @@ final class AdminController extends Controller
         return null;
     }
 
+    /** A one-line error for the login page from a failed SSO round-trip (see OAuthController). */
+    private function loginError(Request $req): ?string
+    {
+        return match ($req->query('oauth_error')) {
+            'unknown'   => 'No Nimbus account is linked to that account. Ask an administrator to invite you.',
+            'throttled' => 'Too many attempts. Please try again in a few minutes.',
+            'provider'  => 'Sign-in could not be completed. Please try again.',
+            'config'    => 'That sign-in method is not available.',
+            default     => null,
+        };
+    }
+
+    /**
+     * The configured SSO providers to offer on the login page — key + label only,
+     * no secrets. Empty (the default) renders no buttons (ADR 0012).
+     *
+     * @return list<array{key:string,label:string}>
+     */
+    private function oauthButtons(): array
+    {
+        $labels = ['google' => 'Google', 'github' => 'GitHub'];
+        $out    = [];
+        foreach (array_keys(\Nimbus\Support\Config::oauthProviders()) as $key) {
+            $out[] = ['key' => $key, 'label' => $labels[$key] ?? ucfirst($key)];
+        }
+        return $out;
+    }
+
     private function loginForm(?string $error = null, ?string $notice = null): Response
     {
         if ($this->auth->check()) {
             return $this->redirect(Url::to('admin.dashboard'));
         }
-        return $this->bare('login', ['error' => $error, 'notice' => $notice, 'csrf' => Csrf::token()]);
+        return $this->bare('login', [
+            'error'          => $error,
+            'notice'         => $notice,
+            'csrf'           => Csrf::token(),
+            'oauthProviders' => $this->oauthButtons(),
+        ]);
     }
 
     private function login(Request $req): Response

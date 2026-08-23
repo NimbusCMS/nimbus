@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Admin;
 
 use Nimbus\Auth\Auth;
+use Nimbus\Auth\OAuth\OAuthIdentityRepository;
 use Nimbus\Auth\UserRepository;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
@@ -16,6 +17,7 @@ use Nimbus\Http\Url;
 use Nimbus\Settings\Settings;
 use Nimbus\Settings\SettingsRegistry;
 use Nimbus\Settings\SettingsRepository;
+use Nimbus\Support\Config;
 use Nimbus\View\AdminTheme;
 
 /**
@@ -70,7 +72,63 @@ final class SettingsController extends Controller
             'canEditSite'  => $this->gate->can('settings', 'write'),
             'siteFields'   => $this->siteFields(),
             'collections'  => $this->collectionChoices(),
+            // Connected accounts (ADR 0012) — a personal setting, like the theme:
+            // any signed-in user manages their own links. Empty when no provider
+            // is configured, so the section is hidden.
+            'oauthAccounts' => $this->oauthAccounts(),
+            'oauthFlash'    => $this->oauthFlash($req),
         ]);
+    }
+
+    /**
+     * The configured SSO providers with this user's link status, for the
+     * connected-accounts section. Config-driven (labels only, no secrets).
+     *
+     * @return list<array{key:string,label:string,linked:bool,email:?string}>
+     */
+    private function oauthAccounts(): array
+    {
+        $configured = array_keys(Config::oauthProviders());
+        $user       = $this->auth->user();
+        if ($configured === [] || $user === null) {
+            return [];
+        }
+        $labels = ['google' => 'Google', 'github' => 'GitHub'];
+        $linked = (new OAuthIdentityRepository($this->db))->forUser($user->id);
+
+        $out = [];
+        foreach ($configured as $key) {
+            $out[] = [
+                'key'    => $key,
+                'label'  => $labels[$key] ?? ucfirst($key),
+                'linked' => isset($linked[$key]),
+                'email'  => $linked[$key]['email'] ?? null,
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * A one-line notice for the connected-accounts section after a link/disconnect
+     * round-trip. Messages are generic (not reflected from the query) — the query
+     * only selects which fixed message to show.
+     *
+     * @return array{kind:string,message:string}|null
+     */
+    private function oauthFlash(Request $req): ?array
+    {
+        if ($req->query('oauth') === 'linked') {
+            return ['kind' => 'ok', 'message' => 'Account connected. ✦'];
+        }
+        if ($req->query('oauth') === 'disconnected') {
+            return ['kind' => 'ok', 'message' => 'Account disconnected.'];
+        }
+        return match ($req->query('oauth_error')) {
+            'already'  => ['kind' => 'error', 'message' => 'That account is already connected to a Nimbus user.'],
+            'config'   => ['kind' => 'error', 'message' => 'That sign-in method is not available.'],
+            'provider', 'unknown', 'state' => ['kind' => 'error', 'message' => 'We couldn’t complete that connection. Please try again.'],
+            default    => null,
+        };
     }
 
     /**

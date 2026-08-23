@@ -291,7 +291,13 @@ body.nb {
 .nb-btn-primary { background: var(--nb-brand); border-color: var(--nb-brand); color: var(--nb-on-brand) !important; }
 .nb-btn-primary:hover { background: var(--nb-brand-dark); border-color: var(--nb-brand-dark); }
 .nb-btn-block { width: 100%; justify-content: center; }
+.nb-btn-sm { padding: 7px 13px; font-size: 13px; }
 .nb-btn-disabled { opacity: .45; pointer-events: none; }
+
+.nb-oauth-list { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.nb-oauth-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--nb-line); border-radius: var(--nb-radius-m); background: var(--nb-surface-2); }
+.nb-oauth-name { display: flex; flex-direction: column; gap: 2px; }
+.nb-oauth-row form { margin: 0; }
 
 /* List pager (admin entry lists): Prev / status / Next, wraps on narrow screens. */
 .nb-pager { display: flex; align-items: center; gap: .75rem; margin-top: 1.25rem; flex-wrap: wrap; }
@@ -337,6 +343,10 @@ body.nb-night::before {
 .nb-auth-brand { display: flex; align-items: center; gap: 10px; font-family: var(--nb-display); font-weight: 800; font-size: 22px; letter-spacing: -.02em; }
 .nb-auth-brand svg { color: var(--nb-gold); }
 .nb-auth .nb-muted { margin: 4px 0 20px; }
+.nb-auth-or { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--nb-muted); font-size: 13px; }
+.nb-auth-or::before, .nb-auth-or::after { content: ""; flex: 1; height: 1px; background: var(--nb-line); }
+.nb-btn-oauth { margin-top: 10px; text-decoration: none; }
+.nb-btn-oauth:first-of-type { margin-top: 0; }
 
 .nb-table-wrap { background: var(--nb-surface); border: 1px solid var(--nb-line); border-radius: var(--nb-radius); box-shadow: var(--nb-shadow-1); overflow: auto; }
 .nb-table { width: 100%; border-collapse: collapse; }

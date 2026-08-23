@@ -37,6 +37,14 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
         </div>
         <button type="submit" class="nb-btn nb-btn-primary nb-btn-block">Sign in</button>
     </form>
+
+    <?php if (!empty($oauthProviders)): ?>
+        <div class="nb-auth-or"><span>or</span></div>
+        <?php foreach ($oauthProviders as $p): ?>
+            <a class="nb-btn nb-btn-block nb-btn-oauth" href="/admin/oauth/<?= $e($p['key']) ?>/start">Continue with <?= $e($p['label']) ?></a>
+        <?php endforeach; ?>
+    <?php endif; ?>
+
     <p class="nb-auth-alt"><a class="nb-link" href="/admin/forgot">Forgot your password?</a></p>
 </div>
 </body>

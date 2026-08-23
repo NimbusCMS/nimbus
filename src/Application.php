@@ -9,6 +9,7 @@ use Nimbus\Admin\AdminPageRegistry;
 use Nimbus\Admin\CollectionsController;
 use Nimbus\Admin\EntriesController;
 use Nimbus\Admin\MediaController;
+use Nimbus\Admin\OAuthController;
 use Nimbus\Admin\PasswordResetController;
 use Nimbus\Admin\PluginPagesController;
 use Nimbus\Admin\RolesController;
@@ -77,6 +78,9 @@ final class Application
     /** Outgoing-mail transport (password reset, later notifications). */
     private Mailer $mailer;
 
+    /** Configured SSO providers (ADR 0012); empty when SSO is off (the default). */
+    private \Nimbus\Auth\OAuth\OAuthProviders $oauthProviders;
+
     /** @var array<string,array{to:string,status:int}> exact-path redirects, applied before routing */
     private array $redirects;
 
@@ -98,8 +102,9 @@ final class Application
      * @param EventDispatcher|null $events    test seam; lets a test observe request.handled
      * @param ApiAuthContext|null  $apiAuth   test seam; lets a test observe the established API principal
      * @param Mailer|null          $mailer    test seam; lets a test capture outgoing mail (default: configured transport)
+     * @param \Nimbus\Auth\OAuth\OAuthProviders|null $oauthProviders test seam; lets a test drive SSO with a fake provider (default: configured providers)
      */
-    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null, ?PageCache $pageCache = null, ?EventDispatcher $events = null, ?ApiAuthContext $apiAuth = null, ?Mailer $mailer = null)
+    public function __construct(?Connection $db = null, ?Auth $auth = null, ?array $redirects = null, ?PageCache $pageCache = null, ?EventDispatcher $events = null, ?ApiAuthContext $apiAuth = null, ?Mailer $mailer = null, ?\Nimbus\Auth\OAuth\OAuthProviders $oauthProviders = null)
     {
         if ($db === null) {
             Env::load(Config::basePath() . '/.env');
@@ -115,6 +120,7 @@ final class Application
         $this->events           = $events ?? new EventDispatcher();
         $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
         $this->mailer           = $mailer ?? MailerFactory::fromConfig();
+        $this->oauthProviders   = $oauthProviders ?? \Nimbus\Auth\OAuth\OAuthProviders::fromConfig();
         $this->redirects  = $redirects ?? Config::redirects();
         $this->pageCache  = $pageCache ?? new PageCache(Config::pageCachePath(), Config::pageCacheTtl());
 
@@ -299,6 +305,7 @@ final class Application
         $router = new Router();
         (new AdminController($this->db, $this->auth, $this->pluginStatuses, $this->adminPages))->routes($router);
         (new PasswordResetController($this->db, $this->auth, $this->mailer, $this->events, $this->adminPages))->routes($router);
+        (new OAuthController($this->db, $this->auth, $this->oauthProviders, null, $this->adminPages))->routes($router);
         (new CollectionsController($this->db, $this->auth, $this->fieldTypes, $this->adminPages))->routes($router);
         (new EntriesController($this->db, $this->auth, $this->fieldTypes, $this->events, $this->adminPages))->routes($router);
         (new MediaController($this->db, $this->auth, $this->adminPages))->routes($router);

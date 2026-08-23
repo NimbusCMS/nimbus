@@ -19,6 +19,50 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-22 · OAuth SSO Phase 1 — design review, security-green to build
+- **Status:** built with all mandated controls; no open Critical/High. Reviewed
+  design-first (highest-stakes auth surface yet: account takeover / full
+  compromise). ADR [0012](../../../../docs/adr/0012-oauth-sso.md).
+- **Surface:** `src/Auth/OAuth/*`, `src/Admin/OAuthController.php`, `Auth::login()`
+  (catalog: auth/session, CSRF, open-redirect, secret handling).
+- **Controls shipped, each with a regression test in `tests/Http/OAuthFlowTest.php`
+  driving the real kernel with `FakeOAuthProvider`:**
+  1. **state** — CSPRNG (`random_bytes(32)`, base64url), stored in `$_SESSION`,
+     compared with `hash_equals`, and **consumed before use** (single-use):
+     `test_state_mismatch_is_rejected`, `test_state_is_single_use`.
+  2. **PKCE S256** — verifier `random_bytes(64)` in session; challenge =
+     base64url(SHA-256(verifier)) sent on start; verifier sent at exchange:
+     `test_pkce_and_state_are_sent_on_start`.
+  3. **Token provenance** — tokens come only from the provider token endpoint via
+     `OAuthHttp` curl with `SSL_VERIFYPEER=true`/`VERIFYHOST=2` (never disabled,
+     https-only), never from request input; no id_token JWT is trusted.
+  4. **Explicit-link binding** — link intent + target uid live in the **session**
+     (not the URL); the callback rejects unless the recorded uid equals the
+     current session user: `test_link_is_bound_to_the_initiating_user`. `UNIQUE`
+     conflict is graceful, never a steal: `test_identity_already_linked_elsewhere_is_not_stolen`.
+  5. **Unknown identity rejected** — no auto-provision, no email fallback:
+     `test_unknown_identity_is_rejected`.
+  6. **Open-redirect guard** on `next` (internal single-`/` path only):
+     `test_open_redirect_next_is_blocked` / `test_internal_next_is_honoured`.
+  7. **Session fixation** — `Auth::login()` does `session_regenerate_id(true)`:
+     asserted in `test_linked_identity_signs_in`.
+  8. **Secret handling** — `client_secret` env-only, never front-channel/logged;
+     authorize URL carries only `client_id`: `test_login_button_appears_only_when_configured`
+     asserts the secret never reaches the page.
+  9. **Throttle** — start + callback IP-throttled via the shared `LoginThrottle`.
+  10. **Immutable-subject key** — `nb_oauth_identities` keyed on `(provider, sub)`,
+      never email (Google `sub` / GitHub numeric `id`).
+  11. **Provider binding** — the callback provider must equal the start provider:
+      `test_provider_confusion_is_rejected`.
+  12. **Email display-only** in Phase 1 — never a matching key.
+  13. Provider errors handled gracefully: `test_provider_exchange_failure_is_handled`;
+      disconnect is CSRF-guarded: `test_disconnect_requires_csrf`.
+- **Deferred (each needs its own review before build):** Phase 2 invite-accept via
+  provider; Phase 3 opt-in verified-email auto-link (the classic takeover class —
+  stays off until then); Phase 4 opt-in allow-list signup.
+- **Recurrence:** 1st sighting of the OAuth-callback-hygiene class — watch for a 2nd
+  (state/PKCE/provider-binding/open-redirect together) to promote into the catalog.
+
 ### 2026-08-17 · Content wildcard reaches management capabilities — Medium (latent High)
 - **Status:** fixed
 - **Surface:** `src/Api/TokenPrincipal.php::can()` (catalog #2 — scope confusion)

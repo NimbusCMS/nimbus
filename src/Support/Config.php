@@ -77,6 +77,29 @@ final class Config
     }
 
     /**
+     * OAuth SSO providers that are configured (ADR 0012). A provider appears here
+     * only when BOTH its client id and secret are present — an unconfigured
+     * provider is off, and SSO as a whole is off when this is empty (the default,
+     * so a fresh install has no external login). The secret is read here and is
+     * never rendered front-channel or logged.
+     *
+     * @return array<string,array{id:string,secret:string}> keyed by provider
+     */
+    public static function oauthProviders(): array
+    {
+        $out = [];
+        foreach (['google', 'github'] as $provider) {
+            $prefix = 'OAUTH_' . strtoupper($provider);
+            $id     = trim((string) Env::get($prefix . '_CLIENT_ID', ''));
+            $secret = trim((string) Env::get($prefix . '_CLIENT_SECRET', ''));
+            if ($id !== '' && $secret !== '') {
+                $out[$provider] = ['id' => $id, 'secret' => $secret];
+            }
+        }
+        return $out;
+    }
+
+    /**
      * Comma-separated IPs/CIDRs allowed to set X-Forwarded-*. Empty (default)
      * means forwarded headers are ignored — see Http\TrustedProxies.
      */

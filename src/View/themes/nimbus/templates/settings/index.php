@@ -7,6 +7,8 @@
  * @var bool    $canEditSite
  * @var list<array{key:string,type:string,label:string,help:string,value:string}> $siteFields
  * @var array<string,string> $collections handle => name
+ * @var list<array{key:string,label:string,linked:bool,email:?string}> $oauthAccounts
+ * @var array{kind:string,message:string}|null $oauthFlash
  */
 use Nimbus\View\View;
 
@@ -50,6 +52,36 @@ $e = static fn (?string $v): string => View::e($v);
     <?php endforeach; ?>
     <button type="submit" class="nb-btn nb-btn-primary">Save site settings</button>
 </form>
+<?php endif; ?>
+
+<?php if (!empty($oauthAccounts)): ?>
+<div class="nb-form-card">
+    <h2>Connected accounts</h2>
+    <p class="nb-muted">Link a provider to sign in without a password. Your password sign-in always stays available.</p>
+    <?php if ($oauthFlash !== null): ?>
+        <div class="nb-alert nb-alert-<?= $oauthFlash['kind'] === 'ok' ? 'ok' : 'error' ?>"><?= $e($oauthFlash['message']) ?></div>
+    <?php endif; ?>
+    <ul class="nb-oauth-list">
+        <?php foreach ($oauthAccounts as $acct): ?>
+            <li class="nb-oauth-row">
+                <span class="nb-oauth-name">
+                    <strong><?= $e($acct['label']) ?></strong>
+                    <?php if ($acct['linked'] && $acct['email'] !== null): ?>
+                        <small class="nb-muted"><?= $e($acct['email']) ?></small>
+                    <?php endif; ?>
+                </span>
+                <?php if ($acct['linked']): ?>
+                    <form method="post" action="/admin/oauth/<?= $e($acct['key']) ?>/disconnect">
+                        <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
+                        <button type="submit" class="nb-btn nb-btn-sm">Disconnect</button>
+                    </form>
+                <?php else: ?>
+                    <a class="nb-btn nb-btn-sm" href="/admin/oauth/<?= $e($acct['key']) ?>/start?intent=link">Connect</a>
+                <?php endif; ?>
+            </li>
+        <?php endforeach; ?>
+    </ul>
+</div>
 <?php endif; ?>
 
 <form class="nb-form-card" method="post" action="/admin/settings/theme">

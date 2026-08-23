@@ -13,6 +13,14 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-22 · OAuth SSO — Phase 1 [Core] · ADR 0012
+- **Status:** accepted. Both skills before code (platform loop = detailed design review; [security loop](../../nimbus-security-review/references/security-ledger.md) = green-to-build with the listed controls). Dan: "this is huge — a detailed design for the reviewers," then "Build ADR 0012 + Phase 1 now."
+- **Classification: Core** (auth is foundational-for-many; the plugin boundary deliberately excludes routes + auth hooks, so "SSO as a plugin" would force opening far riskier speculative surfaces for one consumer). Passes the drift guard: general admin auth, not a Restaurant/Food-Store/Packkit shape — would recommend absent all three.
+- **Crux decisions (Q1–Q6):** (Q1) CORE subsystem, not a plugin. (Q2) **userinfo, not id_token JWT** — provenance is the TLS-verified token endpoint, so no JWT/JWKS library enters core (charter: avoid the hard problem rather than take a dep for it). (Q3) `nb_oauth_identities` keyed on the **immutable subject** `(provider, provider_user_id)`, `UNIQUE`, FK-cascade; **never email**. (Q4) smallest cut = subsystem + **sign-in-for-linked** + **explicit-link-from-settings**; invite-accept (P2), verified-email auto-link (P3), allow-list signup (P4) each deferred behind their own review. (Q5) ADR 0012 = yes (auth is a hard-to-reverse contract). (Q6) a 3-method `OAuthProvider` interface + Google/GitHub adapters is the right minimal seam.
+- **Off by default:** a provider turns on only when BOTH its id and secret are set; no config → no buttons, password login is the only method. Password sign-in always stays available (additive, never replaces).
+- **DoD met:** ADR 0012; migration 015; `OAuth\{OAuthProvider,OAuthIdentity,OAuthException,OAuthHttp,GoogleProvider,GitHubProvider,OAuthIdentityRepository,OAuthProviders,OAuthOutcome,OAuthResult,OAuthService}`; `Auth::login()`; `OAuthController` (public start/callback + authed disconnect); `Config::oauthProviders()`; login buttons + Settings "Connected accounts"; Application wiring + a `?OAuthProviders` test seam; `tests/Support/FakeOAuthProvider`; `OAuthFlowTest` (16, all controls); docs (README, COMPATIBILITY, `.env.example`); both ledgers. PHPStan L7, php-cs-fixer clean.
+- **Lesson:** the whole flow depends only on the `OAuthProvider` interface, so a network-free fake drives the *real* kernel path (genuine `start`→session→`callback`) — every security control (state single-use, PKCE=S256(verifier), provider-binding, open-redirect, session rotation, link-bound-to-session-user, no-steal-on-UNIQUE) is a regression test with no mocking of the controller or session.
+
 ### 2026-08-15 · Boolean fields serialize as JSON booleans
 - **Status:** accepted
 - **Evidence:** PR (fix/boolean-toapi); `src/Content/FieldTypes/BooleanType.php`;
