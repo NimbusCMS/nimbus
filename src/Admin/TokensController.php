@@ -16,6 +16,7 @@ use Nimbus\Http\FormNonce;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\Url;
 
 /**
  * Manage API tokens: mint (shown once), list them with their lifecycle state,
@@ -93,11 +94,11 @@ final class TokensController extends Controller
     private function store(Request $req): Response
     {
         $this->requireCan('tokens', 'write');
-        $this->requireCsrf($req, '/admin/tokens');
+        $this->requireCsrf($req, Url::to('admin.tokens.index'));
 
         $name = trim((string) $req->input('name'));
         if ($name === '') {
-            return $this->redirect('/admin/tokens?err=' . rawurlencode('A token needs a name.'));
+            return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode('A token needs a name.'));
         }
 
         $scopes = $this->scopesFrom($req);
@@ -112,18 +113,18 @@ final class TokensController extends Controller
         if ($roleRaw !== '') {
             $role = ctype_digit($roleRaw) ? $this->roles->find((int) $roleRaw) : null;
             if ($role === null) {
-                return $this->redirect('/admin/tokens?err=' . rawurlencode('No such role.'));
+                return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode('No such role.'));
             }
             $ungrantableRole = $this->firstUngrantable($role->capabilities);
             if ($ungrantableRole !== null) {
-                return $this->redirect('/admin/tokens?err=' . rawurlencode("You cannot mint a token as \"{$role->name}\" — it grants access you do not hold: \"{$ungrantableRole}\"."));
+                return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode("You cannot mint a token as \"{$role->name}\" — it grants access you do not hold: \"{$ungrantableRole}\"."));
             }
             $roleId = $role->id;
         }
 
         // Deny-by-default: a token needs read scopes, a bound role, or both.
         if ($scopes === [] && $roleId === null) {
-            return $this->redirect('/admin/tokens?err=' . rawurlencode('Choose "All collections", at least one collection, or a role.'));
+            return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode('Choose "All collections", at least one collection, or a role.'));
         }
 
         // Subset-only over the explicit scopes too (you can only grant access you
@@ -133,7 +134,7 @@ final class TokensController extends Controller
         // than the actor holds. CLI + MCP already enforce this.
         $ungrantable = $this->firstUngrantable($scopes);
         if ($ungrantable !== null) {
-            return $this->redirect('/admin/tokens?err=' . rawurlencode("You cannot grant access you do not hold: \"{$ungrantable}\"."));
+            return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode("You cannot grant access you do not hold: \"{$ungrantable}\"."));
         }
 
         // Single-use nonce, checked only once the input is otherwise valid: a
@@ -141,7 +142,7 @@ final class TokensController extends Controller
         // its secret rather than redirecting, so it cannot use Post/Redirect/Get
         // to dodge the resubmit). An invalid-input retry keeps its nonce.
         if (!FormNonce::consume($req->input('_nonce'))) {
-            return $this->redirect('/admin/tokens?msg=resubmit');
+            return $this->redirect(Url::to('admin.tokens.index') . '?msg=resubmit');
         }
 
         $plain = $this->tokens->create($name, $scopes, $this->expiryFrom($req->input('expires')), $roleId);
@@ -197,7 +198,7 @@ final class TokensController extends Controller
     private function lifecycle(Request $req, int $id, string $action): Response
     {
         $this->requireCan('tokens', 'write');
-        $this->requireCsrf($req, '/admin/tokens');
+        $this->requireCsrf($req, Url::to('admin.tokens.index'));
 
         match ($action) {
             'revoke' => $this->tokens->revoke($id),

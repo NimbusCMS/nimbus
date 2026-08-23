@@ -10,6 +10,7 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\Url;
 use Nimbus\Media\MediaInUse;
 use Nimbus\Media\MediaRepository;
 use Nimbus\Media\MediaService;
@@ -73,26 +74,26 @@ final class MediaController extends Controller
         // a read-only media role cannot add files (management caps grant no
         // read-implies-write, and write no read — both are checked where used).
         $this->requireCan('media', 'write');
-        $this->requireCsrf($req, '/admin/media');
+        $this->requireCsrf($req, Url::to('admin.media.index'));
 
         $file = $req->file('file');
         if ($file === null) {
-            return $this->redirect('/admin/media?err=' . rawurlencode('No file was selected.'));
+            return $this->redirect(Url::to('admin.media.index') . '?err=' . rawurlencode('No file was selected.'));
         }
 
         try {
             $this->uploader->store($file, $this->auth->user()?->id, $req->input('alt'));
         } catch (UploadError $e) {
             // The message is user-safe by construction.
-            return $this->redirect('/admin/media?err=' . rawurlencode($e->getMessage()));
+            return $this->redirect(Url::to('admin.media.index') . '?err=' . rawurlencode($e->getMessage()));
         }
-        return $this->redirect('/admin/media?msg=uploaded');
+        return $this->redirect(Url::to('admin.media.index') . '?msg=uploaded');
     }
 
     private function destroy(Request $req, int $id): Response
     {
         $this->requireCan('media', 'write');
-        $this->requireCsrf($req, '/admin/media');
+        $this->requireCsrf($req, Url::to('admin.media.index'));
 
         // The shared guard refuses to delete a file that content still uses, so
         // an image never vanishes from a live page. It reports where, so the
@@ -101,9 +102,9 @@ final class MediaController extends Controller
             $this->service->delete($id);
         } catch (MediaInUse $e) {
             $where = array_map(static fn (array $u): string => "{$u['entry_title']} ({$u['collection']}/{$u['field_handle']})", $e->usage);
-            return $this->redirect('/admin/media?err=' . rawurlencode('In use by: ' . implode(', ', $where)));
+            return $this->redirect(Url::to('admin.media.index') . '?err=' . rawurlencode('In use by: ' . implode(', ', $where)));
         }
-        return $this->redirect('/admin/media?msg=deleted');
+        return $this->redirect(Url::to('admin.media.index') . '?msg=deleted');
     }
 
     private function humanBytes(int $bytes): string

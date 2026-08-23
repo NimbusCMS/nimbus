@@ -12,6 +12,7 @@ use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
+use Nimbus\Http\Url;
 use Nimbus\Settings\Settings;
 use Nimbus\Settings\SettingsRegistry;
 use Nimbus\Settings\SettingsRepository;
@@ -112,8 +113,8 @@ final class SettingsController extends Controller
      */
     private function saveSite(Request $req): Response
     {
-        $this->requireCsrf($req, '/admin/settings');
-        $this->requireCan('settings', 'write', '/admin/settings');
+        $this->requireCsrf($req, Url::to('admin.settings'));
+        $this->requireCan('settings', 'write', Url::to('admin.settings'));
 
         $submitted = is_array($req->all()['settings'] ?? null) ? $req->all()['settings'] : [];
 
@@ -127,7 +128,7 @@ final class SettingsController extends Controller
             }
             $value = trim($submitted[$key]);
             if ($setting->validate($value) !== null) {
-                return $this->redirect('/admin/settings?flash=site-error');
+                return $this->redirect(Url::to('admin.settings') . '?flash=site-error');
             }
             $values[$key] = $value;
         }
@@ -135,18 +136,18 @@ final class SettingsController extends Controller
         foreach ($values as $key => $value) {
             $this->settings->set($key, $value);
         }
-        return $this->redirect('/admin/settings?flash=site');
+        return $this->redirect(Url::to('admin.settings') . '?flash=site');
     }
 
     private function saveTheme(Request $req): Response
     {
-        $this->requireCsrf($req, '/admin/settings');
+        $this->requireCsrf($req, Url::to('admin.settings'));
 
         $user = $this->auth->user();
         if ($user !== null) {
             // Allow-list the submitted slug, then write only this user's own row.
             $this->users->setTheme($user->id, AdminTheme::sanitize($req->input('theme')));
         }
-        return $this->redirect('/admin/settings?flash=theme');
+        return $this->redirect(Url::to('admin.settings') . '?flash=theme');
     }
 }
