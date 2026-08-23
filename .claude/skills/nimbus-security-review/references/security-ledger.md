@@ -19,6 +19,45 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice B — read-boundary / non-enumeration closed on admin + OpenAPI
+- **Status:** fixed. Design reviewed via a **Fable two-skill burst** (green conditional on the
+  two must-ship shape fixes, both shipped). Resolves audit **ADMIN-1** + **API-3** (Medium
+  info-disclosure / broken object-level read authz) and **ADMIN-4** (redirect loop). Catalog
+  #1 (object-level authz), #14 (non-enumeration).
+- **Surface:** `src/Admin/EntriesController.php` (`mustFind`/`renderForm`),
+  `src/Admin/CollectionsController.php` (`index`), `src/Auth/Gate.php` (`reads`),
+  `src/Api/OpenApiGenerator.php` + `src/Api/ApiController.php` (`openapi`).
+- **Closed:** a signed-in user with a narrow role browsed every collection's entries (drafts
+  included) despite ADR 0011's `{handle}:read` gate; a single-collection **token** enumerated
+  the whole content model (handles, field schemas) via `openapi.json`.
+- **Controls shipped (each a regression test):**
+  1. **`{handle}:read` at the object** (`EntriesController::mustFind`, one choke point for all
+     entry routes) — unreadable == missing, **byte-identical redirect** (non-enumeration).
+     `AdminReadGateTest::test_an_unreadable_collection_is_indistinguishable_from_a_missing_one`
+     asserts same status + Location; `..._covers_every_entry_route` loops the verbs.
+  2. **Collections index filtered** by `Gate::reads` (counts follow the filtered rows).
+  3. **Relation-picker display gated** (`renderForm` → `reads($target) ? titleMap : []`) — the
+     admin no longer leaks what the API's relation-expansion gate already denies (security A2).
+     Test: `..._relation_picker_does_not_leak_an_unreadable_target` (with an admin control).
+  4. **OpenAPI fail-closed + scoped:** `generateFor(TokenPrincipal)` filters collections by
+     `read`, write ops + `EntryWrite_` by `write`, in the per-collection loop (no leaked path,
+     schema name, or `$ref`); the HTTP `openapi()` resolves the principal via the 401-guarding
+     `principal()` helper — **`generate(null)`=full is reachable only from the CLI**, so a
+     middleware regression can't emit the full model unauthenticated (both reviewers' top
+     must-ship). Tests: `OpenApiGeneratorTest` scope-filter suite (asserts on the whole JSON) +
+     `ApiRoutesTest::..._scoped_to_the_presenting_token` + the existing 401-no-token test.
+  5. **ADMIN-4:** `requireManage` aborts to the collections index, not a singleton's own URL
+     (no loop). Test: `..._singleton_is_not_trapped_in_a_loop`.
+- **Behavior-preserving (regression-locked):** seeded admin/editor/author hold `*:read` → still
+  browse everything; un-seeded install → any signed-in user still browses (the legacy fallback).
+- **Severity:** closes the audit's **Medium**; no Critical/High. The admin and API now answer
+  content-read through the one `Authorizer` predicate — the last principal divergence on this
+  surface.
+- **Leaves open (filed as follow-ups, Low):** A3 tokens/roles/settings *forms* list all
+  collection handles to management-cap holders; A4 dashboard aggregate counts; A9 a collection
+  handle colliding with an `Authorizer::MANAGEMENT` name; **relation value integrity + API
+  relation expansion = DATA-1 / Slice C** (this slice covered picker *display*, not values).
+
 ### 2026-08-23 · Slice A — MCP user-tool privilege escalation closed (was latent High)
 - **Status:** fixed. Design reviewed via a **Fable two-skill burst** (security: green
   conditional on the must-ship controls, all shipped). Resolves audit **API-2 / ADMIN-2**

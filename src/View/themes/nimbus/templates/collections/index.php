@@ -15,25 +15,31 @@ $e = static fn (?string $v): string => View::e($v);
     <div class="nb-empty-panel">
         <span class="nb-empty-ic">❑</span>
         <h2>No collections yet</h2>
-        <p>A collection is a content type — like Posts or Products. Create one to start adding entries.</p>
+        <p>A collection is a content type — like Posts or Products.<?php if ($isAdmin): ?> Create one to start adding entries.<?php endif; ?></p>
     </div>
 <?php else: ?>
     <div class="nb-table-wrap">
         <table class="nb-table">
             <thead><tr><th>Name</th><th>Handle</th><th>Fields</th><th>Entries</th><th class="nb-actions-col"></th></tr></thead>
             <tbody>
-            <?php foreach ($rows as $row): $c = $row['c']; ?>
+            <?php foreach ($rows as $row): $c = $row['c']; $linkable = !$c->isSingle() || $row['manage']; ?>
                 <tr>
                     <td>
                         <span class="nb-ic-badge"><?= $e($c->iconChar()) ?></span>
-                        <a href="/admin/collections/<?= $e($c->handle) ?>/entries"><strong><?= $e($c->name) ?></strong></a>
+                        <?php if ($linkable): ?>
+                            <a href="/admin/collections/<?= $e($c->handle) ?>/entries"><strong><?= $e($c->name) ?></strong></a>
+                        <?php else: ?>
+                            <strong><?= $e($c->name) ?></strong>
+                        <?php endif; ?>
                         <?php if ($c->isSingle()): ?><span class="nb-badge nb-badge-muted">Single</span><?php endif; ?>
                     </td>
                     <td><code><?= $e($c->handle) ?></code></td>
                     <td><?= (int) $row['fields'] ?></td>
                     <td><?= $c->isSingle() ? '—' : (int) $row['entries'] ?></td>
                     <td class="nb-row-actions">
-                        <a href="/admin/collections/<?= $e($c->handle) ?>/entries"><?= $c->isSingle() ? 'Edit' : 'Entries' ?></a>
+                        <?php if ($linkable): ?>
+                            <a href="/admin/collections/<?= $e($c->handle) ?>/entries"><?= $c->isSingle() ? 'Edit' : 'Entries' ?></a>
+                        <?php endif; ?>
                         <?php if ($isAdmin): ?>
                             <a href="/admin/collections/<?= (int) $c->id ?>/edit">Edit</a>
                             <form method="post" action="/admin/collections/<?= (int) $c->id ?>/delete" data-confirm="Delete this collection and all its entries?">

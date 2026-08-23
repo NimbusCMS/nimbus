@@ -60,10 +60,17 @@ final class CollectionsController extends Controller
         $entryCounts = $this->collections->entryCounts();
         $rows        = [];
         foreach ($this->collections->all() as $c) {
+            // Only list collections the user can read (ADR 0011): an out-of-scope
+            // collection is not enumerated here, just as it 404-equivalents on a
+            // direct hit. Counts follow the filtered rows, so nothing leaks.
+            if (!$this->gate->reads($c)) {
+                continue;
+            }
             $rows[] = [
                 'c'       => $c,
                 'fields'  => $fieldCounts[$c->id] ?? 0,
                 'entries' => $entryCounts[$c->id] ?? 0,
+                'manage'  => $this->gate->manages($c),
             ];
         }
         return $this->page('collections/index', 'collections', [

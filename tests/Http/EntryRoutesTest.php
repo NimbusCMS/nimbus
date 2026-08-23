@@ -194,7 +194,9 @@ final class EntryRoutesTest extends HttpTestCase
 
         $response = $this->post('/admin/collections/posts/entries', ['title' => 'Nope', 'status' => 'draft']);
 
-        $this->assertRedirects($response, '/admin/collections/posts/entries');
+        // Denied writes abort to the collections index (never the collection's own
+        // entries URL — a singleton's index IS that route, which would loop; ADMIN-4).
+        $this->assertRedirects($response, '/admin/collections');
         self::assertSame(0, $this->entryCount($collection->id));
     }
 

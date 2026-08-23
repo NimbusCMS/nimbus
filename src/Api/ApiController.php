@@ -111,13 +111,20 @@ final class ApiController
     }
 
     /**
-     * The generated OpenAPI document for this install (ADR 0008). Behind the
-     * group's bearer auth — a contract for authenticated clients — and describes
-     * the full model (a scope-filtered per-token spec is a later refinement).
+     * The generated OpenAPI document for this install (ADR 0008, amended by
+     * Slice B). **Scoped to the presenting token** — it describes only the
+     * collections the token can read (write ops only where it can write) — so the
+     * spec can't enumerate what the endpoints hide. Fail-closed: it resolves the
+     * principal through the 401-guarding {@see principal()} helper and never calls
+     * the full-document path (that belongs to `nimbus openapi` alone).
      */
     private function openapi(): Response
     {
-        return Response::json((new OpenApiGenerator($this->collections, $this->types, $this->settings->title()))->generate());
+        $principal = $this->principal();
+        if ($principal instanceof Response) {
+            return $principal; // 401 — never emit a document without a principal
+        }
+        return Response::json((new OpenApiGenerator($this->collections, $this->types, $this->settings->title()))->generateFor($principal));
     }
 
     /**

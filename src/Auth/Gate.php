@@ -62,6 +62,25 @@ final class Gate
     }
 
     /**
+     * May the user read (browse) this collection's entries? (ADR 0011.) A content
+     * write implies read, so any manager passes. Un-seeded content read was never
+     * gated — every signed-in user could browse — so the legacy fallback preserves
+     * that; routing it through {@see can()} (admin-only when un-seeded) would lock
+     * non-admins out of browsing on an un-seeded upgrade.
+     */
+    public function reads(Collection $collection): bool
+    {
+        $user = $this->auth->user();
+        if ($user === null) {
+            return false;
+        }
+        if (!$this->seeded()) {
+            return true; // legacy: browsing was open to any signed-in user
+        }
+        return Authorizer::can($this->capabilities(), $collection->handle, 'read');
+    }
+
+    /**
      * Does the user *hold* this capability? Used for subset-only checks — you can
      * only grant (into a role, or by assigning a role) what you hold. `admin`
      * holds everything.

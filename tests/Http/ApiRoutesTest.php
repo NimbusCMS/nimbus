@@ -268,6 +268,19 @@ final class ApiRoutesTest extends HttpTestCase
         self::assertSame(401, $this->apiNoAuth('/api/v1/openapi.json')->status);
     }
 
+    public function test_the_openapi_spec_is_scoped_to_the_presenting_token(): void
+    {
+        $this->makeCollection('posts');
+        $this->makeCollection('secret');
+        $scoped = $this->tokens->create('posts-only', ['posts:read']);
+
+        $body = $this->api('/api/v1/openapi.json', $scoped)->body;
+
+        self::assertStringContainsString('/collections/posts/entries', $body);
+        // The spec must not enumerate a collection the token gets 403==404 on.
+        self::assertStringNotContainsString('secret', $body);
+    }
+
     // --------------------------------------------------------- published-only
 
     public function test_only_live_entries_are_served(): void

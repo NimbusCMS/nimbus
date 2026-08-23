@@ -131,6 +131,12 @@ A readable view; the **authoritative** matrix is
 (Management reads are explicit too — e.g. listing the media library needs
 `media:read`, which `*:read` does **not** confer.)
 
+The **Read collections** column is enforced on **both** surfaces as of Slice B:
+the admin lists and opens only collections the user can read (an out-of-scope
+collection 404-equivalents on a direct hit, just as the API returns `403==404`),
+and the token-scoped OpenAPI document describes only readable collections. A
+content write implies read, so any manager browses what they manage.
+
 ## Upgrading an existing install
 
 Run `nimbus roles:seed` (and `nimbus migrate`) after upgrading. Migrations are
