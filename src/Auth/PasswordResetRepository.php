@@ -84,6 +84,37 @@ final class PasswordResetRepository
         return $affected === 1 ? $userId : null;
     }
 
+    /**
+     * Whether a user has an unused invite token — the "pending invite" signal
+     * ({@see \Nimbus\Admin\UsersController} resend). It exists from the moment an
+     * invite is issued (before the mail is even sent, so a delivery failure still
+     * counts) and is cleared only when the invite is accepted (`used_at` set).
+     * Expired-but-unused counts on purpose: an expired invite is exactly what a
+     * resend supersedes. There is no schema flag for this — the token row is it.
+     */
+    public function hasPendingInvite(int $userId): bool
+    {
+        return $this->db->selectOne(
+            'SELECT 1 FROM nb_password_resets WHERE user_id = :u AND purpose = :p AND used_at IS NULL LIMIT 1',
+            ['u' => $userId, 'p' => self::PURPOSE_INVITE],
+        ) !== null;
+    }
+
+    /**
+     * The set of user ids with an unused invite token — the pending-invite set for
+     * a list view, in one query (no N+1). Same signal as {@see hasPendingInvite}.
+     *
+     * @return list<int>
+     */
+    public function pendingInviteUserIds(): array
+    {
+        $rows = $this->db->select(
+            'SELECT DISTINCT user_id FROM nb_password_resets WHERE purpose = :p AND used_at IS NULL',
+            ['p' => self::PURPOSE_INVITE],
+        );
+        return array_values(array_map(static fn (array $r): int => (int) $r['user_id'], $rows));
+    }
+
     /** Invalidate a user's outstanding (unused) tokens of one purpose only — leaving the other purpose untouched. */
     public function invalidateForUser(int $userId, string $purpose = self::PURPOSE_RESET): void
     {

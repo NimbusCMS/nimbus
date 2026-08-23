@@ -113,6 +113,7 @@ The installer prints the account it created. Open **http://localhost:8080/admin*
 php bin/nimbus migrate                                 # run pending migrations
 php bin/nimbus install --email=you@site.com --password='a long unique passphrase'
 php bin/nimbus create-user --email=ed@site.com --role=editor
+php bin/nimbus mail:test you@site.com                  # verify the mail transport
 ```
 
 ## Architecture

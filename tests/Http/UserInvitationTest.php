@@ -190,4 +190,131 @@ final class UserInvitationTest extends HttpTestCase
 
         self::assertSame('no-referrer', $this->get('/admin/accept', ['token' => $token])->header('Referrer-Policy'));
     }
+
+    // ------------------------------------------------------- resend invite (ADMIN-7)
+
+    private function idByEmail(string $email): int
+    {
+        return (int) $this->userByEmail($email)['id'];
+    }
+
+    public function test_a_pending_invite_can_be_resent(): void
+    {
+        $this->actingAs('admin');
+        $this->post('/admin/users', ['email' => 'pending@test.local', 'password' => '']);
+        $id = $this->idByEmail('pending@test.local');
+        $this->spy->sent = []; // ignore the first invite
+
+        $resp = $this->post("/admin/users/{$id}/invite", []);
+
+        $this->assertRedirectsTo($resp, '/admin/users?msg=invite-sent');
+        self::assertCount(1, $this->spy->sent, 'a fresh invite is sent');
+        self::assertSame('pending@test.local', $this->spy->sent[0]['to']);
+        self::assertNotNull($this->spy->lastToken(), 'the resend carries a new accept link');
+    }
+
+    public function test_an_expired_invite_is_still_resendable(): void
+    {
+        // The exact ADMIN-7 scenario: the invite lapsed (past TTL) but was never
+        // accepted, so the token row is still unused → the user is still pending.
+        $this->actingAs('admin');
+        $this->post('/admin/users', ['email' => 'lapsed@test.local', 'password' => '']);
+        $id = $this->idByEmail('lapsed@test.local');
+        $this->db->execute('UPDATE nb_password_resets SET expires_at = :e WHERE user_id = :u', [
+            'e' => date('Y-m-d H:i:s', time() - 3600), 'u' => $id,
+        ]);
+        $this->spy->sent = [];
+
+        $resp = $this->post("/admin/users/{$id}/invite", []);
+
+        $this->assertRedirectsTo($resp, '/admin/users?msg=invite-sent');
+        self::assertCount(1, $this->spy->sent);
+    }
+
+    public function test_an_active_user_cannot_be_re_invited(): void
+    {
+        // A user created with a password (or one who has accepted) has no unused
+        // invite token → resend is refused, so it can never arm a password-set
+        // link for an active account.
+        $this->actingAs('admin');
+        $this->post('/admin/users', ['email' => 'active@test.local', 'password' => 'a-strong-passphrase']);
+        $id = $this->idByEmail('active@test.local');
+        $this->spy->sent = [];
+
+        $resp = $this->post("/admin/users/{$id}/invite", []);
+
+        $this->assertRedirectsTo($resp, '/admin/users');
+        self::assertStringContainsString('err=', (string) $resp->header('Location'));
+        self::assertSame([], $this->spy->sent, 'no mail for an already-active user');
+    }
+
+    public function test_resend_requires_csrf(): void
+    {
+        $this->actingAs('admin');
+        $this->post('/admin/users', ['email' => 'pending@test.local', 'password' => '']);
+        $id = $this->idByEmail('pending@test.local');
+        $this->spy->sent = [];
+
+        $this->postWithoutCsrf("/admin/users/{$id}/invite", []);
+
+        self::assertSame([], $this->spy->sent, 'a CSRF-less resend sends nothing');
+    }
+
+    public function test_resend_requires_users_write(): void
+    {
+        // Set up a pending user as admin, then act as a user without users:write.
+        $this->actingAs('admin');
+        $this->post('/admin/users', ['email' => 'pending@test.local', 'password' => '']);
+        $id = $this->idByEmail('pending@test.local');
+        $this->spy->sent = [];
+
+        $this->actingWithCapabilities(['posts:read']); // no users:write
+        $resp = $this->post("/admin/users/{$id}/invite", []);
+
+        self::assertSame(302, $resp->status);
+        self::assertSame([], $this->spy->sent, 'a non-manager cannot trigger an invite');
+    }
+
+    public function test_resend_respects_the_subset_only_guard(): void
+    {
+        // A pending user holding the admin role cannot be re-invited by a lesser
+        // manager (who can't grant admin) — mirrors update()'s guard.
+        $adminRole = (new \Nimbus\Auth\RoleRepository($this->db))->create('admin-role', ['admin'], false);
+        $this->actingAs('admin');
+        $this->post('/admin/users', ['email' => 'super@test.local', 'password' => '', 'roles' => [$adminRole]]);
+        $id = $this->idByEmail('super@test.local');
+        $this->spy->sent = [];
+
+        $this->actingWithCapabilities(['users:write']); // can manage users, but not admin
+        $resp = $this->post("/admin/users/{$id}/invite", []);
+
+        $this->assertRedirectsTo($resp, '/admin/users');
+        self::assertStringContainsString('err=', (string) $resp->header('Location'));
+        self::assertSame([], $this->spy->sent, 'no invite to a user holding an ungrantable role');
+    }
+
+    public function test_resend_to_a_nonexistent_user_is_a_benign_redirect(): void
+    {
+        $this->actingAs('admin');
+
+        $resp = $this->post('/admin/users/999999/invite', []);
+
+        $this->assertRedirectsTo($resp, '/admin/users');
+        self::assertStringContainsString('err=', (string) $resp->header('Location'));
+        self::assertSame([], $this->spy->sent);
+    }
+
+    public function test_the_resend_action_shows_only_for_pending_users(): void
+    {
+        $this->actingAs('admin');
+        $this->post('/admin/users', ['email' => 'pending@test.local', 'password' => '']);
+        $this->post('/admin/users', ['email' => 'active@test.local', 'password' => 'a-strong-passphrase']);
+
+        $body    = $this->get('/admin/users')->body;
+        $pending = $this->idByEmail('pending@test.local');
+        $active  = $this->idByEmail('active@test.local');
+
+        self::assertStringContainsString("/admin/users/{$pending}/invite", $body, 'pending user gets a resend action');
+        self::assertStringNotContainsString("/admin/users/{$active}/invite", $body, 'active user does not');
+    }
 }

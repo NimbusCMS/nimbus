@@ -4,6 +4,7 @@
  * @var \Nimbus\Auth\Role[]  $roles all roles, for the checklist
  * @var ?\Nimbus\Auth\User   $editing user being edited, or null (create)
  * @var list<int>            $editingRoles role ids assigned to the edited user
+ * @var list<int>            $pending user ids with an unused invite (can be re-invited)
  * @var ?string              $flash
  * @var ?string              $error
  * @var string               $csrf
@@ -13,10 +14,12 @@ use Nimbus\View\View;
 $e = static fn (?string $v): string => View::e($v);
 
 $flashLabel = [
-    'created'       => 'User created.',
-    'updated'       => 'User updated.',
-    'invited'       => 'Invitation sent — they’ll set their own password.',
-    'invited-nomail' => 'User created, but the invitation email could not be sent. Check your mail settings (MAIL_TRANSPORT), then re-invite.',
+    'created'        => 'User created.',
+    'updated'        => 'User updated.',
+    'invited'        => 'Invitation sent — they’ll set their own password.',
+    'invited-nomail' => 'User created, but the invitation email could not be sent. Fix your mail settings (try `nimbus mail:test`), then use “Resend invite”.',
+    'invite-sent'    => 'Invitation re-sent — they’ll set their own password.',
+    'invite-nomail'  => 'The invitation email could not be sent. Fix your mail settings (try `nimbus mail:test`), then resend.',
 ];
 $checked    = static fn (int $roleId): string => in_array($roleId, $editingRoles, true) ? ' checked' : '';
 ?>
@@ -86,7 +89,15 @@ $checked    = static fn (int $roleId): string => in_array($roleId, $editingRoles
                         <?= $e(implode(', ', array_map(static fn ($r): string => $r->name, $row['roles']))) ?>
                     <?php endif; ?>
                 </td>
-                <td class="nb-row-actions"><a class="nb-link" href="/admin/users?edit=<?= (int) $u->id ?>">Edit</a></td>
+                <td class="nb-row-actions">
+                    <a class="nb-link" href="/admin/users?edit=<?= (int) $u->id ?>">Edit</a>
+                    <?php if (in_array($u->id, $pending, true)): ?>
+                        <form method="post" action="/admin/users/<?= (int) $u->id ?>/invite">
+                            <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
+                            <button type="submit" class="nb-link">Resend invite</button>
+                        </form>
+                    <?php endif; ?>
+                </td>
             </tr>
         <?php endforeach; ?>
     </tbody>

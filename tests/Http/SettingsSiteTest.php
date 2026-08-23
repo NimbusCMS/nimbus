@@ -99,6 +99,19 @@ final class SettingsSiteTest extends HttpTestCase
         self::assertSame([], $this->stored());
     }
 
+    /** SUP-2 — a control-char title is rejected (it would poison the mail subject and DoS recovery). */
+    public function test_a_title_with_control_characters_is_rejected(): void
+    {
+        $this->actingAs('admin');
+
+        // A CRLF, and a lone control byte — both must be refused, nothing stored.
+        foreach (["Nimbus\r\nBcc: e", "Nimbus\x01"] as $bad) {
+            $resp = $this->post('/admin/settings/site', ['settings' => ['site.title' => $bad]]);
+            $this->assertRedirectsTo($resp, '/admin/settings?flash=site-error');
+            self::assertSame([], $this->stored(), 'a control-char title writes nothing');
+        }
+    }
+
     /** A4 — writing needs settings:write; a content writer is refused. */
     public function test_saving_requires_settings_write(): void
     {
