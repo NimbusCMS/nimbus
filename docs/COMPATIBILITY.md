@@ -231,6 +231,22 @@ The callback (redirect) URL you register with each provider is derived from
 `<APP_URL>/admin/oauth/<provider>/callback`. If `APP_URL` is wrong, the flow
 fails. This path is stable within `0.x`.
 
+## Deployment behind a proxy
+
+Every absolute URL Nimbus generates — password-reset and invitation email links,
+the OAuth redirect URL, canonical and sitemap URLs — is built from `APP_URL`,
+**never** from the request `Host` / `X-Forwarded-Host` (which a client can forge
+even through a correctly configured proxy, and would otherwise let an attacker
+point a reset link at their own domain). Behind a TLS-terminating proxy you must
+therefore set `APP_URL` to your public `https://` origin.
+
+Forwarded headers (`X-Forwarded-For` / `X-Forwarded-Proto`) are honored only from
+peers listed in `TRUSTED_PROXIES`, and only to determine the client IP
+(throttling) and the request scheme (the session cookie's `secure` flag). There
+is intentionally no forwarded-*host* accessor. When a request arrives through a
+trusted proxy but `APP_URL` still looks like localhost (or `http://` while the
+request is HTTPS), the admin **Plugins** page shows a misconfiguration warning.
+
 ## Versioning
 
 [Semantic Versioning](https://semver.org). Against the **public plugin API**

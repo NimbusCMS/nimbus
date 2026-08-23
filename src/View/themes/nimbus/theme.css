@@ -322,6 +322,7 @@ body.nb {
 .nb-alert { padding: 11px 14px; border-radius: var(--nb-radius-m); margin-bottom: 16px; font-weight: 500; }
 .nb-alert-error { background: var(--nb-danger-bg); color: var(--nb-danger-text); }
 .nb-alert-ok { background: var(--nb-ok-bg); color: var(--nb-ok-text); }
+.nb-alert-warn { background: var(--nb-warn-bg); color: var(--nb-warn-text); }
 .nb-muted { color: var(--nb-muted); }
 
 .nb-centered { align-items: center; justify-content: center; }

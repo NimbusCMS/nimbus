@@ -99,6 +99,21 @@ final class Request
         return $remote;
     }
 
+    /**
+     * Whether this request reached us through a configured trusted proxy (its
+     * immediate peer is in TRUSTED_PROXIES) — i.e. a real load-balanced
+     * deployment rather than a direct hit. Used only to decide whether a
+     * URL-generation misconfiguration is worth warning about
+     * ({@see \Nimbus\Support\DeploymentCheck}); it never influences a generated
+     * link. Deliberately there is NO accessor for a forwarded *host*: that value
+     * is client-spoofable even behind a correct proxy, so nothing may build a URL
+     * from it — APP_URL stays the single authority.
+     */
+    public function viaTrustedProxy(): bool
+    {
+        return $this->proxies->trusts((string) ($this->server['REMOTE_ADDR'] ?? ''));
+    }
+
     /** Whether the *original* request was over HTTPS. Drives the session cookie's secure flag. */
     public function isSecure(): bool
     {

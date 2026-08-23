@@ -41,7 +41,7 @@ final class AdminController extends Controller
         $r->group('/admin', [$this->authMw], function (Router $g): void {
             $g->get('', fn (Request $req, array $p): Response => $this->dashboardPage())->name('admin.dashboard');
             $g->get('/dashboard', fn (Request $req, array $p): Response => $this->dashboardPage());
-            $g->get('/plugins', fn (Request $req, array $p): Response => $this->pluginsPage())->name('admin.plugins');
+            $g->get('/plugins', fn (Request $req, array $p): Response => $this->pluginsPage($req))->name('admin.plugins');
         });
     }
 
@@ -50,7 +50,7 @@ final class AdminController extends Controller
      * shows what Composer installed and what the loader made of it, and offers
      * no action. Administrators only — plugin state can name failing packages.
      */
-    private function pluginsPage(): Response
+    private function pluginsPage(Request $request): Response
     {
         $this->requireAdmin();
 
@@ -60,6 +60,10 @@ final class AdminController extends Controller
                 $this->pluginStatuses,
                 static fn (PluginStatus $s): bool => $s->isProblem(),
             )),
+            // Deployment misconfiguration warnings (e.g. APP_URL still localhost
+            // behind a proxy → broken reset-email links). Non-spoofable signals
+            // only; see DeploymentCheck.
+            'warnings' => \Nimbus\Support\DeploymentCheck::warnings($request),
         ]);
     }
 
