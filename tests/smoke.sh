@@ -96,10 +96,11 @@ post() { curl -sS  -b "$JAR" -c "$JAR" -X POST "http://127.0.0.1:$PORT$1" "${@:2
 postr() { curl -sS -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code} %{redirect_url}' -X POST "http://127.0.0.1:$PORT$1" "${@:2}"; }
 token() { get "$1" | grep -o 'name="_token" value="[^"]*"' | head -1 | cut -d'"' -f4; }
 
-# Assertions take an already-captured body: piping into `grep -q` would close
-# the pipe early, curl would die of EPIPE, and pipefail would report a failure
-# on a successful match.
-has()    { printf '%s' "$2" | grep -qF -- "$1"; }
+# Assertions take an already-captured body. Use a pure-bash substring test — no
+# pipe — so a match can't close a `grep -q` early and leave `printf` dying of
+# EPIPE (which pipefail would then report as a failure on a successful match).
+# The quoted "$1" is matched literally inside the case pattern.
+has()    { case "$2" in *"$1"*) return 0 ;; *) return 1 ;; esac; }
 expect() { has "$1" "$2" || fail "$3"; }
 reject() { has "$1" "$2" && fail "$3" || true; }
 
