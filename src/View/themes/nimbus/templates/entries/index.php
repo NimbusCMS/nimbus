@@ -70,7 +70,7 @@ $h          = $e($collection->handle);
                                 <input type="hidden" name="_token" value="<?= $e(Csrf::token()) ?>">
                                 <button type="submit" class="nb-link"><?= $action === 'publish' ? 'Publish' : 'Unpublish' ?></button>
                             </form>
-                            <form method="post" action="/admin/collections/<?= $h ?>/entries/<?= (int) $row['id'] ?>/delete" onsubmit="return confirm('Delete this entry?');">
+                            <form method="post" action="/admin/collections/<?= $h ?>/entries/<?= (int) $row['id'] ?>/delete" data-confirm="Delete this entry?">
                                 <input type="hidden" name="_token" value="<?= $e(Csrf::token()) ?>">
                                 <button type="submit" class="nb-link-danger">Delete</button>
                             </form>

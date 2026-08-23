@@ -53,10 +53,18 @@ $theme = \Nimbus\View\AdminTheme::sanitize($user?->theme);  // allow-listed at r
     </header>
     <main class="nb-content"><?= $__content ?></main>
 </div>
-<script>
+<script nonce="<?= $e($cspNonce) ?>">
 document.addEventListener('keydown', function (e) {
     var t = document.getElementById('nb-nav-toggle');
     if (e.key === 'Escape' && t && t.checked) { t.checked = false; t.focus(); }
+});
+/* Confirm destructive submits without an inline handler (CSP: no 'unsafe-inline').
+   Forms opt in with data-confirm="message". With JS off the POST proceeds — the
+   guard is UX; every destructive route is CSRF- and capability-gated regardless. */
+document.addEventListener('submit', function (e) {
+    var form = e.target;
+    var message = form && form.getAttribute ? form.getAttribute('data-confirm') : null;
+    if (message && !window.confirm(message)) { e.preventDefault(); }
 });
 </script>
 </body>

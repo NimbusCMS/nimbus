@@ -73,7 +73,7 @@ $e = static fn (?string $v): string => View::e($v);
     <button type="submit" class="nb-btn nb-btn-primary">Save theme</button>
 </form>
 
-<script>
+<script nonce="<?= $e($cspNonce) ?>">
 /* Instant preview before saving (progressive enhancement). The radio values are
    server-rendered from the theme allow-list, so they're always known slugs. */
 document.querySelectorAll('input[name=theme]').forEach(function (r) {

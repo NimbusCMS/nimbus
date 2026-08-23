@@ -36,7 +36,7 @@ $e = static fn (?string $v): string => View::e($v);
                         <a href="/admin/collections/<?= $e($c->handle) ?>/entries"><?= $c->isSingle() ? 'Edit' : 'Entries' ?></a>
                         <?php if ($isAdmin): ?>
                             <a href="/admin/collections/<?= (int) $c->id ?>/edit">Edit</a>
-                            <form method="post" action="/admin/collections/<?= (int) $c->id ?>/delete" onsubmit="return confirm('Delete this collection and all its entries?');">
+                            <form method="post" action="/admin/collections/<?= (int) $c->id ?>/delete" data-confirm="Delete this collection and all its entries?">
                                 <input type="hidden" name="_token" value="<?= $e(Csrf::token()) ?>">
                                 <button type="submit" class="nb-link-danger">Delete</button>
                             </form>

@@ -38,6 +38,7 @@ abstract class Controller
         $this->view   = new View(dirname(__DIR__) . '/View/themes/nimbus', [
             'auth'    => $auth,
             'appName' => Config::appName(),
+            'cspNonce' => \Nimbus\Http\Csp::nonce(),
         ]);
         $this->authMw = new AuthMiddleware($auth);
         $this->gate   = new Gate(new RoleRepository($db), $auth);
