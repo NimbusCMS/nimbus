@@ -12,12 +12,16 @@ use Nimbus\Auth\PasswordResetOutcome;
 use Nimbus\Auth\PasswordResetRepository;
 use Nimbus\Auth\PasswordResetService;
 use Nimbus\Auth\UserRepository;
+use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Mail\Mailer;
+use Nimbus\Settings\Settings;
+use Nimbus\Settings\SettingsRegistry;
+use Nimbus\Settings\SettingsRepository;
 use Nimbus\Support\EventDispatcher;
 
 /**
@@ -40,8 +44,9 @@ final class PasswordResetController extends Controller
     {
         parent::__construct($db, $auth, $adminPages);
         $accountTokens     = new AccountTokenService(new UserRepository($db), new PasswordResetRepository($db), $events);
-        $this->service     = new PasswordResetService(new UserRepository($db), $accountTokens, $mailer, $events);
-        $this->invitations = new InvitationService($accountTokens, $mailer);
+        $settings          = new Settings(new SettingsRepository($db), new SettingsRegistry(new CollectionRepository($db)));
+        $this->service     = new PasswordResetService(new UserRepository($db), $accountTokens, $mailer, $events, $settings);
+        $this->invitations = new InvitationService($accountTokens, $mailer, $settings);
     }
 
     public function routes(Router $r): void
