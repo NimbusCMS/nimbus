@@ -19,7 +19,7 @@ in any release, including patch releases.
 | `Nimbus\Plugin\FieldTypeRegistrar` | registering field types |
 | `Nimbus\Plugin\HeadRegistrar` | registering document-head contributors |
 | `Nimbus\Plugin\EventRegistrar` | subscribing to events (`PluginContext::events()`) |
-| `Nimbus\Plugin\MigrationRegistrar` | declaring migrations for the plugin's own tables (ADR 0005) |
+| `Nimbus\Plugin\MigrationRegistrar` | declaring migrations for the plugin's own tables (ADR 0005). **Each statement must be individually idempotent** (`… IF NOT EXISTS`): MySQL can't roll DDL back, a failed migration is isolated + retried, and your runtime must not assume a table/constraint exists until the migration is recorded |
 | `Nimbus\Plugin\PluginStorage` | reading/writing the plugin's own tables (`PluginContext::storage()`, ADR 0005) |
 | `Nimbus\Plugin\AdminPageRegistrar` | registering admin pages (`PluginContext::adminPages()`) |
 | `Nimbus\Site\HeadContributor` | the head-contribution contract (ADR 0004) |

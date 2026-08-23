@@ -13,6 +13,7 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 ---
 
 ### PLUG-1 · A failing plugin migration wedges `nimbus migrate` for the whole install
+- **✅ RESOLVED** (Slice D, 2026-08-23) — per-provider isolation in `Migrator` (plugin loop catches + skips that provider's rest; core loop throws `MigrationFailed`); `MigrationReport` + non-zero CLI exit; idempotency contract documented on `MigrationRegistrar::register()`.
 - **Priority:** P1
 - **Type:** error-handling
 - **Where:** `src/Database/Migrator.php:66-79` (`apply()`), `:44-51` (plugin loop); caller `bin/nimbus:42`
@@ -96,6 +97,7 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Effort:** S
 
 ### PLUG-10 · `Migrator::pending()` miscounts after a plugin uninstall
+- **✅ RESOLVED** (Slice D, 2026-08-23) — `pending()` now compares name **sets**, not counts.
 - **Priority:** P3
 - **Type:** correctness
 - **Where:** `src/Database/Migrator.php:56-63`; only consumer `tests/Integration/CoreMigrationTest.php:27`

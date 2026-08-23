@@ -27,6 +27,18 @@ final class MigrationRegistrar
      * Declare a migration: a name local to the plugin (e.g. `001_create_hits`)
      * and the SQL statements that apply it, run once and recorded.
      *
+     * **Make each statement individually idempotent** (`CREATE TABLE IF NOT
+     * EXISTS`, `DROP … IF EXISTS`, a guarded `ADD COLUMN`). MySQL auto-commits DDL
+     * and cannot roll it back, so if statement 2 fails, statement 1 stays applied
+     * and the migration is **not** recorded — the runner isolates your plugin (it
+     * won't wedge others or core) and will **retry** this whole migration on the
+     * next `nimbus migrate`. A non-idempotent statement 1 then fails with "already
+     * exists" and your plugin can never migrate.
+     *
+     * Consequently, **your runtime must not assume a table/column/constraint
+     * exists until the migration is recorded** — a half-applied migration can
+     * leave a table present but missing the UNIQUE/INDEX a later statement adds.
+     *
      * @param list<string> $statements
      */
     public function register(string $name, array $statements): void

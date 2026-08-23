@@ -36,4 +36,11 @@ $pdo = new PDO(
 );
 $pdo->exec('CREATE DATABASE IF NOT EXISTS nimbus_test CHARACTER SET utf8mb4');
 
-(new Migrator(new Connection(NB_TEST_DB), __DIR__ . '/../src/Database/migrations'))->migrate();
+// Fail closed: a core migration failure throws (MigrationFailed); no plugin
+// registry here, so the report never carries plugin failures — but assert it,
+// so a broken schema stops the suite loudly instead of running against it.
+$bootReport = (new Migrator(new Connection(NB_TEST_DB), __DIR__ . '/../src/Database/migrations'))->migrate();
+if (!$bootReport->ok()) {
+    fwrite(STDERR, "Test bootstrap: migrations failed.\n");
+    exit(1);
+}

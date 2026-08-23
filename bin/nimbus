@@ -30,6 +30,22 @@ $opt = static function (array $argv, string $name, ?string $default = null): ?st
 $now = date('Y-m-d H:i:s');
 
 /**
+ * Print any plugin-migration failures to STDERR and exit non-zero, so a deploy or
+ * CI notices a wedged plugin. Stdout stays the clean applied-names line. A core
+ * failure never reaches here — it throws {@see Nimbus\Database\MigrationFailed}.
+ */
+$reportMigrationFailures = static function (Nimbus\Database\MigrationReport $report): void {
+    if ($report->ok()) {
+        return;
+    }
+    foreach ($report->failures as $failure) {
+        fwrite(STDERR, "Plugin migration failed: {$failure['provider']} · {$failure['migration']} · {$failure['error']}\n");
+    }
+    fwrite(STDERR, "Other providers and core migrated; fix the plugin's DDL (make each statement idempotent) and re-run.\n");
+    exit(1);
+};
+
+/**
  * Boot the application so enabled plugins declare their migrations, then hand
  * that registry to the Migrator. Booting touches no database, so it is safe on
  * a fresh, unmigrated install.
@@ -39,13 +55,18 @@ $pluginMigrations = static fn (): Nimbus\Database\MigrationRegistry => (new Nimb
 try {
     switch ($command) {
         case 'migrate':
-            $ran = (new Migrator($db, $migrations, $pluginMigrations()))->migrate();
-            echo $ran === [] ? "Nothing to migrate.\n" : 'Migrated: ' . implode(', ', $ran) . "\n";
+            $report = (new Migrator($db, $migrations, $pluginMigrations()))->migrate();
+            echo $report->applied === [] ? "Nothing to migrate.\n" : 'Migrated: ' . implode(', ', $report->applied) . "\n";
+            $reportMigrationFailures($report); // stderr + exit non-zero if any plugin migration failed
             break;
 
         case 'install':
-            $ran = (new Migrator($db, $migrations, $pluginMigrations()))->migrate();
+            $report = (new Migrator($db, $migrations, $pluginMigrations()))->migrate();
+            $ran    = $report->applied;
             echo $ran === [] ? "Schema already present.\n" : 'Schema conjured (' . count($ran) . " migration(s)).\n";
+            // A core failure would have thrown before here; a failed PLUGIN migration
+            // must NOT block seeding (you need an admin to log in and fix it) — its
+            // failures are reported at the end, after the admin + roles exist.
 
             $isDev = in_array(getenv('APP_ENV') ?: 'production', ['local', 'dev', 'development'], true);
             $email    = $opt($argv, 'email', $isDev ? 'admin@nimbus.test' : null);
@@ -78,6 +99,9 @@ try {
             // Seed roles after users exist, so each is assigned its system role (ADR 0011).
             $seeded = (new Nimbus\Auth\RoleSeeder($db, new Nimbus\Auth\RoleRepository($db), new Nimbus\Content\CollectionRepository($db)))->seed();
             echo "Roles: {$seeded} system role(s) seeded.\n";
+            // Now that the install is usable, surface any plugin-migration failures
+            // and exit non-zero so a deploy notices (the admin can still log in).
+            $reportMigrationFailures($report);
             break;
 
         case 'roles:seed':

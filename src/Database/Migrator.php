@@ -22,55 +22,120 @@ final class Migrator
     ) {
     }
 
-    /** @return string[] names of migrations applied this run */
-    public function migrate(): array
+    /**
+     * Apply pending migrations. Core file migrations run first (a plugin's tables
+     * may reference core's); a **core** failure throws {@see MigrationFailed} and
+     * halts — pressing plugins onto a half-built core schema only multiplies the
+     * damage. Then plugin migrations run, **isolated per provider**: the first
+     * failure in a provider records the error, skips that provider's remaining
+     * migrations, and moves on to the next provider — so one broken plugin can no
+     * longer wedge the others or block core upgrades (PLUG-1).
+     *
+     * The core-vs-plugin distinction is which loop runs, never the provider
+     * *string* (a plugin could name its id `core`), so no plugin can hijack the
+     * halt or masquerade as core.
+     *
+     * @throws MigrationFailed a core migration failed (fail closed)
+     */
+    public function migrate(): MigrationReport
     {
-        $this->ensureLog();
+        $this->ensureLog();          // bookkeeping — a failure here propagates (catastrophic)
         $applied = $this->applied();
         $ran     = [];
 
-        // Core file migrations first.
+        // Core file migrations first — fail closed (throw), never isolated.
         foreach ($this->files() as $file) {
             $name = basename($file);
             if (in_array($name, $applied, true)) {
                 continue;
             }
-            /** @var string[] $statements */
+            /** @var array<int,mixed> $statements */
             $statements = require $file;
-            $this->apply($name, (array) $statements);
+            try {
+                $this->runStatements((array) $statements);
+            } catch (\PDOException $e) {
+                throw new MigrationFailed("Core migration \"{$name}\" failed: " . $e->getMessage(), 0, $e);
+            }
+            $this->record($name);    // propagates if it throws — the record IS the success
             $ran[] = $name;
         }
 
-        // Then plugin-declared migrations, in registration order.
+        // Then plugin-declared migrations, in registration order, isolated per
+        // provider. The registry list is provider-contiguous.
+        $failures       = [];
+        $failedProvider = [];
         foreach ($this->plugins?->all() ?? [] as $migration) {
-            if (in_array($migration['name'], $applied, true)) {
+            $provider = $migration['provider'];
+            $name     = $migration['name'];
+            if (in_array($name, $applied, true) || isset($failedProvider[$provider])) {
+                continue; // already applied, or this provider already failed → skip its rest
+            }
+            try {
+                $this->runStatements($migration['statements']);
+            } catch (\PDOException $e) {
+                // Isolate: record and skip the rest of THIS provider; other
+                // providers (and core, already done) are untouched.
+                $failedProvider[$provider] = true;
+                $failures[] = ['provider' => $provider, 'migration' => $name, 'error' => $e->getMessage()];
                 continue;
             }
-            $this->apply($migration['name'], $migration['statements']);
-            $ran[] = $migration['name'];
+            $this->record($name);
+            $ran[] = $name;
         }
 
-        return $ran;
+        return new MigrationReport($ran, $failures);
     }
 
+    /**
+     * Are any known migrations (core files + registered plugin migrations) not yet
+     * recorded? Compares name **sets**, not counts — an uninstalled plugin's
+     * lingering `nb_migrations` rows inflate the applied count, so a count
+     * comparison could hide a genuinely pending core migration (PLUG-10).
+     */
     public function pending(): bool
     {
         if (!$this->db->tableExists('nb_migrations')) {
             return true;
         }
-        $total = count($this->files()) + count($this->plugins?->all() ?? []);
-        return count($this->applied()) < $total;
-    }
-
-    /** @param array<int,mixed> $statements */
-    private function apply(string $name, array $statements): void
-    {
-        foreach ($statements as $sql) {
-            $sql = trim((string) $sql);
-            if ($sql !== '') {
-                $this->db->pdo()->exec($sql);
+        $applied = $this->applied();
+        $known   = array_map('basename', $this->files());
+        foreach ($this->plugins?->all() ?? [] as $migration) {
+            $known[] = $migration['name'];
+        }
+        foreach ($known as $name) {
+            if (!in_array($name, $applied, true)) {
+                return true;
             }
         }
+        return false;
+    }
+
+    /**
+     * Run a migration's statements. On a failure the thrown PDOException names the
+     * failing statement index — the first thing an author debugging a partial
+     * (auto-committed, non-rollback-able) DDL migration needs.
+     *
+     * @param array<int,mixed> $statements
+     */
+    private function runStatements(array $statements): void
+    {
+        $total = count($statements);
+        foreach (array_values($statements) as $i => $sql) {
+            $sql = trim((string) $sql);
+            if ($sql === '') {
+                continue;
+            }
+            try {
+                $this->db->pdo()->exec($sql);
+            } catch (\PDOException $e) {
+                throw new \PDOException(sprintf('statement %d of %d: %s', $i + 1, $total, $e->getMessage()), 0, $e);
+            }
+        }
+    }
+
+    /** Record a migration as applied — bookkeeping; a failure here is catastrophic and propagates. */
+    private function record(string $name): void
+    {
         $this->db->execute(
             'INSERT INTO nb_migrations (migration, applied_at) VALUES (:m, :t)',
             ['m' => $name, 't' => date('c')],
