@@ -13,7 +13,7 @@ $theme = \Nimbus\View\AdminTheme::sanitize($user?->theme);  // allow-listed at r
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $e($appName) ?> · Admin</title>
-    <style><?= file_get_contents(dirname(__DIR__) . '/theme.css') ?></style>
+    <style nonce="<?= $e($cspNonce) ?>"><?= file_get_contents(dirname(__DIR__) . '/theme.css') ?></style>
 </head>
 <body class="nb">
 <input type="checkbox" id="nb-nav-toggle" class="nb-nav-toggle" aria-label="Menu">

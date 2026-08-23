@@ -32,6 +32,51 @@ final class CspNonceTest extends HttpTestCase
         self::assertStringNotContainsString("'unsafe-inline'", $scriptSrc, "script-src must not carry 'unsafe-inline'");
     }
 
+    public function test_style_src_is_nonce_only_never_unsafe_inline(): void
+    {
+        $csp = $this->csp();
+
+        self::assertMatchesRegularExpression("/style-src[^;]*'nonce-[A-Za-z0-9+\/=]{16,}'/", $csp);
+        $styleSrc = '';
+        foreach (explode(';', $csp) as $dir) {
+            if (str_contains(trim($dir), 'style-src')) {
+                $styleSrc = trim($dir);
+            }
+        }
+        self::assertStringNotContainsString("'unsafe-inline'", $styleSrc, "style-src must not carry 'unsafe-inline'");
+    }
+
+    public function test_the_header_nonce_matches_the_rendered_style_block(): void
+    {
+        $resp  = $this->get('/admin/login');
+        $csp   = (string) $resp->header('Content-Security-Policy');
+        preg_match("/'nonce-([A-Za-z0-9+\/=]+)'/", $csp, $m);
+        $nonce = $m[1] ?? '';
+
+        self::assertNotSame('', $nonce);
+        // The login page inlines theme.css in a <style> block — it must be nonce'd.
+        self::assertStringContainsString('<style nonce="' . $nonce . '">', $resp->body, 'inline <style> carries the request nonce');
+    }
+
+    public function test_no_admin_template_uses_an_inline_style_attribute(): void
+    {
+        // style-src is nonce-only, which does NOT authorize inline style= attributes;
+        // any that slip in would be silently blocked. Guard the whole theme.
+        $dir   = dirname(__DIR__, 2) . '/src/View/themes/nimbus/templates';
+        $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
+        foreach ($files as $file) {
+            if ($file->getExtension() !== 'php') {
+                continue;
+            }
+            $contents = (string) file_get_contents($file->getPathname());
+            self::assertDoesNotMatchRegularExpression(
+                '/\sstyle\s*=\s*"/',
+                $contents,
+                'inline style= attribute in ' . $file->getFilename() . ' (use a class — style-src is nonce-only)',
+            );
+        }
+    }
+
     public function test_the_nonce_is_fresh_per_request(): void
     {
         preg_match("/script-src[^;]*'nonce-([A-Za-z0-9+\/=]+)'/", $this->csp(), $a);

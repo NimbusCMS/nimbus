@@ -11,7 +11,7 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sign in · <?= $e($appName) ?></title>
-    <style><?= file_get_contents(dirname(__DIR__) . '/theme.css') ?></style>
+    <style nonce="<?= $e($cspNonce) ?>"><?= file_get_contents(dirname(__DIR__) . '/theme.css') ?></style>
 </head>
 <body class="nb nb-centered nb-night">
 <div class="nb-auth">

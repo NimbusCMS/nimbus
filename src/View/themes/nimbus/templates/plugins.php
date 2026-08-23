@@ -21,7 +21,7 @@ $badgeClass = static fn (PluginStatus $p): string => match ($p->state) {
     <h1>Plugins</h1>
 </div>
 
-<p class="nb-muted" style="margin:-8px 0 20px;max-width:60ch">
+<p class="nb-muted nb-page-intro">
     Everything Composer has installed as a NimbusCMS plugin. This page is a
     diagnostic view, not an installer — plugins are added and removed with
     <code>composer require</code> and <code>composer remove</code>, and enabled

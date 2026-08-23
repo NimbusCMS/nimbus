@@ -147,11 +147,20 @@ else — no services, no repositories, no database:
 - `$e($value)` — escape a value for output.
 - `$partial($name, $data = [])` — include another template from the same theme
   (a shared `header`, `footer`, `nav`), returning rendered HTML.
-- `$cspNonce` — the per-request CSP nonce. **An inline `<script>` must carry
-  `nonce="<?= $e($cspNonce) ?>"` or it will not run** — the Content-Security-Policy
-  `script-src` is nonce-only (no `'unsafe-inline'`). Prefer external files under
-  `assets/`. Inline `<style>`/`style=` are still allowed (`style-src` keeps
-  `'unsafe-inline'`).
+- `$cspNonce` — the per-request CSP nonce. **Both `script-src` and `style-src`
+  are nonce-only** (no `'unsafe-inline'`): an inline `<script>` *or* `<style>`
+  must carry `nonce="<?= $e($cspNonce) ?>"` or it will not run. **Inline `style=`
+  attributes cannot be nonce'd and are blocked** — use a class or a CSS custom
+  property instead. Prefer external files under `assets/`.
+  - *Caveat — page cache:* the nonce is minted fresh per request while
+    `PageCache` stores HTML only, so a cached page's embedded nonce won't match
+    the next response's header. If you run with `PAGE_CACHE_TTL > 0`, a cached
+    public page **must** use external CSS/JS under `assets/`, not inline
+    nonce'd `<style>`/`<script>`.
+  - *Note — user content:* after this change, inline `style=` attributes inside
+    rendered entry bodies (e.g. Markdown/raw HTML) no longer apply on public
+    pages. This is deliberate (it also makes CSS injection via content inert);
+    style content with classes/theme CSS, not inline attributes.
 
 The active theme is named in `config/theme.php`. Templates rendered today:
 `layout` (the shell), `collection`, `entry`, and an optional `404`. A theme may
