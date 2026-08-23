@@ -43,11 +43,6 @@ final class UserRepository
         return $this->db->selectOne('SELECT id FROM nb_users WHERE email = :e', ['e' => $email]) !== null;
     }
 
-    public function countByRole(string $role): int
-    {
-        return (int) ($this->db->selectOne('SELECT COUNT(*) AS c FROM nb_users WHERE role = :r', ['r' => $role])['c'] ?? 0);
-    }
-
     /** Create a user from an already-hashed password. Returns the new id. */
     public function create(string $name, string $email, string $passwordHash, string $role): int
     {
@@ -55,14 +50,6 @@ final class UserRepository
         return $this->db->insert(
             'INSERT INTO nb_users (name, email, password, role, created_at, updated_at) VALUES (:n, :e, :p, :r, :c, :u)',
             ['n' => $name, 'e' => $email, 'p' => $passwordHash, 'r' => $role, 'c' => $now, 'u' => $now],
-        );
-    }
-
-    public function setRole(int $id, string $role): void
-    {
-        $this->db->execute(
-            'UPDATE nb_users SET role = :r, updated_at = :u WHERE id = :id',
-            ['r' => $role, 'u' => date('Y-m-d H:i:s'), 'id' => $id],
         );
     }
 

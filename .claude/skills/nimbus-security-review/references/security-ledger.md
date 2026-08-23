@@ -19,6 +19,44 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice A — MCP user-tool privilege escalation closed (was latent High)
+- **Status:** fixed. Design reviewed via a **Fable two-skill burst** (security: green
+  conditional on the must-ship controls, all shipped). Resolves audit **API-2 / ADMIN-2**
+  (latent High), **API-1** (broken authority), **AUTH-4** (divergent last-admin guard).
+- **Surface:** `src/Mcp/UsersToolset.php` (`create_user`, `set_role`) — catalog #2 (scope
+  confusion / escalation-at-mint) and the last-admin invariant.
+- **Attack closed:** a non-admin `users:write` token calling `create_user role:"admin"
+  password:"known"` (or `set_role role:"admin"`, or a custom god-role) — the tools applied
+  **no subset-only guard**, so once the roles plumbing was fixed this was a scoped-token →
+  known-password admin = full compromise.
+- **Controls shipped (each a regression test in `tests/Http/McpAdminToolsTest.php`):**
+  1. **Subset-only over the token's full effective scopes, before any write** — every
+     capability of the target role must be held (`Authorizer::holds(array_values($principal->scopes), $cap)`);
+     reject `forbidden` first. Delegates to `Authorizer::can`, so **management-immunity is
+     inherited** (a `*:write` token does not hold `users:write`) — the content-wildcard-vs-
+     management ledger invariant is not regressed (unit-locked in `AuthorizerHoldsTest`).
+     Test: `test_create_user_cannot_grant_authority_the_caller_lacks` (admin + editor +
+     custom god-role, asserts no user created / no password set).
+  2. **Both-directions on `set_role`** — also refuses to strip a role the target holds that
+     the caller could not grant (no demote-a-superior). Test:
+     `test_set_role_cannot_strip_a_role_the_caller_could_not_grant`.
+  3. **Atomic create+assign** (transaction) — a rejected/failed grant leaves no half-user;
+     the residual under-grant is fail-safe (an inert account, never an escalation).
+  4. **Placeholder `nb_users.role='author'`, never `'admin'`** — cannot elevate via the
+     un-seeded `Permissions::isAdmin` fallback; `set_role` stops writing the legacy column.
+  5. **AUTH-4:** last-admin counted by `RoleRepository::assignedUserCount(admin)` on both
+     surfaces — a role-held admin whose legacy column is `'author'` (as the admin UI leaves
+     it) is now counted. Test: `test_set_role_never_demotes_the_last_admin_counted_by_role_
+     not_the_legacy_column`. Dead `countByRole` removed.
+  6. **Unseeded fail-closed** — no roles → clear error, no write.
+- **Defender severity:** the closed escalation was **High** (latent). No Critical/High
+  introduced. The subset-only predicate is now unified (`Authorizer::holds`) across Gate,
+  Tokens, and Users — one place to audit.
+- **Leaves open (Low, documented):** the last-admin `count→write` is not lock-transactional
+  (two concurrent demotions of the last two admins could both pass) — **pre-existing in the
+  admin UI, not introduced here**; accept consistent with the 2026-08-18 media-delete-guard
+  race, row-lock later if it proves real.
+
 ### 2026-08-23 · style-src nonce-only — CSP deferral finished, security-green
 - **Status:** shipped. **Supersedes the accepted residual in the 2026-08-22
   "Nonce-based CSP (script-src)" entry** ("`style-src 'unsafe-inline'` kept").

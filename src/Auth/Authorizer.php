@@ -44,4 +44,27 @@ final class Authorizer
         return $action === 'read'
             && (in_array("{$resource}:write", $capabilities, true) || in_array('*:write', $capabilities, true));
     }
+
+    /**
+     * Does a capability set *hold* a single capability string — the grant-side
+     * question behind every subset-only check ("you can only grant what you
+     * hold")? `admin` holds everything; otherwise the capability is a
+     * `resource:action` grant judged by {@see can()} (so it inherits the
+     * management-immunity rule — a `*:write` holder does not hold `users:write`).
+     * A malformed capability holds nothing.
+     *
+     * This is the one predicate behind `Gate::holds` (human actors), the MCP
+     * `TokensToolset`/`UsersToolset` guards (token actors), and admin role
+     * granting — people and agents judged by identical rules.
+     *
+     * @param list<string> $capabilities
+     */
+    public static function holds(array $capabilities, string $capability): bool
+    {
+        if ($capability === 'admin') {
+            return in_array('admin', $capabilities, true);
+        }
+        $parts = explode(':', $capability, 2);
+        return count($parts) === 2 && $parts[1] !== '' && self::can($capabilities, $parts[0], $parts[1]);
+    }
 }

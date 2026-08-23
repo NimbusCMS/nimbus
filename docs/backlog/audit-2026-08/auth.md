@@ -49,6 +49,7 @@ debt where the login path lags the newer, more careful reset path.
 - **Effort:** S
 
 ### AUTH-4 · Two sources of truth for "who is an admin" — divergent last-admin-lockout guards across surfaces
+- **✅ RESOLVED** (Slice A, 2026-08-23) — both surfaces count `assignedUserCount(admin)`; dead `countByRole` removed.
 - **Priority:** P2
 - **Type:** correctness (security-adjacent)
 - **Where:** `src/Admin/UsersController.php:117,152-158` (create hardcodes `users.role='author'`; last-admin guard counts the **admin role assignment** `nb_user_roles`), vs `src/Mcp/UsersToolset.php:146` (last-admin guard uses `countByRole('admin')` on the legacy `nb_users.role` column). `Auth::user()` still hydrates `User::role` from `nb_users.role`.

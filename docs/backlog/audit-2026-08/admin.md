@@ -21,6 +21,7 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Effort:** M
 
 ### ADMIN-2 · MCP `set_role`/`create_user` write the dead legacy `users.role` column — demoting an admin silently doesn't revoke
+- **✅ RESOLVED** (Slice A, 2026-08-23) — MCP tools assign roles + subset-only guard; last-admin counted by role assignment.
 - **Priority:** P1
 - **Type:** security
 - **Severity (if security):** High
