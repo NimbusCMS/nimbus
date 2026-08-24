@@ -59,6 +59,11 @@ use Nimbus\View\View;
  */
 final class Application
 {
+    /** Above this ?page value a public page is rendered but never cached — an
+     *  upper bound on distinct page-cache files an anonymous client can mint
+     *  (SVM-1). 1000 × PER_PAGE is far beyond any real paginated depth. */
+    private const MAX_CACHEABLE_PAGE = 1000;
+
     private Connection $db;
     private Auth $auth;
 
@@ -411,6 +416,14 @@ final class Application
             }
         }
         $page = (int) ($request->query('page') ?? 1);
+        // Never mint a cache entry for an absurd page number: cacheKey appends
+        // ?page=N for ANY cached GET (home and entry pages ignore the param and
+        // 200 too), so without a ceiling an anonymous client could fill the cache
+        // dir one file per N (SVM-1). Past the ceiling → uncached (render, never
+        // store); the collection index additionally 404s a page past its end.
+        if ($page > self::MAX_CACHEABLE_PAGE) {
+            return null;
+        }
         return $request->path . ($page > 1 ? '?page=' . $page : '');
     }
 

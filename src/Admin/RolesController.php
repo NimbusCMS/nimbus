@@ -157,6 +157,14 @@ final class RolesController extends Controller
         if ($role->isSystem) {
             return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('The built-in roles cannot be deleted.'));
         }
+        // Subset-only, same as update(): you cannot DELETE a role that grants a
+        // capability beyond your own — deleting it would strip a superior user's
+        // access and blind role-bound tokens. Without this, a roles:write-only
+        // manager could destroy any custom role regardless of what it grants.
+        $superior = $this->firstUnheld($role->capabilities);
+        if ($superior !== null) {
+            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("You cannot delete a role that grants a capability beyond your own: {$superior}."));
+        }
 
         $this->roles->delete($id); // assignments cascade away
         return $this->redirect(Url::to('admin.roles.index') . '?msg=deleted');

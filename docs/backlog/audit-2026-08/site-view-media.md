@@ -23,7 +23,8 @@ not double-counted.
 
 ---
 
-### SVM-1 · Unbounded public `?page` fills the page cache (disk-fill DoS) and renders empty deep pages
+### SVM-1 · Unbounded public `?page` fills the page cache (disk-fill DoS) and renders empty deep pages ✅ RESOLVED
+- **Resolved:** Slice K. Two halves (platform ❌1 — the second is load-bearing, not belt-and-braces): (1) `renderCollection` returns **404** for a page past the last (`page>1 && page>total_pages`) — page 1 always renders (empty collection is a valid view). A 404 (not a clamp-to-200) is what stops the mint, because `Application::cacheKey` keys on the raw `?page=N` and `respond()` stores only 200s — a clamped 200 would still write one file per N. (2) `cacheKey()` ceiling: `?page > 1000` → `null` (rendered, never cached) — this covers the home and entry routes too, which 200 but *ignore* `?page`, so the index-only 404 would have left them as an unbounded mint. Public 200→404 pagination behavior change noted in COMPATIBILITY; the divergence from the admin *clamp* is principled (public is cached+anonymous → status is the control; admin is uncached+authed → clamp is UX). Tests: `SiteRoutesTest` (page past end → 404, empty page-1 → 200, valid deep page → 200); `CacheRoutesTest` (out-of-range collection page + absurd `?page` on an entry mint **no** `.cache` file).
 - **Priority:** P2
 - **Type:** security / performance
 - **Severity (if security):** Medium (unauthenticated disk exhaustion; precondition: `PAGE_CACHE_TTL > 0`, which is opt-in/off by default — rated one level down for that)
@@ -35,7 +36,8 @@ not double-counted.
 
 ---
 
-### SVM-2 · Null byte (any `realpath` ValueError) in `/theme/assets/{path*}` → uncaught 500 + stack-trace log spam
+### SVM-2 · Null byte (any `realpath` ValueError) in `/theme/assets/{path*}` → uncaught 500 + stack-trace log spam ✅ RESOLVED
+- **Resolved:** Slice K. `SiteController::asset()` rejects a NUL byte (`str_contains($path, "\0")`) before `realpath()` → a clean 404, no `ValueError`→500 + logged stack trace. Confirmed complete (both lenses): in PHP 8 `realpath` throws `ValueError` **only** on null bytes — over-long/control-char paths return `false` (already 404'd) — so the null-byte guard is the whole ValueError class. No file was ever disclosed on the throwing path (availability/log-spam, Low). Test: `SiteRoutesTest` — `/theme/assets/app.css\x00.png` → 404; existing `..` traversal test still 404s.
 - **Priority:** P3
 - **Type:** error-handling
 - **Severity (if security):** Low (no file disclosed; unauthenticated, trivially repeatable → noisy 500s + log growth)

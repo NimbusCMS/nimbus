@@ -316,6 +316,45 @@ final class SiteRoutesTest extends HttpTestCase
         self::assertStringNotContainsString('<!doctype', $response->body, 'a template is never disclosed');
     }
 
+    public function test_a_null_byte_asset_path_is_404_not_500(): void
+    {
+        // A real NUL (what %00 decodes to) makes realpath() throw ValueError; the
+        // handler must reject it as a 404, never let it become an uncaught 500
+        // with a logged stack trace (SVM-2).
+        $response = $this->throughKernel($this->request('GET', "/theme/assets/app.css\x00.png"));
+
+        self::assertSame(404, $response->status, 'a null byte is a clean 404, not a ValueError 500');
+    }
+
+    // ------------------------------------------------ pagination bounds (SVM-1)
+
+    public function test_a_page_past_the_last_is_not_found(): void
+    {
+        $c = $this->makeCollection('posts');
+        $this->publish($c, 'Only', 'only'); // one entry → one page
+
+        self::assertSame(404, $this->get('/posts', ['page' => '2'])->status, 'a page past the end is 404, not an empty 200');
+        self::assertSame(404, $this->get('/posts', ['page' => '999999'])->status);
+    }
+
+    public function test_page_one_of_an_empty_collection_still_renders_but_page_two_does_not(): void
+    {
+        $this->makeCollection('posts');
+
+        self::assertSame(200, $this->get('/posts', ['page' => '1'])->status, 'page 1 of an empty collection is a valid view');
+        self::assertSame(404, $this->get('/posts', ['page' => '2'])->status, 'but page 2 does not exist');
+    }
+
+    public function test_a_valid_deep_page_renders(): void
+    {
+        $c = $this->makeCollection('posts');
+        for ($i = 1; $i <= 25; $i++) { // 25 entries → 2 pages at PER_PAGE 20
+            $this->publish($c, "Post {$i}", "post-{$i}");
+        }
+
+        self::assertSame(200, $this->get('/posts', ['page' => '2'])->status, 'a real deep page still renders');
+    }
+
     // ---------------------------------------------------------------- menus
 
     public function test_the_configured_menu_renders_in_the_page(): void

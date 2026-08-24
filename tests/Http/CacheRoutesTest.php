@@ -99,6 +99,26 @@ final class CacheRoutesTest extends HttpTestCase
         self::assertNull($cache->get('/posts'), 'the write flushed the cache');
     }
 
+    public function test_an_out_of_range_page_mints_no_cache_file(): void
+    {
+        // SVM-1: the disk-fill vector is cacheKey minting one file per ?page=N.
+        // A collection page past the end is a 404 (uncached); and the cacheKey
+        // ceiling keeps an absurd ?page from minting a file on the home/entry
+        // routes, which 200 but ignore the param.
+        $c = $this->makeCollection('posts');
+        $this->seedLive($c, 'Hello', 'hello');
+
+        $cache = new PageCache($this->dir, 300);
+        $app   = $this->appUsing($cache);
+
+        self::assertSame(404, $app->handle($this->request('GET', '/posts', ['page' => '2']))->status);
+        self::assertNull($cache->get('/posts?page=2'), 'a 404 out-of-range page is never stored');
+
+        // The entry route 200s but ignores ?page; above the ceiling it is uncached.
+        self::assertSame(200, $app->handle($this->request('GET', '/posts/hello', ['page' => '99999']))->status);
+        self::assertNull($cache->get('/posts/hello?page=99999'), 'the cacheKey ceiling stops the mint on non-collection routes');
+    }
+
     public function test_admin_pages_are_never_cached(): void
     {
         $this->actingAs('admin');

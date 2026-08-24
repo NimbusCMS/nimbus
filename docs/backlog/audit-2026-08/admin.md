@@ -32,7 +32,8 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Fix:** rebuild the MCP user tools on the roles model: `set_role`/`create_user` resolve a role by name from `RoleRepository`, sync `nb_user_roles`, apply the same subset-only guard as `UsersController::firstUngrantableRole`, and base the last-admin check on `assignedUserCount`. `list_users` reports assigned roles. Regression test: MCP demotion of a role-held admin actually strips the capability (assert via `Gate`), through the kernel.
 - **Effort:** M
 
-### ADMIN-3 · Role *delete* skips the subset-only guard that role *edit* enforces — a lesser manager can destroy a superior role
+### ADMIN-3 · Role *delete* skips the subset-only guard that role *edit* enforces — a lesser manager can destroy a superior role ✅ RESOLVED
+- **Resolved:** Slice K (branch `slice-k-authz-cleanup`). `RolesController::destroy()` now runs the same `firstUnheld($role->capabilities)` guard as `update()` (after the isSystem check): a `roles:write`-only actor cannot delete a role granting a capability beyond what they hold. Closes the closed-direction sabotage/denial primitive (both lenses: Medium, not escalation). Admin holds everything → still deletes any custom role. Tests: `RolesAdminTest` — roles:write-only actor can't delete a superior role (role survives) + a role-bound token's caps survive the blocked delete; admin still can; isSystem still holds. Residual noted (not in scope, defused by isSystem on admin + subset-on-create): `destroy()` has no explicit last-admin guard.
 - **Priority:** P2
 - **Type:** security
 - **Severity (if security):** Medium
@@ -92,7 +93,8 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Fix:** a tiny shared guard (`Str::maxLen`/validator check) applied per form with the column limits, returning the standard per-field error. Do it once, alongside ADMIN-5/6, as one "admin form validation hardening" slice; tests per surface for the boundary value.
 - **Effort:** M
 
-### ADMIN-9 · Roles management has no MCP surface and no recorded deferral — the standing MCP check is unmet
+### ADMIN-9 · Roles management has no MCP surface and no recorded deferral — the standing MCP check is unmet ✅ RESOLVED (recorded deferral)
+- **Resolved:** Slice K — **recorded, not built** (both lenses: proportionate; no concrete agent consumer needs role composition, and building an L-effort toolset on the highest-privilege boundary is speculative). Correction (platform ❌2): the gap is **narrower than this finding stated** — role *assignment* is already MCP-reachable via `UsersToolset::set_role` (subset-only both directions) + `list_roles`; only role **CRUD** (compose/edit/delete a capability bundle) is UI-only. The Slice A ledger already half-recorded the deferral; Slice K completes it: a revisit trigger (when an agent workflow needs to compose a bundle, or the pre-1.0 pass) + corrected the false "entire CMS over MCP" wording in `ROADMAP.md` and `ADR 0009`, with the requirement that a future `RolesToolset` carry **subset-only on destroy too** (the ADMIN-3 lesson). Standing MCP check now met (reachable-or-recorded).
 - **Priority:** P2
 - **Type:** architecture
 - **Where:** `src/Admin/RolesController.php` + `src/Admin/UsersController.php` (role assignment) vs `src/Mcp/*` (no RolesToolset); ROADMAP MCP arc ("an agent runs the **entire** CMS — content, schema, media, users, tokens, settings")

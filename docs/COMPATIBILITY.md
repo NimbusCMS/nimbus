@@ -198,6 +198,12 @@ The active theme is named in `config/theme.php`. Templates rendered today:
 `collection-{handle}` (e.g. `entry-homepage`) — and Nimbus falls back to the
 generic `entry`/`collection` when the specific one is absent.
 
+**Pagination.** A collection index carries `$page` and `$total_pages`. A `?page`
+beyond the last page is a **404** (page 1 always renders — an empty collection is a
+valid "no entries" view); this keeps an out-of-range page from being a cacheable
+empty `200`. (Behavior change in `0.x`: such a page used to render a `200` empty
+list.)
+
 **Page metadata.** The view-model carries `$meta` for the document head —
 `{ title, description, canonical, og_type }`. The starter renders a
 `<meta name="description">`, a `<link rel="canonical">`, and Open Graph tags from

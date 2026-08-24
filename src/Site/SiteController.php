@@ -130,6 +130,13 @@ final class SiteController
      */
     private function asset(string $path): Response
     {
+        // A NUL byte makes realpath() throw ValueError (→ an uncaught 500 + logged
+        // stack trace); it can never name a real asset, so reject it as a 404
+        // before realpath ever sees it (SVM-2).
+        if (str_contains($path, "\0")) {
+            return $this->assetNotFound();
+        }
+
         $base = realpath($this->themeDir . '/assets');
         if ($base === false) {
             return $this->assetNotFound();
@@ -275,7 +282,16 @@ final class SiteController
     /** Render a collection's live entry index (paginated). */
     private function renderCollection(Request $request, Collection $collection, int $page): Response
     {
-        $total = $this->entries->countLive($collection->id);
+        $total      = $this->entries->countLive($collection->id);
+        $totalPages = $total === 0 ? 0 : (int) ceil($total / self::PER_PAGE);
+        // A page past the last one does not exist → 404, not a 200 empty list.
+        // A 200 would be stored per distinct ?page=N (Application::cacheKey), the
+        // page-cache disk-fill vector (SVM-1); a 404 is never cached. Page 1 is
+        // always valid — an empty collection's page 1 is a legitimate "no entries"
+        // view (keyed with no ?page suffix, one file).
+        if ($page > 1 && $page > $totalPages) {
+            return $this->notFound();
+        }
         $rows  = $this->entries->liveForCollection($collection->id, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
 
         $info = ['handle' => $collection->handle, 'name' => $collection->name];
@@ -288,7 +304,7 @@ final class SiteController
             'collection'  => $info,
             'entries'     => $this->view->many($collection, $rows),
             'page'        => $page,
-            'total_pages' => $total === 0 ? 0 : (int) ceil($total / self::PER_PAGE),
+            'total_pages' => $totalPages,
         ]);
     }
 
