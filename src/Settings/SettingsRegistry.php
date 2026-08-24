@@ -68,9 +68,12 @@ final class SettingsRegistry
                     if ($value === '') {
                         return null; // blank = no home page, a valid choice
                     }
+                    // Fixed message — never echo the submitted handle back into
+                    // the operator's error notice (avoids the reflection surface
+                    // ADMIN-10 flags, and keeps the re-rendered value bounded).
                     return $collections->findByHandle($value) !== null
                         ? null
-                        : "No collection has the handle \"{$value}\".";
+                        : 'No collection has that handle.';
                 },
             ),
             'site.description' => new Setting(

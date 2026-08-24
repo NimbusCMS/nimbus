@@ -16,7 +16,6 @@ use Nimbus\Http\Router;
 use Nimbus\Http\Url;
 use Nimbus\Settings\Settings;
 use Nimbus\Settings\SettingsRegistry;
-use Nimbus\Settings\SettingsRepository;
 use Nimbus\Support\Config;
 use Nimbus\View\AdminTheme;
 
@@ -39,17 +38,18 @@ use Nimbus\View\AdminTheme;
 final class SettingsController extends Controller
 {
     private UserRepository $users;
-    private Settings $settings;
     private SettingsRegistry $registry;
     private CollectionRepository $collections;
 
-    public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null)
+    public function __construct(Connection $db, Auth $auth, Settings $settings, ?AdminPageRegistry $adminPages = null)
     {
-        parent::__construct($db, $auth, $adminPages);
+        // $this->settings is the composed-once store (SUP-10), inherited from
+        // Controller; this controller keeps only its own registry (cheap,
+        // config-driven) for the field list and the validation loop.
+        parent::__construct($db, $auth, $settings, $adminPages);
         $this->users       = new UserRepository($db);
         $this->collections = new CollectionRepository($db);
         $this->registry    = new SettingsRegistry($this->collections);
-        $this->settings    = new Settings(new SettingsRepository($db), $this->registry);
     }
 
     public function routes(Router $r): void
@@ -63,6 +63,22 @@ final class SettingsController extends Controller
 
     private function index(Request $req): Response
     {
+        return $this->renderSettings($req);
+    }
+
+    /**
+     * Render the settings page. On a failed save this re-renders in the POST
+     * response with the operator's own values ($submitted, overlaid onto the
+     * fields) and per-key validator messages ($siteErrors) — the same
+     * re-render pattern EntriesController uses: no redirect, so nothing the
+     * operator typed is lost, and no attacker-influenced text is ever
+     * round-tripped through the URL (the ADMIN-10 class).
+     *
+     * @param array<string,string> $siteErrors key => validator message
+     * @param array<string,string> $submitted  key => raw submitted value (overlaid onto the fields)
+     */
+    private function renderSettings(Request $req, array $siteErrors = [], array $submitted = []): Response
+    {
         return $this->page('settings/index', 'settings', [
             'themes'    => AdminTheme::THEMES,
             'current'   => AdminTheme::sanitize($this->auth->user()?->theme),
@@ -70,7 +86,8 @@ final class SettingsController extends Controller
             'csrf'      => Csrf::token(),
             // The site-settings section renders only for holders of settings:write.
             'canEditSite'  => $this->gate->can('settings', 'write'),
-            'siteFields'   => $this->siteFields(),
+            'siteFields'   => $this->siteFields($submitted),
+            'siteErrors'   => $siteErrors,
             'collections'  => $this->collectionChoices(),
             // Connected accounts (ADR 0012) — a personal setting, like the theme:
             // any signed-in user manages their own links. Empty when no provider
@@ -134,9 +151,13 @@ final class SettingsController extends Controller
     /**
      * The known site settings, each with its current value, for the form.
      *
+     * A key present in $submitted (a failed save) shows the operator's own
+     * value rather than the stored one, so their edits survive the re-render.
+     *
+     * @param array<string,string> $submitted key => raw submitted value
      * @return list<array{key:string,type:string,label:string,help:string,value:string}>
      */
-    private function siteFields(): array
+    private function siteFields(array $submitted = []): array
     {
         $fields = [];
         foreach ($this->registry->all() as $key => $setting) {
@@ -145,7 +166,7 @@ final class SettingsController extends Controller
                 'type'  => $setting->type,
                 'label' => $setting->label,
                 'help'  => $setting->help,
-                'value' => $this->settings->get($key),
+                'value' => array_key_exists($key, $submitted) ? $submitted[$key] : $this->settings->get($key),
             ];
         }
         return $fields;
@@ -166,8 +187,10 @@ final class SettingsController extends Controller
      * read each from the request, so an unregistered key is simply never read —
      * no over-posting. Only keys actually present in the request are touched (a
      * partial save leaves the rest as-is); every submitted value is
-     * registry-validated before any is stored — if one fails, nothing is written
-     * and the error is flashed.
+     * registry-validated before any is stored. If any value fails, nothing is
+     * written and the form re-renders with the per-field messages (SUP-4).
+     * On success the write is atomic — all keys commit or none (SUP-7, via
+     * {@see Settings::setMany}) — then PRG-redirects.
      */
     private function saveSite(Request $req): Response
     {
@@ -177,6 +200,8 @@ final class SettingsController extends Controller
         $submitted = is_array($req->all()['settings'] ?? null) ? $req->all()['settings'] : [];
 
         $values = [];
+        $errors = [];
+        $seen   = [];
         foreach ($this->registry->all() as $key => $setting) {
             // Registry-driven: only registry keys are ever read from the request,
             // so an unknown submitted key has nowhere to land. A key the request
@@ -184,16 +209,25 @@ final class SettingsController extends Controller
             if (!array_key_exists($key, $submitted) || !is_string($submitted[$key])) {
                 continue;
             }
-            $value = trim($submitted[$key]);
-            if ($setting->validate($value) !== null) {
-                return $this->redirect(Url::to('admin.settings') . '?flash=site-error');
+            $value       = trim($submitted[$key]);
+            $seen[$key]  = $value;
+            $error       = $setting->validate($value);
+            if ($error !== null) {
+                // Collect every failure (not just the first) so the operator
+                // sees all of them at once.
+                $errors[$key] = $error;
+                continue;
             }
             $values[$key] = $value;
         }
 
-        foreach ($values as $key => $value) {
-            $this->settings->set($key, $value);
+        if ($errors !== []) {
+            // Validate-all-then-write: on any failure nothing is written, and
+            // the form re-renders with the submitted values + per-field messages.
+            return $this->renderSettings($req, $errors, $seen);
         }
+
+        $this->settings->setMany($values);
         return $this->redirect(Url::to('admin.settings') . '?flash=site');
     }
 

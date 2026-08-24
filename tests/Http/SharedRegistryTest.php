@@ -92,8 +92,8 @@ final class SharedRegistryTest extends HttpTestCase
         $app    = new Application($this->db, $this->auth);
         $shared = (new ReflectionProperty($app, 'fieldTypes'))->getValue($app);
 
-        $collections = new \Nimbus\Admin\CollectionsController($this->db, $this->auth, $shared);
-        $entries     = new \Nimbus\Admin\EntriesController($this->db, $this->auth, $shared, new EventDispatcher());
+        $collections = new \Nimbus\Admin\CollectionsController($this->db, $this->auth, $this->settings(), $shared);
+        $entries     = new \Nimbus\Admin\EntriesController($this->db, $this->auth, $this->settings(), $shared, new EventDispatcher());
 
         self::assertSame($shared, $this->fieldTypeOf($collections));
         self::assertSame($shared, $this->fieldTypeOf($entries));

@@ -17,6 +17,7 @@ use Nimbus\Media\MediaService;
 use Nimbus\Media\MediaUploader;
 use Nimbus\Media\MediaUsageRepository;
 use Nimbus\Media\UploadError;
+use Nimbus\Settings\Settings;
 use Nimbus\Support\Config;
 
 /**
@@ -33,9 +34,9 @@ final class MediaController extends Controller
     private MediaUploader $uploader;
     private MediaService $service;
 
-    public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null)
+    public function __construct(Connection $db, Auth $auth, Settings $settings, ?AdminPageRegistry $adminPages = null)
     {
-        parent::__construct($db, $auth, $adminPages);
+        parent::__construct($db, $auth, $settings, $adminPages);
         $this->media    = new MediaRepository($this->db);
         $this->uploader = new MediaUploader(
             $this->media,

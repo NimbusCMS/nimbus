@@ -26,7 +26,7 @@ final class PluginAdminPageTest extends HttpTestCase
     private function pluginRouter(AdminPageRegistry $registry): Router
     {
         $router = new Router();
-        (new PluginPagesController($this->db, $this->auth, $registry))->routes($router);
+        (new PluginPagesController($this->db, $this->auth, $this->settings(), $registry))->routes($router);
         return $router;
     }
 
@@ -147,7 +147,7 @@ final class PluginAdminPageTest extends HttpTestCase
     {
         $this->actingAs('admin');
         $router = new Router();
-        (new AdminController($this->db, $this->auth, [], $this->registry(static fn (): string => 'x')))->routes($router);
+        (new AdminController($this->db, $this->auth, $this->settings(), [], $this->registry(static fn (): string => 'x')))->routes($router);
 
         $response = $router->dispatch($this->request('GET', '/admin'));
 
@@ -207,7 +207,7 @@ final class PluginAdminPageTest extends HttpTestCase
     {
         $this->actingWithCapabilities(['posts:write']);
         $router = new Router();
-        (new AdminController($this->db, $this->auth, [], $this->registryWithCapability(static fn (): string => 'x', 'users:write')))->routes($router);
+        (new AdminController($this->db, $this->auth, $this->settings(), [], $this->registryWithCapability(static fn (): string => 'x', 'users:write')))->routes($router);
 
         $response = $router->dispatch($this->request('GET', '/admin'));
 

@@ -40,4 +40,21 @@ final class SettingsRepository
             ['k' => $key, 'v' => $value],
         );
     }
+
+    /**
+     * Write several rows **atomically** — all commit or none (SUP-7). The
+     * transaction lives here, on the connection that performs the writes, so it
+     * provably wraps them (a transaction on a *different* connection would not).
+     * A mid-batch failure rolls the whole batch back and rethrows.
+     *
+     * @param array<string,string> $values key => value (keys already validated by the caller)
+     */
+    public function setMany(array $values): void
+    {
+        $this->db->transaction(function () use ($values): void {
+            foreach ($values as $key => $value) {
+                $this->set($key, $value);
+            }
+        });
+    }
 }

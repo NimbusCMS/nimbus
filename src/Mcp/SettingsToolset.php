@@ -117,8 +117,12 @@ final class SettingsToolset implements Toolset
             $values[$key] = $value;
         }
 
-        foreach ($values as $key => $value) {
-            $this->settings->set($key, $value);
+        // Atomic write: all keys commit or none (SUP-7). A mid-batch DB failure
+        // rolls the whole batch back and throws — so we only reach the audit
+        // loop below once every key is durably committed, and a rolled-back
+        // batch emits no (lying) audit event.
+        $this->settings->setMany($values);
+        foreach (array_keys($values) as $key) {
             $this->events->emitBestEffort(CoreEvents::API_MANAGEMENT_WRITTEN, [
                 'token_id' => $principal->tokenId, 'token_name' => $principal->name,
                 'capability' => self::CAPABILITY, 'action' => 'set', 'target' => $key,

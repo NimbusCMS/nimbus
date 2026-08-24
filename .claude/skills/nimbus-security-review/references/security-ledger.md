@@ -17,6 +17,19 @@ When a finding **class** appears here twice, promote it into
 
 ---
 
+### 2026-08-24 · Slice Q — Settings write integrity & operator feedback (SUP-4/SUP-7/SUP-10)
+Reviewed via the Fable security burst **before** building; green-to-build with five must-ships, all honoured (or superseded by a safer design). No Critical/High/Medium in the shipped slice.
+
+- **Reflection surface avoided (Low, ADMIN-10 class) — `src/Admin/SettingsController.php::saveSite`, `templates/settings/index.php`.** SUP-4's operator feedback re-renders the POST response (behind CSRF + `settings:write`) with **validator-sourced** messages through `View::e`; no text is round-tripped through the URL, and the one validator message that echoed submitted input (`site.home`) is now a fixed string. Structurally immune to the crafted-link vector. Guarding tests: `SettingsSiteTest::test_a_hostile_submitted_value_is_escaped_in_the_re_render`, `::test_a_partial_failure_re_renders_with_errors_and_writes_nothing`. **Note:** the design originally proposed a session flash; the platform loop corrected it to re-render (no session-flash mechanism exists), which also removed the redirect channel the security loop worried about.
+- **Audit ↔ persistence parity (informational) — `src/Mcp/SettingsToolset.php`.** `API_MANAGEMENT_WRITTEN` emits moved **after** the atomic `Settings::setMany`, so a rolled-back batch emits no (lying) audit and every persisted key still audits. Guarding test: `McpSettingsToolsTest::test_set_settings_audits_every_key_after_the_atomic_commit` (+ the rollback test proves nothing persists to audit).
+- **Allow-list boundary preserved (Low, over-posting #5) — `Settings::setMany`.** Both callers still build the write map from the registry (never request keys); `setMany` additionally throws on any non-registry key. Guarding test: `McpSettingsToolsTest::test_set_many_refuses_an_unregistered_key`; existing over-posting tests stay green.
+- **No SQL-leak on rollback (would-be Medium if mishandled).** The mid-batch `PDOException` is left to propagate to the kernel `\Throwable` boundary (ref-id only; message only under `Config::debug()`); no `catch(PDOException)` puts raw SQL/values into a `ToolResult`/flash. Honoured in the implementation.
+- **Watch item (do NOT yet promote):** this is the **2nd** sighting of *a fixed-key flash/notice surface being asked to carry variable text* (1st: ADMIN-10). SUP-4 resolved it by re-render, not by carrying text — so it is not an independent recurrence. If the pattern appears **once more**, promote to the threat catalog: *error text crosses a redirect only as a code; the string lives server-side.*
+
+Verdict at build time: **security-green.** What it hardens: the last partial-write hole on the settings surface; audit integrity under failure; MCP-parity operator feedback without opening a reflection surface. Left open (tracked, not this slice): admin `saveSite` writes remain unaudited (pre-existing asymmetry vs MCP) — follow-up filed.
+
+---
+
 ## Findings
 
 ### 2026-08-24 · Slice P — trivial P3 cleanup (SUP-5 + PLUG-9/11 + API-7/SVM-5 cross-ref)

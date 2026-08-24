@@ -7,7 +7,6 @@ namespace Nimbus\Admin;
 use Nimbus\Auth\Auth;
 use Nimbus\Auth\Gate;
 use Nimbus\Auth\RoleRepository;
-use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\HttpException;
@@ -16,8 +15,6 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Url;
 use Nimbus\Settings\Settings;
-use Nimbus\Settings\SettingsRegistry;
-use Nimbus\Settings\SettingsRepository;
 use Nimbus\Support\Config;
 use Nimbus\View\View;
 
@@ -34,6 +31,7 @@ abstract class Controller
     public function __construct(
         protected Connection $db,
         protected Auth $auth,
+        protected Settings $settings,
         protected ?AdminPageRegistry $adminPages = null,
     ) {
         $this->view   = new View(dirname(__DIR__) . '/View/themes/nimbus', [
@@ -133,10 +131,7 @@ abstract class Controller
      */
     protected function siteTitle(): string
     {
-        return $this->siteTitle ??= (new Settings(
-            new SettingsRepository($this->db),
-            new SettingsRegistry(new CollectionRepository($this->db)),
-        ))->title();
+        return $this->siteTitle ??= $this->settings->title();
     }
 
     protected function redirect(string $to): Response

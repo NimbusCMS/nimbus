@@ -16,6 +16,7 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\Url;
+use Nimbus\Settings\Settings;
 
 /**
  * SSO endpoints (ADR 0012). `start` and `callback` are PUBLIC (a user signing in
@@ -32,11 +33,12 @@ final class OAuthController extends Controller
     public function __construct(
         Connection $db,
         Auth $auth,
+        Settings $settings,
         private OAuthProviders $providers,
         ?OAuthService $service = null,
         ?AdminPageRegistry $adminPages = null,
     ) {
-        parent::__construct($db, $auth, $adminPages);
+        parent::__construct($db, $auth, $settings, $adminPages);
         // The service is injectable so tests drive it with a fake provider; in the
         // real runtime it is built from the configured providers.
         $this->service = $service ?? new OAuthService($providers, new OAuthIdentityRepository($db));

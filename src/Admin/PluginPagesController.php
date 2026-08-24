@@ -11,6 +11,7 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\Url;
+use Nimbus\Settings\Settings;
 
 /**
  * Routes the admin pages plugins registered.
@@ -25,9 +26,9 @@ use Nimbus\Http\Url;
  */
 final class PluginPagesController extends Controller
 {
-    public function __construct(Connection $db, Auth $auth, AdminPageRegistry $adminPages)
+    public function __construct(Connection $db, Auth $auth, Settings $settings, AdminPageRegistry $adminPages)
     {
-        parent::__construct($db, $auth, $adminPages);
+        parent::__construct($db, $auth, $settings, $adminPages);
     }
 
     public function routes(Router $r): void

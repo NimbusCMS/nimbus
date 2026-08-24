@@ -102,11 +102,20 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Fix:** add the lint in `register()`; ensure no false positives (a plugin never legitimately DDLs `nb_*`; its own tables are prefixed). Deferred from Slice P because a false-positive-prone regex deserves the full two-skill burst, which was unavailable during the 2026-08-24 model incident.
 - **Effort:** S
 
-### FU-12 · No front-end performance baseline (Lighthouse / Core Web Vitals) ⏳ BASELINE DONE
-- **Update (2026-08-24):** the **baseline is now measured + documented** (`docs/PERFORMANCE.md`): a 15-entry blog index on the starter theme scores **100/100 Lighthouse (mobile)** with perfect Core Web Vitals (FCP/LCP 0.8s, TBT 0ms, CLS 0) at ~5.6 KB / 2 requests / 0 JS, page cache off. README leads with it. **Still open:** a CI perf gate (a Lighthouse assertion or budget) and a representative *content* theme with images/fonts (the starter is a skeleton) — the M-effort half.
+### FU-12 · No front-end performance baseline (Lighthouse / Core Web Vitals) ⏳ BASELINE + CI GATE DONE
+- **Update (2026-08-24, #159):** the **CI perf gate now ships** — `.github/workflows/performance.yml` runs on every published release (+ `workflow_dispatch`), seeds a fixed 3-page-type preset (`tests/perf/seed.php`), and runs Lighthouse (`.lighthouserc.json`, 3 URLs × 3 runs) with **hard composition budgets** (script bytes ≈ 0, transfer ceilings, zero third-party) + warn-tracked score/CWV. Verified end-to-end via a dispatched run. **Still open (only):** a representative *content* theme with images/fonts (the starter is a skeleton) — the remaining M-effort half, folded into the website work under release readiness.
+- **Update (2026-08-24):** the **baseline is measured + documented** (`docs/PERFORMANCE.md`): a 15-entry blog index on the starter theme scores **100/100 Lighthouse (mobile)** with perfect Core Web Vitals (FCP/LCP 0.8s, TBT 0ms, CLS 0) at ~5.6 KB / 2 requests / 0 JS, page cache off. README leads with it.
 - **Priority:** P3 (release-adjacent)
 - **Type:** performance / product
 - **Discovered:** 2026-08-24 (release-readiness discussion).
 - **What:** the public site is fast *by construction* — server-rendered HTML + one ~1 KB external stylesheet (`themes/starter/assets/app.css`), zero mandatory JS, no web fonts, an optional filesystem page cache, and `Cache-Control: public, max-age=3600` on assets. But nothing is *measured*: no Lighthouse / Core Web Vitals run, no perf budget on the public theme, no CI perf gate, and no critical-CSS/preload/font guidance for a real content theme (the starter is a skeleton). Compression (gzip/brotli) is webserver-level (operator's job, like the `/uploads/*` nosniff header). Contrast: WordPress/Drupal/Craft treat CWV as first-class (SEO ranking) — Nimbus's lean-by-default posture is a genuine advantage but is currently a claim, not a proof.
 - **Fix:** establish a baseline — run Lighthouse / a CWV check against a representative page on a real content theme (not the starter skeleton); document the numbers; optionally add a lightweight perf assertion or a documented budget. Consider a `Content-Encoding` note in the deployment docs. Relates to DATA-5 (API list N+1) and HTTP-5 (route-regex) on the server side.
 - **Effort:** S (baseline + docs) / M (CI perf gate + a real theme)
+
+### FU-13 · Admin `saveSite` writes are unaudited (asymmetry vs MCP `set_settings`)
+- **Priority:** P3
+- **Type:** observability / parity
+- **Discovered:** 2026-08-24 (Slice Q security review).
+- **What:** the MCP `set_settings` path emits an `API_MANAGEMENT_WRITTEN` audit event per key, but the admin `SettingsController::saveSite()` path writes the same settings with no audit trail — so a settings change made through the admin UI leaves no record, while the same change via a token does. Pre-existing (not introduced by Slice Q); surfaced while moving the MCP emits post-commit.
+- **Fix:** emit a settings-write audit event from `saveSite()` after the atomic `setMany` commits (mirror the MCP `target`/`action` shape, actor = the session user), or record a deliberate decision that admin-UI settings writes are out of the audit scope. Small.
+- **Effort:** S

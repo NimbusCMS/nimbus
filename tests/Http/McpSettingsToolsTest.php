@@ -190,4 +190,70 @@ final class McpSettingsToolsTest extends HttpTestCase
         self::assertSame('site.description', $seen[0]['target']);
         self::assertSame(7, $seen[0]['token_id']);
     }
+
+    /**
+     * SUP-7 — the multi-key write is atomic. A mid-batch DB failure (here the
+     * second value overflows the TEXT column under STRICT_TRANS_TABLES) rolls
+     * the whole batch back, so the first key must NOT survive. Fails on the
+     * pre-SUP-7 code (which wrote key-by-key and left the first committed).
+     */
+    public function test_set_many_rolls_the_whole_batch_back_on_a_mid_batch_failure(): void
+    {
+        $registry = new SettingsRegistry(new CollectionRepository($this->db));
+        $settings = new Settings(new SettingsRepository($this->db), $registry);
+
+        try {
+            $settings->setMany([
+                'site.title'       => 'Should be rolled back',
+                'site.description' => str_repeat('x', 70000), // > TEXT's 64KB
+            ]);
+            self::fail('expected the over-long value to fail the write');
+        } catch (\PDOException) {
+            // expected — the batch failed
+        }
+
+        $stored = (new SettingsRepository($this->db))->all();
+        self::assertArrayNotHasKey('site.title', $stored, 'the first key must roll back with the batch');
+        self::assertArrayNotHasKey('site.description', $stored);
+    }
+
+    /** SUP-7 — audit parity: one API_MANAGEMENT_WRITTEN event per persisted key,
+     *  emitted after the atomic commit (never for a rolled-back write). */
+    public function test_set_settings_audits_every_key_after_the_atomic_commit(): void
+    {
+        $this->makeCollection('blog');
+        $events = new EventDispatcher();
+        $seen   = [];
+        $events->listen(CoreEvents::API_MANAGEMENT_WRITTEN, static function (array $payload) use (&$seen): void {
+            $seen[] = $payload['target'];
+        });
+
+        $registry = new SettingsRegistry(new CollectionRepository($this->db));
+        $settings = new Settings(new SettingsRepository($this->db), $registry);
+        $toolset  = new SettingsToolset($settings, $registry, $events);
+
+        $toolset->call(
+            'set_settings',
+            ['settings' => ['site.title' => 'Two', 'site.description' => 'Keys']],
+            new TokenPrincipal(7, 'W', ['settings:write']),
+            new EntryOpContext('127.0.0.1', '/mcp'),
+        );
+
+        sort($seen);
+        self::assertSame(['site.description', 'site.title'], $seen, 'exactly one audit event per persisted key');
+        $stored = (new SettingsRepository($this->db))->all();
+        self::assertSame('Two', $stored['site.title']);
+        self::assertSame('Keys', $stored['site.description']);
+    }
+
+    /** setMany refuses a key the registry doesn't know — the allow-list boundary
+     *  survives even a caller that forgot to build the map from the registry. */
+    public function test_set_many_refuses_an_unregistered_key(): void
+    {
+        $registry = new SettingsRegistry(new CollectionRepository($this->db));
+        $settings = new Settings(new SettingsRepository($this->db), $registry);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $settings->setMany(['not.a.real.setting' => 'x']);
+    }
 }

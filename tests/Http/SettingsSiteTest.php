@@ -82,7 +82,11 @@ final class SettingsSiteTest extends HttpTestCase
             'site.description' => 'x',
         ]]);
 
-        $this->assertRedirectsTo($resp, '/admin/settings?flash=site-error');
+        // SUP-4: a failed save re-renders the form (200) with the per-field
+        // message — no redirect, so nothing the operator typed is lost, and no
+        // text is round-tripped through the URL.
+        self::assertSame(200, $resp->status);
+        self::assertStringContainsString('No collection has that handle.', $resp->body);
         self::assertSame([], $this->stored(), 'a failed validation writes nothing at all');
     }
 
@@ -95,7 +99,8 @@ final class SettingsSiteTest extends HttpTestCase
             'site.description' => str_repeat('a', 501),
         ]]);
 
-        $this->assertRedirectsTo($resp, '/admin/settings?flash=site-error');
+        self::assertSame(200, $resp->status);
+        self::assertStringContainsString('under 500 characters', $resp->body);
         self::assertSame([], $this->stored());
     }
 
@@ -107,7 +112,8 @@ final class SettingsSiteTest extends HttpTestCase
         // A CRLF, and a lone control byte — both must be refused, nothing stored.
         foreach (["Nimbus\r\nBcc: e", "Nimbus\x01"] as $bad) {
             $resp = $this->post('/admin/settings/site', ['settings' => ['site.title' => $bad]]);
-            $this->assertRedirectsTo($resp, '/admin/settings?flash=site-error');
+            self::assertSame(200, $resp->status);
+            self::assertStringContainsString('control characters', $resp->body);
             self::assertSame([], $this->stored(), 'a control-char title writes nothing');
         }
     }
@@ -183,7 +189,8 @@ final class SettingsSiteTest extends HttpTestCase
 
         $resp = $this->post('/admin/settings/site', ['settings' => ['site.title' => '   ']]);
 
-        $this->assertRedirectsTo($resp, '/admin/settings?flash=site-error');
+        self::assertSame(200, $resp->status);
+        self::assertStringContainsString('A site title is required.', $resp->body);
         self::assertArrayNotHasKey('site.title', $this->stored());
     }
 
@@ -193,8 +200,45 @@ final class SettingsSiteTest extends HttpTestCase
 
         $resp = $this->post('/admin/settings/site', ['settings' => ['site.title' => str_repeat('a', 81)]]);
 
-        $this->assertRedirectsTo($resp, '/admin/settings?flash=site-error');
+        self::assertSame(200, $resp->status);
+        self::assertStringContainsString('under 80 characters', $resp->body);
         self::assertArrayNotHasKey('site.title', $this->stored());
+    }
+
+    /**
+     * SUP-4 — a partial failure re-renders (200) with the per-field message,
+     * preserves the operator's other input, and writes NOTHING (all-or-nothing).
+     * The redirect-with-generic-flash path is gone, so no failing-field text is
+     * lost and none is round-tripped through the URL (the ADMIN-10 class).
+     */
+    public function test_a_partial_failure_re_renders_with_errors_and_writes_nothing(): void
+    {
+        $this->actingAs('admin');
+
+        $resp = $this->post('/admin/settings/site', ['settings' => [
+            'site.title'       => 'A perfectly good title',   // valid
+            'site.description' => str_repeat('a', 501),        // invalid
+        ]]);
+
+        self::assertSame(200, $resp->status, 're-render, not a redirect');
+        self::assertStringContainsString('under 500 characters', $resp->body);
+        self::assertStringContainsString('A perfectly good title', $resp->body, 'the valid input survives the re-render');
+        self::assertSame([], $this->stored(), 'all-or-nothing: the valid title is not written either');
+    }
+
+    /** SUP-4 — a hostile submitted value that comes back in the re-rendered form
+     *  is escaped at the sink (the overlaid value goes through View::e). */
+    public function test_a_hostile_submitted_value_is_escaped_in_the_re_render(): void
+    {
+        $this->actingAs('admin');
+
+        // Invalid (too long) AND hostile — it returns in the textarea, escaped.
+        $hostile = '"><script>alert(1)</script>' . str_repeat('a', 500);
+        $resp = $this->post('/admin/settings/site', ['settings' => ['site.description' => $hostile]]);
+
+        self::assertSame(200, $resp->status);
+        self::assertStringNotContainsString('<script>alert(1)', $resp->body);
+        self::assertStringContainsString('&lt;script&gt;', $resp->body);
     }
 
     /** A1 (escape-lock) — a hostile stored title is escaped in the admin shell. */

@@ -12,7 +12,6 @@ use Nimbus\Auth\PasswordResetOutcome;
 use Nimbus\Auth\PasswordResetRepository;
 use Nimbus\Auth\PasswordResetService;
 use Nimbus\Auth\UserRepository;
-use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
@@ -21,8 +20,6 @@ use Nimbus\Http\Router;
 use Nimbus\Http\Url;
 use Nimbus\Mail\Mailer;
 use Nimbus\Settings\Settings;
-use Nimbus\Settings\SettingsRegistry;
-use Nimbus\Settings\SettingsRepository;
 use Nimbus\Support\EventDispatcher;
 
 /**
@@ -41,13 +38,12 @@ final class PasswordResetController extends Controller
     private PasswordResetService $service;
     private InvitationService $invitations;
 
-    public function __construct(Connection $db, Auth $auth, Mailer $mailer, EventDispatcher $events, ?AdminPageRegistry $adminPages = null)
+    public function __construct(Connection $db, Auth $auth, Settings $settings, Mailer $mailer, EventDispatcher $events, ?AdminPageRegistry $adminPages = null)
     {
-        parent::__construct($db, $auth, $adminPages);
+        parent::__construct($db, $auth, $settings, $adminPages);
         $accountTokens     = new AccountTokenService(new UserRepository($db), new PasswordResetRepository($db), $events);
-        $settings          = new Settings(new SettingsRepository($db), new SettingsRegistry(new CollectionRepository($db)));
-        $this->service     = new PasswordResetService(new UserRepository($db), $accountTokens, $mailer, $events, $settings);
-        $this->invitations = new InvitationService($accountTokens, $mailer, $settings);
+        $this->service     = new PasswordResetService(new UserRepository($db), $accountTokens, $mailer, $events, $this->settings);
+        $this->invitations = new InvitationService($accountTokens, $mailer, $this->settings);
     }
 
     public function routes(Router $r): void
