@@ -79,7 +79,11 @@ response shapes, not on any PHP class. What is promised:
   service the admin uses — only a collection's declared fields are bound. A write
   needs the collection's `write` scope; a `PATCH`/`DELETE` needs `If-Match`
   carrying the entry's current `ETag` (a read returns it) — absent is `428`,
-  stale is `412`, so machine clients cannot silently overwrite each other.
+  stale is `412`, so machine clients cannot silently overwrite each other. The
+  check is an atomic compare-and-swap at the write, not just at request entry, so
+  a write that races another between the read and the write also gets `412` (no
+  lost update). `If-Match: *` is honored as "the version I just read" — a `*` write
+  that loses that race is a `412` too; retry with a fresh read.
   Values are **bounded** (a violation is a `422`, never a `500`): `title` ≤ 255,
   an explicit `slug` ≤ 191, a scalar text field to its `maxlength` field option
   (default 255 text / 50 000 textarea, and every scalar string to a hard ceiling),

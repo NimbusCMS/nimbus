@@ -7,7 +7,11 @@ namespace Nimbus\Database;
 /**
  * A minimal forward-only migrator. Each file in migrations/ returns an array of
  * SQL statements; applied files are recorded in nb_migrations so migrate() is
- * idempotent.
+ * idempotent. Idempotency holds at statement granularity too: a statement a prior
+ * partial run already applied (MySQL auto-commits DDL, but the file was never
+ * recorded) is detected as "already exists" and skipped as a no-op, so a
+ * partially-applied migration self-heals on re-run instead of wedging (DATA-4).
+ * Genuine errors still fail closed.
  *
  * Plugins may declare migrations for their own tables ([ADR 0005](../../../docs/adr/0005-plugin-owned-storage.md));
  * they run *after* core's, since a plugin's tables may reference core's, and are
@@ -52,7 +56,7 @@ final class Migrator
             /** @var array<int,mixed> $statements */
             $statements = require $file;
             try {
-                $this->runStatements((array) $statements);
+                $this->runStatements((array) $statements, $name);
             } catch (\PDOException $e) {
                 throw new MigrationFailed("Core migration \"{$name}\" failed: " . $e->getMessage(), 0, $e);
             }
@@ -71,7 +75,7 @@ final class Migrator
                 continue; // already applied, or this provider already failed → skip its rest
             }
             try {
-                $this->runStatements($migration['statements']);
+                $this->runStatements($migration['statements'], $name);
             } catch (\PDOException $e) {
                 // Isolate: record and skip the rest of THIS provider; other
                 // providers (and core, already done) are untouched.
@@ -117,7 +121,7 @@ final class Migrator
      *
      * @param array<int,mixed> $statements
      */
-    private function runStatements(array $statements): void
+    private function runStatements(array $statements, string $name = ''): void
     {
         $total = count($statements);
         foreach (array_values($statements) as $i => $sql) {
@@ -128,6 +132,15 @@ final class Migrator
             try {
                 $this->db->pdo()->exec($sql);
             } catch (\PDOException $e) {
+                // A statement a prior partial run already applied (DDL auto-commits
+                // in MySQL, but the migration was never recorded) → treat as an
+                // already-applied no-op so the file self-heals on re-run (DATA-4).
+                // Check the ORIGINAL exception's errorInfo — the re-wrap below has
+                // none — and make the skip VISIBLE, never silent.
+                if (Connection::isDuplicateObject($e)) {
+                    error_log(sprintf('[nimbus migrate] %s: statement %d of %d already applied, skipping (%s)', $name, $i + 1, $total, $e->getMessage()));
+                    continue;
+                }
                 throw new \PDOException(sprintf('statement %d of %d: %s', $i + 1, $total, $e->getMessage()), 0, $e);
             }
         }

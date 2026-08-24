@@ -16,8 +16,13 @@ use Nimbus\Support\Str;
  * boundary (entry + its relations), and post-commit event dispatch. The
  * database — via its unique constraints — is the final authority; the app-level
  * checks here are only for friendly feedback.
+ *
+ * Not `final`: {@see \Nimbus\Api\EntryOperations} accepts an injected instance so
+ * a test can substitute a double that exercises the optimistic-concurrency
+ * window (the read→write race the version CAS closes). Production always uses the
+ * real class.
  */
-final class EntryService
+class EntryService
 {
     /** Deterministic slug for singletons — with UNIQUE(collection_id, slug) it guarantees one row. */
     public const SINGLETON_SLUG = '__singleton';
@@ -40,7 +45,14 @@ final class EntryService
         $this->mediaUsage = new MediaUsageRepository($db);
     }
 
-    public function save(Collection $collection, EntryInput $input, ?int $entryId, ?int $userId): SaveEntryResult
+    /**
+     * @param ?int $expectedVersion optimistic-concurrency guard for an update: when
+     *   non-null, the UPDATE is a compare-and-swap and a version mismatch throws
+     *   {@see EntryConcurrencyConflict} (the API/MCP write layer maps it to 412).
+     *   The admin passes null (last-write-wins). Ignored on a create.
+     * @throws EntryConcurrencyConflict
+     */
+    public function save(Collection $collection, EntryInput $input, ?int $entryId, ?int $userId, ?int $expectedVersion = null): SaveEntryResult
     {
         // Refuse to write through a field type nobody provides: normalizing the
         // value with the wrong type would silently rewrite what is stored.
@@ -97,7 +109,7 @@ final class EntryService
 
         $created = $entryId === null;
         try {
-            $id = $this->persist($collection, $entryId, $title, $slug, $input->status, $publishedAt, $data, $relationValues, $mediaValues, $userId);
+            $id = $this->persist($collection, $entryId, $title, $slug, $input->status, $publishedAt, $data, $relationValues, $mediaValues, $userId, $expectedVersion);
         } catch (\PDOException $e) {
             if (!Connection::isDuplicateKey($e)) {
                 throw $e;
@@ -134,10 +146,15 @@ final class EntryService
      * would be acting on a deletion that never happened. Callers are free to
      * redirect identically either way; events must not be.
      */
-    public function delete(Collection $collection, int $entryId): bool
+    /**
+     * @param ?int $expectedVersion compare-and-swap guard (API/MCP): a version
+     *   mismatch throws {@see EntryConcurrencyConflict}. Admin passes null.
+     * @throws EntryConcurrencyConflict
+     */
+    public function delete(Collection $collection, int $entryId, ?int $expectedVersion = null): bool
     {
         $deleted = $this->db->transaction(
-            fn (): int => $this->entries->delete($collection->id, $entryId),
+            fn (): int => $this->entries->delete($collection->id, $entryId, $expectedVersion),
         ) > 0;
 
         if ($deleted) {
@@ -153,15 +170,15 @@ final class EntryService
      * @param array<int,int[]>    $relationValues
      * @param array<int,int[]>    $mediaValues media ids per field id, for the usage index
      */
-    private function persist(Collection $c, ?int $entryId, string $title, string $slug, string $status, ?string $publishedAt, array $data, array $relationValues, array $mediaValues, ?int $userId): int
+    private function persist(Collection $c, ?int $entryId, string $title, string $slug, string $status, ?string $publishedAt, array $data, array $relationValues, array $mediaValues, ?int $userId, ?int $expectedVersion = null): int
     {
-        return $this->db->transaction(function () use ($c, $entryId, $title, $slug, $status, $publishedAt, $data, $relationValues, $mediaValues, $userId): int {
+        return $this->db->transaction(function () use ($c, $entryId, $title, $slug, $status, $publishedAt, $data, $relationValues, $mediaValues, $userId, $expectedVersion): int {
             $attrs = ['title' => $title, 'slug' => $slug, 'status' => $status, 'published_at' => $publishedAt, 'data' => $data];
             if ($entryId === null) {
                 $id = $this->entries->create($c->id, $attrs, $userId);
             } else {
                 $id = $entryId;
-                $this->entries->update($c->id, $id, $attrs);
+                $this->entries->update($c->id, $id, $attrs, $expectedVersion);
             }
             foreach ($relationValues as $fieldId => $ids) {
                 $this->relations->sync($id, $fieldId, $ids);

@@ -165,18 +165,34 @@ final class EntryRepository
     }
 
     /** @param array{title: string, slug: string, status: string, data: array<string,mixed>, published_at: ?string} $attrs */
-    public function update(int $collectionId, int $id, array $attrs): void
+    /**
+     * @param array<string,mixed> $attrs
+     * @param ?int $expectedVersion when non-null, an atomic compare-and-swap:
+     *   the UPDATE only applies if the row is still at this version, else it
+     *   throws {@see EntryConcurrencyConflict} (rowCount 0). The version+1 in the
+     *   SET clause guarantees a matched row always *changes*, so rowCount reliably
+     *   reflects a match even without MYSQL_ATTR_FOUND_ROWS — do not add a
+     *   "skip write when unchanged" optimization without revisiting this.
+     */
+    public function update(int $collectionId, int $id, array $attrs, ?int $expectedVersion = null): void
     {
         $now = date('Y-m-d H:i:s');
 
         // version bumps on every update — it is the entry's optimistic-concurrency
         // token (ADR 0007), surfaced as the API's ETag.
-        $this->db->execute(
-            'UPDATE nb_entries SET title = :t, slug = :sl, status = :st, data = :d, published_at = :p, updated_at = :u, version = version + 1
-             WHERE collection_id = :c AND id = :id',
-            ['t' => $attrs['title'], 'sl' => $attrs['slug'], 'st' => $attrs['status'], 'd' => json_encode($attrs['data'], JSON_THROW_ON_ERROR),
-             'p' => $attrs['published_at'], 'u' => $now, 'c' => $collectionId, 'id' => $id],
-        );
+        $sql    = 'UPDATE nb_entries SET title = :t, slug = :sl, status = :st, data = :d, published_at = :p, updated_at = :u, version = version + 1
+             WHERE collection_id = :c AND id = :id';
+        $params = ['t' => $attrs['title'], 'sl' => $attrs['slug'], 'st' => $attrs['status'], 'd' => json_encode($attrs['data'], JSON_THROW_ON_ERROR),
+            'p' => $attrs['published_at'], 'u' => $now, 'c' => $collectionId, 'id' => $id];
+        if ($expectedVersion !== null) {
+            $sql .= ' AND version = :ev';
+            $params['ev'] = $expectedVersion;
+        }
+
+        $affected = $this->db->execute($sql, $params);
+        if ($expectedVersion !== null && $affected === 0) {
+            throw new EntryConcurrencyConflict();
+        }
     }
 
     /** The published_at currently stored for an entry, or null. */
@@ -229,12 +245,27 @@ final class EntryRepository
     }
 
     /** @return int rows removed — 0 when the entry was absent or belongs to another collection */
-    public function delete(int $collectionId, int $id): int
+    /**
+     * @param ?int $expectedVersion when non-null, a compare-and-swap delete: it
+     *   removes the row only if still at this version, else throws
+     *   {@see EntryConcurrencyConflict} (rowCount 0). rowCount 0 conflates
+     *   "version changed" and "already gone" — both are correctly a 412 under
+     *   If-Match (no current representation), so do not "fix" one into a 404.
+     */
+    public function delete(int $collectionId, int $id, ?int $expectedVersion = null): int
     {
-        return $this->db->execute(
-            'DELETE FROM nb_entries WHERE collection_id = :c AND id = :id',
-            ['c' => $collectionId, 'id' => $id],
-        );
+        $sql    = 'DELETE FROM nb_entries WHERE collection_id = :c AND id = :id';
+        $params = ['c' => $collectionId, 'id' => $id];
+        if ($expectedVersion !== null) {
+            $sql .= ' AND version = :ev';
+            $params['ev'] = $expectedVersion;
+        }
+
+        $affected = $this->db->execute($sql, $params);
+        if ($expectedVersion !== null && $affected === 0) {
+            throw new EntryConcurrencyConflict();
+        }
+        return $affected;
     }
 
     /**

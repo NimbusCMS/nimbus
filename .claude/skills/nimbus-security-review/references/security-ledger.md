@@ -19,6 +19,34 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice L — write-concurrency lost-update closed + migration self-heal (API-4/DATA-4)
+- **Status:** fixed. Fable two-skill burst — **security-green, no Critical/High.** API-4 Medium
+  (data-integrity), DATA-4 Low (availability/ops). Catalog: TOCTOU / lost-update (data-integrity).
+- **Surface:** `src/Api/EntryOperations.php`, `src/Content/EntryRepository.php`,
+  `src/Content/EntryService.php`, `src/Content/EntryConcurrencyConflict.php`,
+  `src/Database/Migrator.php`, `src/Database/Connection.php`.
+- **API-4 (Medium, fixed) — lost update via the read→check→write gap.** Two writers both holding
+  version N both pass `Precondition::evaluate` (nothing mutated at check time), and the version-less
+  UPDATE applied both → first writer's change lost with a 200, breaking the If-Match guarantee
+  COMPATIBILITY sells. **Medium not High:** both racers already hold `{handle}:write` (a broken
+  contract, not a boundary break). **Fix = atomic CAS:** `AND version = :expected`, `rowCount 0` →
+  `EntryConcurrencyConflict` → 412. A single atomic UPDATE closes the race with **no `SELECT FOR
+  UPDATE`** — InnoDB serializes competing writers on the row lock, the loser re-evaluates the WHERE
+  against the committed row → 0 rows. **DELETE also CAS'd** (a stale delete is the destructive half).
+  No new leak: the conflict maps to the existing 412 at both call sites (never a 500 — pinned by a
+  test), and a CAS-miss 412 is the same envelope whether the row changed or vanished (no oracle
+  beyond what the write already reveals). Admin path (expected=null) unchanged. Guard:
+  `EntryConcurrencyTest` (stale save/delete → conflict + rollback + no event; 412-not-500).
+- **DATA-4 (Low, fixed) — partial migration self-heal.** `runStatements` skips "object already
+  exists" (1050/1060/1061/1826) as already-applied; **excludes 1062** (row dup stays fatal). Masking
+  property identical to `IF NOT EXISTS` and acceptable under the additive-forward-only contract; a
+  hostile in-process plugin could already DDL `nb_*` (pre-existing Low, ADR 0001/0005) — no new
+  attacker capability, only a small loss of anomaly *visibility*, restored by the mandatory skip log.
+  Genuine errors still fail closed. Guard: `MigrationRecoveryTest`.
+- **Left open (recorded):** singleton create-races resolve to an un-CAS'd update (pre-existing);
+  hostile in-process plugin DDL (pre-existing Low); DATA-5 N+1; errno 3822 (CHECK dup) to add if
+  CHECK constraints ever land.
+
 ### 2026-08-23 · Slice K — role-delete authz gap + public page-cache disk-fill (ADMIN-3/SVM-1/SVM-2)
 - **Status:** fixed. Fable two-skill burst — **security-green, no Critical/High.** Two Mediums
   (ADMIN-3, SVM-1) + one Low (SVM-2), all fixed in-PR with guarding tests; ADMIN-9 = recorded
