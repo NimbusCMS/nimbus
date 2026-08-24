@@ -119,3 +119,11 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **What:** the MCP `set_settings` path emits an `API_MANAGEMENT_WRITTEN` audit event per key, but the admin `SettingsController::saveSite()` path writes the same settings with no audit trail — so a settings change made through the admin UI leaves no record, while the same change via a token does. Pre-existing (not introduced by Slice Q); surfaced while moving the MCP emits post-commit.
 - **Fix:** emit a settings-write audit event from `saveSite()` after the atomic `setMany` commits (mirror the MCP `target`/`action` shape, actor = the session user), or record a deliberate decision that admin-UI settings writes are out of the audit scope. Small.
 - **Effort:** S
+
+### FU-14 · Deleting a collection silently breaks relation fields that target it
+- **Priority:** P3
+- **Type:** correctness (data integrity)
+- **Discovered:** 2026-08-24 (Slice R platform review).
+- **What:** ADMIN-14a validates a relation field's `target` at *write* time (the target must be an existing collection). But nothing guards the *reverse*: deleting collection X while another collection's relation field still targets X leaves that field pointing at a now-missing collection — the same dead-relation/empty-picker state 14a prevents on write, reached from the other direction. Fail-closed today (reads resolve to `[]`, no 500), so it's a silent product papercut, not a security bug.
+- **Fix:** at collection delete, either warn/refuse when a relation field elsewhere targets it (mirroring the media in-use guard), or null/re-point those fields deliberately. Decide the semantics; small once decided.
+- **Effort:** S

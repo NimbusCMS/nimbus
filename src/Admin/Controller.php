@@ -157,6 +157,33 @@ abstract class Controller
     }
 
     /**
+     * Resolve a post-redirect notice from fixed CODES — never free text
+     * (ADMIN-10). `?msg=<code>` is looked up in $ok, `?err=<code>` in $err; an
+     * unknown or absent code resolves to `null` (renders nothing). The query
+     * carries only a key; the map owns the string — so a crafted `?err=`/`?msg=`
+     * link can never paint attacker-chosen text into a trusted admin banner.
+     * This is the one blessed admin-notice mechanism (mirrors
+     * {@see SettingsController::oauthFlash()}); templates render the resolved
+     * `{kind,message}`, never `$_GET` text.
+     *
+     * @param array<string,string> $ok  success code => fixed message
+     * @param array<string,string> $err error code => fixed message
+     * @return array{kind:string,message:string}|null
+     */
+    protected function notice(Request $req, array $ok, array $err): ?array
+    {
+        $msg = $req->query('msg');
+        if ($msg !== null && isset($ok[$msg])) {
+            return ['kind' => 'ok', 'message' => $ok[$msg]];
+        }
+        $error = $req->query('err');
+        if ($error !== null && isset($err[$error])) {
+            return ['kind' => 'error', 'message' => $err[$error]];
+        }
+        return null;
+    }
+
+    /**
      * Reject a state-changing request without a valid CSRF token. Shared by
      * every admin controller so no write path can forget it.
      */

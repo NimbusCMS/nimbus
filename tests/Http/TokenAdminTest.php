@@ -37,6 +37,29 @@ final class TokenAdminTest extends HttpTestCase
         self::assertStringContainsString('Marketing site', $response->body);
     }
 
+    public function test_lifecycle_on_a_missing_id_reports_a_real_failure_not_a_false_success(): void
+    {
+        // ADMIN-14b: POST revoke on a nonexistent id used to flash "Token revoked."
+        $this->actingAs('admin');
+
+        $this->assertRedirects($this->post('/admin/tokens/999999/revoke'), '/admin/tokens?err=not-found');
+        $body = $this->get('/admin/tokens', ['err' => 'not-found'])->body;
+        self::assertStringContainsString('That token no longer exists.', $body);
+        self::assertStringNotContainsString('Token revoked.', $body);
+    }
+
+    public function test_an_idempotent_re_revoke_of_a_real_token_stays_a_success(): void
+    {
+        // ADMIN-14b/A6: existence is checked, not affected-rows — so re-revoking a
+        // real (already-revoked) token is still a success, never a false 'not-found'.
+        $this->actingAs('admin');
+        $this->tokens->create('Reusable');
+        $id = $this->tokens->all()[0]->id;
+
+        $this->assertRedirects($this->post("/admin/tokens/{$id}/revoke"), '/admin/tokens?msg=revoked');
+        $this->assertRedirects($this->post("/admin/tokens/{$id}/revoke"), '/admin/tokens?msg=revoked');
+    }
+
     public function test_a_non_admin_is_turned_away(): void
     {
         $this->actingAs('editor');

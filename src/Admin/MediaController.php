@@ -30,6 +30,17 @@ use Nimbus\Support\Config;
  */
 final class MediaController extends Controller
 {
+    /** ADMIN-10: only success codes survive a redirect; errors are server-rendered. */
+    private const OK_NOTICES = [
+        'uploaded' => 'File uploaded.',
+        'deleted'  => 'File deleted.',
+    ];
+    /** The only error code — the A4 fallback when a media:write actor without
+     *  media:read triggers an error we can't render the library page for. */
+    private const ERR_NOTICES = [
+        'denied' => 'That action couldn’t be completed.',
+    ];
+
     private MediaRepository $media;
     private MediaUploader $uploader;
     private MediaService $service;
@@ -56,17 +67,35 @@ final class MediaController extends Controller
         });
     }
 
-    private function index(Request $req): Response
+    /** $error is a server-built failure message to show inline (never from the
+     *  URL — ADMIN-10); null on a normal GET. */
+    private function index(Request $req, ?string $error = null): Response
     {
         $this->requireCan('media', 'read');
 
         return $this->page('media/index', 'media', [
             'items'    => $this->media->all(),
             'maxLabel' => $this->humanBytes(Config::uploadMaxBytes()),
-            'flash'    => $req->query('msg'),
-            'error'    => $req->query('err'),
+            'notice'   => $this->notice($req, self::OK_NOTICES, self::ERR_NOTICES),
+            'error'    => $error,
             'csrf'     => Csrf::token(),
         ]);
+    }
+
+    /**
+     * A media write action failed. The library listing is media:read while the
+     * write itself is only media:write (deliberately independent) — so re-render
+     * the library with the error ONLY when this actor may read it (A4); otherwise
+     * redirect with a generic code, never handing a write-without-read actor the
+     * listing. The message is server-built and escaped by the view (never
+     * round-tripped through the URL).
+     */
+    private function renderMediaError(Request $req, string $message): Response
+    {
+        if ($this->gate->can('media', 'read')) {
+            return $this->index($req, $message);
+        }
+        return $this->redirect(Url::to('admin.media.index') . '?err=denied');
     }
 
     private function store(Request $req): Response
@@ -79,17 +108,17 @@ final class MediaController extends Controller
 
         $file = $req->file('file');
         if ($file === null) {
-            return $this->redirect(Url::to('admin.media.index') . '?err=' . rawurlencode('No file was selected.'));
+            return $this->renderMediaError($req, 'No file was selected.');
         }
         if ($this->tooLong($req->input('alt'), 255)) { // nb_media.alt VARCHAR(255)
-            return $this->redirect(Url::to('admin.media.index') . '?err=' . rawurlencode('Alt text must be 255 characters or fewer.'));
+            return $this->renderMediaError($req, 'Alt text must be 255 characters or fewer.');
         }
 
         try {
             $this->uploader->store($file, $this->auth->user()?->id, $req->input('alt'));
         } catch (UploadError $e) {
-            // The message is user-safe by construction.
-            return $this->redirect(Url::to('admin.media.index') . '?err=' . rawurlencode($e->getMessage()));
+            // The message is user-safe by construction (server-built, no request text).
+            return $this->renderMediaError($req, $e->getMessage());
         }
         return $this->redirect(Url::to('admin.media.index') . '?msg=uploaded');
     }
@@ -105,8 +134,11 @@ final class MediaController extends Controller
         try {
             $this->service->delete($id);
         } catch (MediaInUse $e) {
+            // The usage detail includes entry titles (author-controlled) — it is
+            // server-rendered and escaped by the view (A3), never round-tripped
+            // through the URL, and only shown to an actor who may read the library.
             $where = array_map(static fn (array $u): string => "{$u['entry_title']} ({$u['collection']}/{$u['field_handle']})", $e->usage);
-            return $this->redirect(Url::to('admin.media.index') . '?err=' . rawurlencode('In use by: ' . implode(', ', $where)));
+            return $this->renderMediaError($req, 'In use by: ' . implode(', ', $where));
         }
         return $this->redirect(Url::to('admin.media.index') . '?msg=deleted');
     }

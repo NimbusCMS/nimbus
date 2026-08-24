@@ -30,6 +30,27 @@ use Nimbus\Support\EventDispatcher;
  */
 final class UsersController extends Controller
 {
+    /** ADMIN-10: post-redirect notices are fixed CODE→string maps (never URL text). */
+    private const OK_NOTICES = [
+        'created'        => 'User created.',
+        'invited'        => 'Invite sent.',
+        'invited-nomail' => 'User created — but the invite email couldn’t be sent (check your mail settings).',
+        'invite-sent'    => 'Invite re-sent.',
+        'invite-nomail'  => 'Couldn’t send the invite email (check your mail settings).',
+        'updated'        => 'User updated.',
+    ];
+    private const ERR_NOTICES = [
+        'email-required' => 'A valid email is required.',
+        'email-too-long' => 'Email must be 191 characters or fewer.',
+        'name-too-long'  => 'Name must be 120 characters or fewer.',
+        'email-exists'   => 'A user with that email already exists.',
+        'weak-password'  => 'Choose a password of at least ' . Password::MIN_LENGTH . ' non-default characters.',
+        'role-ungrantable' => 'You can’t assign a role that grants more than you hold.',
+        'not-found'      => 'No such user.',
+        'not-pending'    => 'That user has already accepted their invite (or was never invited).',
+        'last-admin'     => 'This is the only admin — give another user the admin role first.',
+    ];
+
     private UserRepository $users;
     private RoleRepository $roles;
     private InvitationService $invitations;
@@ -78,8 +99,7 @@ final class UsersController extends Controller
             // Users with an unused invite token — the "Resend invite" affordance
             // shows only for these (one query, no N+1).
             'pending'      => $this->resets->pendingInviteUserIds(),
-            'flash'        => $req->query('msg'),
-            'error'        => $req->query('err'),
+            'notice'       => $this->notice($req, self::OK_NOTICES, self::ERR_NOTICES),
             'csrf'         => Csrf::token(),
         ]);
     }
@@ -91,23 +111,23 @@ final class UsersController extends Controller
 
         $email = strtolower(trim((string) $req->input('email')));
         if ($email === '' || !str_contains($email, '@')) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('A valid email is required.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=email-required');
         }
         if ($this->tooLong($email, 191)) { // nb_users.email VARCHAR(191)
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('Email must be 191 characters or fewer.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=email-too-long');
         }
         if ($this->tooLong(trim((string) $req->input('name')), 120)) { // nb_users.name VARCHAR(120)
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('Name must be 120 characters or fewer.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=name-too-long');
         }
         if ($this->users->emailExists($email)) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode("A user with email \"{$email}\" already exists."));
+            return $this->redirect(Url::to('admin.users.index') . '?err=email-exists');
         }
         // Blank password → email an invite (the user sets their own); a typed
         // password → direct create (the fallback, e.g. a no-mail install).
         $password = (string) $req->input('password');
         $invite   = trim($password) === '';
         if (!$invite && Password::isWeak($password)) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('Choose a password of at least ' . Password::MIN_LENGTH . ' non-default characters.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=weak-password');
         }
         $name = trim((string) $req->input('name'));
         if ($name === '') {
@@ -117,7 +137,7 @@ final class UsersController extends Controller
         $roleIds     = $this->roleIdsFrom($req);
         $ungrantable = $this->firstUngrantableRole($roleIds);
         if ($ungrantable !== null) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode("You cannot assign the \"{$ungrantable}\" role — it grants more than you hold."));
+            return $this->redirect(Url::to('admin.users.index') . '?err=role-ungrantable');
         }
 
         // An invited account gets a random, unusable password: no plaintext ever
@@ -154,19 +174,19 @@ final class UsersController extends Controller
 
         $user = $this->users->find($id);
         if ($user === null) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('No such user.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=not-found');
         }
 
         // Subset-only: don't let a lesser manager trigger token issuance / mail
         // against a user who holds a role they cannot grant (mirrors update()).
         $ungrantable = $this->firstUngrantableRole(array_map(static fn ($r): int => $r->id, $this->roles->rolesForUser($id)));
         if ($ungrantable !== null) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode("You cannot re-invite this user — the \"{$ungrantable}\" role grants more than you hold."));
+            return $this->redirect(Url::to('admin.users.index') . '?err=role-ungrantable');
         }
 
         // Only a pending invite can be resent; an active account is not re-invitable.
         if (!$this->resets->hasPendingInvite($id)) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('That user has already accepted their invite (or was never invited).'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=not-pending');
         }
 
         $sent = $this->invitations->sendInvite($id, $user->email);
@@ -180,7 +200,7 @@ final class UsersController extends Controller
 
         $user = $this->users->find($id);
         if ($user === null) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('No such user.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=not-found');
         }
 
         $roleIds = $this->roleIdsFrom($req);
@@ -192,7 +212,7 @@ final class UsersController extends Controller
         $ungrantable = $this->firstUngrantableRole($roleIds)
             ?? $this->firstUngrantableRole(array_map(static fn ($r): int => $r->id, $this->roles->rolesForUser($id)));
         if ($ungrantable !== null) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode("You cannot grant or change the \"{$ungrantable}\" role — it grants more than you hold."));
+            return $this->redirect(Url::to('admin.users.index') . '?err=role-ungrantable');
         }
 
         // Never let the last admin be stripped of the admin role.
@@ -201,12 +221,12 @@ final class UsersController extends Controller
             && !in_array($adminRole->id, $roleIds, true)
             && $this->userHasRole($id, $adminRole->id)
             && $this->roles->assignedUserCount($adminRole->id) <= 1) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('This is the only admin — give another user the admin role first.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=last-admin');
         }
 
         $name = trim((string) $req->input('name'));
         if ($this->tooLong($name, 120)) { // nb_users.name VARCHAR(120)
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('Name must be 120 characters or fewer.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=name-too-long');
         }
         if ($name !== '') {
             $this->users->setName($id, $name);

@@ -125,6 +125,14 @@ final class ApiTokenRepository
     }
 
     /** Permanently revoke a token. Terminal and idempotent: the timestamp never moves. */
+    /** Does a token row with this id exist? Lifecycle uses this to report a real
+     *  failure for a nonexistent id instead of a false success (ADMIN-14b), while
+     *  keeping an idempotent re-revoke/pause/resume of a real token a success. */
+    public function exists(int $id): bool
+    {
+        return $this->db->selectOne('SELECT 1 AS x FROM nb_api_tokens WHERE id = :id', ['id' => $id]) !== null;
+    }
+
     public function revoke(int $id): void
     {
         $this->db->execute(

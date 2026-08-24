@@ -6,8 +6,7 @@
  * @var \Nimbus\Auth\Role[]            $roles       roles the actor may bind (grantable)
  * @var array<int,string>             $roleNames   role id => name, for the list
  * @var ?string                        $justCreated one-time plaintext to display, or null
- * @var ?string                        $flash
- * @var ?string                        $error
+ * @var array{kind:string,message:string}|null $notice resolved admin notice (ADMIN-10)
  * @var string                         $csrf
  * @var string                         $nonce single-use, guards against reload-resubmit
  */
@@ -16,12 +15,6 @@ use Nimbus\View\View;
 $e = static fn (?string $v): string => View::e($v);
 
 $expiryLabel = ['never' => 'Never', '30d' => 'In 30 days', '90d' => 'In 90 days', '1y' => 'In 1 year'];
-$flashLabel  = [
-    'revoked'  => 'Token revoked.',
-    'paused'   => 'Token paused.',
-    'resumed'  => 'Token resumed.',
-    'resubmit' => 'That form had already been submitted — no token was created.',
-];
 
 // Reuse the existing badge palette: active is good, revoked is danger, the rest muted.
 $badge = static fn (string $status): string => match ($status) {
@@ -49,10 +42,8 @@ $access = static function (\Nimbus\Api\ApiToken $t) use ($roleNames): string {
     <h1>API tokens</h1>
 </div>
 
-<?php if ($error !== null): ?>
-    <div class="nb-alert nb-alert-error"><?= $e($error) ?></div>
-<?php elseif ($flash !== null && isset($flashLabel[$flash])): ?>
-    <div class="nb-alert nb-alert-ok"><?= $e($flashLabel[$flash]) ?></div>
+<?php if ($notice !== null): ?>
+    <div class="nb-alert nb-alert-<?= $notice['kind'] === 'ok' ? 'ok' : 'error' ?>"><?= $e($notice['message']) ?></div>
 <?php endif; ?>
 
 <?php if ($justCreated !== null): ?>

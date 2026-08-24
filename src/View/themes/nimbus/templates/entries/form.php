@@ -4,6 +4,7 @@
  * @var array{id:?int,title:string,slug:string,status:string,values:array} $model
  * @var array<string,string>              $errors   per-field messages, keyed by input name
  * @var string                            $topError a non-field failure (missing provider), or ''
+ * @var array{kind:string,message:string}|null $notice resolved admin notice (ADMIN-10)
  * @var \Nimbus\Content\FieldTypeRegistry  $types
  * @var string                            $csrf
  */
@@ -24,7 +25,7 @@ $heading = $single ? $e($collection->name) : ($editing ? 'Edit' : 'New') . ' · 
     <a class="nb-btn" href="<?= $e($backUrl) ?>">← Back</a>
 </div>
 
-<?php if (!empty($flash)): ?><div class="nb-alert nb-alert-ok"><?= $e(ucfirst($flash)) ?>.</div><?php endif; ?>
+<?php if ($notice !== null): ?><div class="nb-alert nb-alert-<?= $notice['kind'] === 'ok' ? 'ok' : 'error' ?>"><?= $e($notice['message']) ?></div><?php endif; ?>
 <?php if ($topError !== ''): ?>
     <div class="nb-alert nb-alert-error"><?= $e($topError) ?></div>
 <?php elseif ($errors !== []): ?>

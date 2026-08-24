@@ -333,6 +333,10 @@ try {
             }
             $repo   = new Nimbus\Api\ApiTokenRepository($db);
             $action = substr($command, strlen('token:')); // revoke | pause | resume
+            if (!$repo->exists((int) $id)) { // ADMIN-14b: no phantom success for a missing id
+                fwrite(STDERR, "No token with id {$id}.\n");
+                exit(1);
+            }
             match ($action) {
                 'revoke' => $repo->revoke((int) $id),
                 'pause'  => $repo->pause((int) $id),

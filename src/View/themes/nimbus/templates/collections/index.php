@@ -9,7 +9,7 @@ $e = static fn (?string $v): string => View::e($v);
     <?php if ($isAdmin): ?><a class="nb-btn nb-btn-primary" href="/admin/collections/new">+ New collection</a><?php endif; ?>
 </div>
 
-<?php if (!empty($flash)): ?><div class="nb-alert nb-alert-ok"><?= $e(ucfirst($flash)) ?>.</div><?php endif; ?>
+<?php if ($notice !== null): ?><div class="nb-alert nb-alert-<?= $notice['kind'] === 'ok' ? 'ok' : 'error' ?>"><?= $e($notice['message']) ?></div><?php endif; ?>
 
 <?php if ($rows === []): ?>
     <div class="nb-empty-panel">

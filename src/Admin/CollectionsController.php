@@ -30,6 +30,13 @@ use Nimbus\Support\Str;
  */
 final class CollectionsController extends Controller
 {
+    /** ADMIN-10: post-redirect notices are fixed CODE→string maps (never URL text). */
+    private const OK_NOTICES = [
+        'created' => 'Collection created.',
+        'updated' => 'Collection updated.',
+        'deleted' => 'Collection deleted.',
+    ];
+
     private CollectionRepository $collections;
     private CollectionService $collectionService;
 
@@ -77,7 +84,7 @@ final class CollectionsController extends Controller
         return $this->page('collections/index', 'collections', [
             'rows'    => $rows,
             'isAdmin' => $this->gate->can('schema', 'write'),
-            'flash'   => $req->query('msg'),
+            'notice'  => $this->notice($req, self::OK_NOTICES, []),
         ]);
     }
 
@@ -233,14 +240,30 @@ final class CollectionsController extends Controller
         // and over the *normalized* handles (the edit form re-submits every field,
         // so a collision — silent-overwrite or 500 — always appears as two rows
         // here). Keyed `fields.{i}` to render on the offending row.
+        // Existing collection handles, for validating a relation field's target
+        // server-side (ADMIN-14a): the form offers a dropdown of real handles, but
+        // the server must reject a crafted/blank/deleted target rather than store
+        // it — a bogus target silently yields an empty picker and dead relations.
+        // On create the new collection isn't in this set yet, so a self-target is
+        // rejected (matching the dropdown's own limitation); on edit it is present.
+        $handles = [];
+        foreach ($this->collections->all() as $c) {
+            $handles[$c->handle] = true;
+        }
+
         $seen = [];
         foreach ($draft['fields'] as $i => $field) {
+            $target = $field->type === 'relation' ? (string) $field->option('target', '') : '';
             if ($this->tooLong($field->label, CollectionService::LABEL_MAX)) {
                 $errors["fields.$i"] = 'Field label must be ' . CollectionService::LABEL_MAX . ' characters or fewer.';
             } elseif ($this->tooLong($field->handle, CollectionService::HANDLE_MAX)) {
                 $errors["fields.$i"] = 'Field handle must be ' . CollectionService::HANDLE_MAX . ' characters or fewer — it derives from the label.';
             } elseif ($field->handle !== '' && isset($seen[$field->handle])) {
                 $errors["fields.$i"] = 'Two fields resolve to the same handle “' . $field->handle . '” — rename one or give it a distinct handle.';
+            } elseif ($field->type === 'relation' && !isset($handles[$target])) {
+                $errors["fields.$i"] = $target === ''
+                    ? 'Choose a target collection for this relation field.'
+                    : 'That relation field points at a collection that does not exist.';
             }
             if ($field->handle !== '') {
                 $seen[$field->handle] = true;
