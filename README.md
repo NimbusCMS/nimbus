@@ -174,6 +174,13 @@ docker compose exec app tests/smoke.sh   # install from empty + CRUD over HTTP
 dev-only dependency is ever flagged with no fix available, scope the exception at
 the audit step (severity/advisory id) rather than dropping the check.
 
+## Contributing & community
+
+- **[Contributing guide](CONTRIBUTING.md)** — setup, the quality gate, conventions, PR flow.
+- **[Security policy](SECURITY.md)** — report a vulnerability privately (never a public issue).
+- **[Code of Conduct](CODE_OF_CONDUCT.md)** · **[Changelog](CHANGELOG.md)**
+- Read **[docs/CHARTER.md](docs/CHARTER.md)** before proposing a change — it's the gate every change is measured against.
+
 ## License
 
 [MIT](LICENSE) © DanMat
