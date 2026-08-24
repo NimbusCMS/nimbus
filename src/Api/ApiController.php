@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Nimbus\Api;
 
-use Nimbus\Auth\RoleRepository;
-use Nimbus\Auth\UserRepository;
+use Nimbus\Application;
 use Nimbus\Content\CollectionRepository;
-use Nimbus\Content\CollectionService;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Http\ApiRateLimiter;
@@ -16,19 +14,9 @@ use Nimbus\Http\Middleware\RateLimitMiddleware;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
-use Nimbus\Mcp\ContentToolset;
 use Nimbus\Mcp\McpServer;
-use Nimbus\Mcp\MediaToolset;
-use Nimbus\Mcp\SchemaToolset;
-use Nimbus\Mcp\SettingsToolset;
-use Nimbus\Mcp\TokensToolset;
-use Nimbus\Mcp\UsersToolset;
-use Nimbus\Media\MediaRepository;
-use Nimbus\Media\MediaService;
-use Nimbus\Media\MediaUploader;
-use Nimbus\Media\MediaUsageRepository;
+use Nimbus\Mcp\McpServerFactory;
 use Nimbus\Settings\Settings;
-use Nimbus\Settings\SettingsRegistry;
 use Nimbus\Support\Config;
 use Nimbus\Support\EventDispatcher;
 
@@ -67,25 +55,11 @@ final class ApiController
         $this->collections = new CollectionRepository($db);
         $this->types       = $types;
         $this->ops         = new EntryOperations($db, $types, $events);
-        // Toolsets are ordered management-first so a fixed management name is
-        // claimed before a content verb could parse it.
-        $mediaRepo  = new MediaRepository($db);
-        $mediaUsage = new MediaUsageRepository($db);
-        // MCP uploads are base64, not HTTP file uploads, so a copy mover replaces
-        // the default is_uploaded_file/move_uploaded_file — the uploader still
-        // sniffs + allow-lists the bytes.
-        $uploader = new MediaUploader($mediaRepo, Config::uploadPath(), Config::uploadUrl(), Config::uploadMaxBytes(), static fn (string $from, string $to): bool => copy($from, $to));
-        // The composed-once settings store (SUP-10), shared with the web kernel.
-        $settingsRegistry = new SettingsRegistry($this->collections);
-        $this->settings   = $settings;
-        $this->mcpServer = new McpServer(
-            new SchemaToolset($this->collections, new CollectionService($db, $this->collections), $types, $events),
-            new MediaToolset($mediaRepo, $uploader, new MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $events),
-            new UsersToolset(new UserRepository($db), new RoleRepository($db), $db, $events),
-            new TokensToolset(new ApiTokenRepository($db), new RoleRepository($db), $events),
-            new SettingsToolset($settings, $settingsRegistry, $events),
-            new ContentToolset($this->collections, $types, $this->ops),
-        );
+        $this->settings    = $settings;
+        // One assembly seam for both transports (ADR 0013) — the toolset list,
+        // the agent guide and the server version live in the factory, so the HTTP
+        // and stdio front doors can never drift.
+        $this->mcpServer = McpServerFactory::build($db, $types, $events, $settings, $this->ops, Application::VERSION, Config::basePath());
         $this->authContext = $authContext;
         $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext, $events);
 

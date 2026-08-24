@@ -11,6 +11,7 @@ use Nimbus\Api\TokenPrincipal;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Mcp\ContentToolset;
+use Nimbus\Mcp\Guide\GuideLibrary;
 use Nimbus\Mcp\McpServer;
 use Nimbus\Mcp\StdioTransport;
 use Nimbus\Support\EventDispatcher;
@@ -39,7 +40,7 @@ final class StdioTransportTest extends IntegrationTestCase
 
         $types  = new FieldTypeRegistry();
         $events = new EventDispatcher();
-        $server = new McpServer(new ContentToolset(
+        $server = new McpServer(new GuideLibrary('Test instructions.'), 'test', new ContentToolset(
             new CollectionRepository($this->db),
             $types,
             new EntryOperations($this->db, $types, $events),

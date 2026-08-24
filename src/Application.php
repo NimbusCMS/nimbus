@@ -59,6 +59,10 @@ use Nimbus\View\View;
  */
 final class Application
 {
+    /** The canonical CMS version. The single source of truth — surfaced as the
+     *  MCP `serverInfo.version` (ADR 0013) and bumped by the release process. */
+    public const VERSION = '0.1.0-alpha';
+
     /** Above this ?page value a public page is rendered but never cached — an
      *  upper bound on distinct page-cache files an anonymous client can mint
      *  (SVM-1). 1000 × PER_PAGE is far beyond any real paginated depth. */

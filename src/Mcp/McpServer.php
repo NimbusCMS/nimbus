@@ -6,6 +6,7 @@ namespace Nimbus\Mcp;
 
 use Nimbus\Api\EntryOpContext;
 use Nimbus\Api\TokenPrincipal;
+use Nimbus\Mcp\Guide\GuideLibrary;
 
 /**
  * The MCP server core (ADR 0009) — transport-agnostic JSON-RPC 2.0 dispatch.
@@ -17,9 +18,11 @@ use Nimbus\Api\TokenPrincipal;
  * (`nimbus mcp`) both frame bytes and hand a decoded message here, so the two
  * transports share one protocol implementation.
  *
- * v1 implements just what a tool client needs — `initialize`, `tools/list`,
- * `tools/call`, `ping` — plus the `notifications/*` a client emits. MCP
- * resources / prompts / sampling are out of scope until a concrete need appears.
+ * v1 implements what a tool client needs — `initialize`, `tools/list`,
+ * `tools/call`, `ping` — plus agent guidance (ADR 0013): `initialize` returns an
+ * `instructions` brief and `resources/list` / `resources/read` serve the guide
+ * documents. MCP prompts / sampling remain out of scope until a concrete need
+ * appears; the `notifications/*` a client emits are accepted and ignored.
  */
 final class McpServer
 {
@@ -27,19 +30,23 @@ final class McpServer
     public const PROTOCOL_VERSION = '2025-06-18';
 
     private const SERVER_NAME = 'NimbusCMS';
-    // Metadata only; the release process should source this from the CMS version.
-    private const SERVER_VERSION = '0.1.0-alpha';
 
     /** @var list<Toolset> */
     private array $toolsets;
 
     /**
+     * @param GuideLibrary $guide the agent-guidance library ({@see McpServerFactory}
+     *   composes it from the core guide and any plugin fragments).
+     * @param string $version the CMS version, surfaced as `serverInfo.version`.
      * @param Toolset ...$toolsets the tool groups, in priority order — management
      *   toolsets first, content last, so a fixed management name (e.g.
      *   `create_collection`) is claimed before a content verb could parse it.
      */
-    public function __construct(Toolset ...$toolsets)
-    {
+    public function __construct(
+        private GuideLibrary $guide,
+        private string $version,
+        Toolset ...$toolsets,
+    ) {
         $this->toolsets = array_values($toolsets);
     }
 
@@ -81,11 +88,13 @@ final class McpServer
 
         try {
             $result = match ($method) {
-                'initialize' => $this->initialize(),
-                'ping'       => [],
-                'tools/list' => ['tools' => $this->allDefinitions($principal)],
-                'tools/call' => $this->callTool($params, $principal, $ctx),
-                default      => throw new McpError(JsonRpc::METHOD_NOT_FOUND, "Unknown method \"{$method}\"."),
+                'initialize'     => $this->initialize(),
+                'ping'           => [],
+                'tools/list'     => ['tools' => $this->allDefinitions($principal)],
+                'tools/call'     => $this->callTool($params, $principal, $ctx),
+                'resources/list' => ['resources' => $this->guide->list()],
+                'resources/read' => $this->readResource($params),
+                default          => throw new McpError(JsonRpc::METHOD_NOT_FOUND, "Unknown method \"{$method}\"."),
             };
         } catch (McpError $e) {
             return JsonRpc::error($id, $e->rpcCode, $e->getMessage());
@@ -140,9 +149,36 @@ final class McpServer
     {
         return [
             'protocolVersion' => self::PROTOCOL_VERSION,
-            'serverInfo'      => ['name' => self::SERVER_NAME, 'version' => self::SERVER_VERSION],
-            'capabilities'    => ['tools' => ['listChanged' => false]],
+            'serverInfo'      => ['name' => self::SERVER_NAME, 'version' => $this->version],
+            // Exactly what is implemented: tools + read-only resources. Prompts and
+            // sampling are deliberately NOT advertised (a client must not call
+            // prompts/list). Neither list changes within a running server — the
+            // guide set is fixed at boot from the enabled plugins.
+            'capabilities'    => [
+                'tools'     => ['listChanged' => false],
+                'resources' => ['subscribe' => false, 'listChanged' => false],
+            ],
+            'instructions'    => $this->guide->instructions(),
         ];
+    }
+
+    /**
+     * Serve one guide document by exact URI (ADR 0013). The URI is a **registry
+     * key**, looked up in {@see GuideLibrary} — never a filesystem path — so an
+     * unknown, malformed, `../` or `file://` URI simply misses and gets a uniform
+     * resource-not-found, the non-enumerating parity of "unknown tool".
+     *
+     * @param array<string,mixed> $params the JSON-RPC params: `uri`
+     * @return array<string,mixed>
+     */
+    private function readResource(array $params): array
+    {
+        $uri      = is_string($params['uri'] ?? null) ? $params['uri'] : '';
+        $contents = $uri === '' ? null : $this->guide->readContents($uri);
+        if ($contents === null) {
+            throw new McpError(JsonRpc::RESOURCE_NOT_FOUND, "Unknown resource \"{$uri}\".");
+        }
+        return $contents;
     }
 
     /**

@@ -50,6 +50,9 @@ the HTTP API and MCP call one implementation, not two.
 
 Tools only for v1 (`initialize`, `tools/list`, `tools/call`); MCP resources /
 prompts / sampling are out of scope until a concrete need appears.
+*(Amended: that need has arrived for **resources** + the `initialize`
+`instructions` field — agent guidance — added in [ADR 0013](0013-mcp-agent-guidance.md).
+Prompts / sampling remain deferred.)*
 
 ### Capabilities — granular, with an `admin` grant, as the substrate for roles
 

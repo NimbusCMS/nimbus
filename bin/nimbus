@@ -249,21 +249,18 @@ try {
             }
             $tokens->touch($token->id, 'stdio');
 
-            $app         = new Nimbus\Application($db);
-            $collections = new Nimbus\Content\CollectionRepository($db);
-            $ops         = new Nimbus\Api\EntryOperations($db, $app->fieldTypeRegistry(), $app->events());
-            $mediaRepo   = new Nimbus\Media\MediaRepository($db);
-            $mediaUsage  = new Nimbus\Media\MediaUsageRepository($db);
-            $uploader    = new Nimbus\Media\MediaUploader($mediaRepo, Config::uploadPath(), Config::uploadUrl(), Config::uploadMaxBytes(), static fn (string $from, string $to): bool => copy($from, $to));
-            $settingsRegistry = new Nimbus\Settings\SettingsRegistry($collections);
-            $settings         = $app->settings();
-            $server = new Nimbus\Mcp\McpServer(
-                new Nimbus\Mcp\SchemaToolset($collections, new Nimbus\Content\CollectionService($db, $collections), $app->fieldTypeRegistry(), $app->events()),
-                new Nimbus\Mcp\MediaToolset($mediaRepo, $uploader, new Nimbus\Media\MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $app->events()),
-                new Nimbus\Mcp\UsersToolset(new Nimbus\Auth\UserRepository($db), new Nimbus\Auth\RoleRepository($db), $db, $app->events()),
-                new Nimbus\Mcp\TokensToolset(new Nimbus\Api\ApiTokenRepository($db), new Nimbus\Auth\RoleRepository($db), $app->events()),
-                new Nimbus\Mcp\SettingsToolset($settings, $settingsRegistry, $app->events()),
-                new Nimbus\Mcp\ContentToolset($collections, $app->fieldTypeRegistry(), $ops),
+            $app = new Nimbus\Application($db);
+            $ops = new Nimbus\Api\EntryOperations($db, $app->fieldTypeRegistry(), $app->events());
+            // One assembly seam for both transports (ADR 0013): the same factory
+            // the HTTP front door uses, so stdio can never drift from it.
+            $server = Nimbus\Mcp\McpServerFactory::build(
+                $db,
+                $app->fieldTypeRegistry(),
+                $app->events(),
+                $app->settings(),
+                $ops,
+                Nimbus\Application::VERSION,
+                Config::basePath(),
             );
             $transport = new Nimbus\Mcp\StdioTransport(
                 $server,

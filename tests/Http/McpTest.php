@@ -124,7 +124,7 @@ final class McpTest extends HttpTestCase
     public function test_an_unknown_method_is_method_not_found(): void
     {
         $token    = $this->tokens->create('R', ['posts:read']);
-        $response = $this->rpc('resources/list', [], $token);
+        $response = $this->rpc('nonexistent/method', [], $token);
 
         self::assertSame(-32601, $response['error']['code']);
     }

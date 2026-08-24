@@ -36,6 +36,11 @@ by a pre-release security & correctness audit (Slices A–P).
 - **MCP control surface** — an agent with a scoped token operates the CMS over the
   Model Context Protocol (content, schema, media, users, tokens, settings) through
   the same services the admin uses, never separate logic.
+- **Agent guidance over MCP** — the server now teaches agents how to drive it:
+  `initialize` returns an operating brief and `resources/list`/`resources/read`
+  serve a full guide (`nimbus://guide/core`). It ships with the CMS and works for
+  any MCP client, nothing to install. Plugins can publish their own guide
+  (`nimbus://guide/plugin/{id}`) — see [ADR 0013](docs/adr/0013-mcp-agent-guidance.md).
 - **Roles & capabilities** — named capability bundles for users and tokens, a
   deny-by-default `Authorizer`/`Gate`, subset-only granting, and a Roles admin UI.
 - **Users, invitations & password reset** — admin user management, emailed invites
