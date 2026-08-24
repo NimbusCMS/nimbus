@@ -90,7 +90,8 @@ decision were both verified to still hold.
 
 ---
 
-### HTTP-7 · `Response::redirect` performs no destination check beyond CRLF — latent open-redirect if a target ever becomes user-influenced
+### HTTP-7 · `Response::redirect` performs no destination check beyond CRLF — latent open-redirect if a target ever becomes user-influenced ✅ RESOLVED (documented)
+- **Resolved:** Slice O — **documented, not a speculative helper** (review-loop principle: refuse extension APIs with no consumer; the finding is not-reachable-today). Added a SECURITY docblock to `Response::redirect` warning that it validates header-safety only, never destination, and that a user-influenced target (`next`/`return_to`) must be forced relative before use — the guard (`Url::safeInternal`-style) gets built alongside the feature that needs it. No caller feeds user input today.
 - **Priority:** P3
 - **Type:** security (defense-in-depth)
 - **Severity (if security):** Low (not reachable today — no redirect target is user-controlled in this domain)

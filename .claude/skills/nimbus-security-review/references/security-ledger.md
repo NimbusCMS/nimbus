@@ -19,6 +19,24 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-24 · Slice O — defense-in-depth P3 sweep (SVM-3/HTTP-7/SUP-8/PLUG-12/PLUG-13)
+- **Status:** fixed. Five Low P3s (no live exploit in any). The Fable burst was cut off by a session
+  limit; the security lens was applied directly given each is Low + finding-prescribed. ADMIN-10 (the
+  one with a design fork) split to its own slice for a real burst.
+- **SVM-3 (Low):** uploads served by the front webserver bypass `SecurityHeaders`. Allow-list
+  (no HTML/SVG, random name, sniffed MIME) is the primary control → defense-in-depth doc: nginx/
+  Apache/Caddy `nosniff` on `/uploads/*` in COMPATIBILITY.
+- **HTTP-7 (Low, not reachable):** `Response::redirect` does no destination check. No user-controlled
+  target today → **documented** the hazard (SECURITY docblock) rather than ship an unused guard;
+  the guard lands with a future `next` feature.
+- **SUP-8 (Low):** mail log (live reset/invite links) chmod'd to 0600 after write (best-effort);
+  0770 dir remains primary. Guard: `MailerTest`.
+- **PLUG-12 (Low):** `FieldType` render methods now carry the escape-`$value` SECURITY docblock +
+  COMPATIBILITY note (attribute/markup injection isn't stopped by the nonce CSP).
+- **PLUG-13 (Low, product-gap):** "Official" badge → "nimbuscms namespace" (a fact, not a trust
+  claim); nothing gates on `$official`.
+- **Left open:** ADMIN-10 (`?err=`/`?msg=` reflection — escaped, social-engineering only) → own slice.
+
 ### 2026-08-23 · Slice N — login hardening: enumeration oracle + distributed spray closed (AUTH-1/2/3/5)
 - **Status:** fixed. Fable two-skill burst — **security-green, no Critical/High.** Two Medium P2s
   (AUTH-1/2 — the audit's last two) + P3s. Catalog: #10 auth/session (enumeration, throttle).

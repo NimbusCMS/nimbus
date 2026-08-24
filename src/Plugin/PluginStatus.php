@@ -65,8 +65,15 @@ final readonly class PluginStatus
             || $this->state === self::DUPLICATE_ID;
     }
 
+    /**
+     * The provider label states the neutral *fact* — that the package is in the
+     * `nimbuscms/` Composer namespace — not a trust claim. `$official` is only a
+     * vendor-prefix match (any VCS/path package can name itself `nimbuscms/*`), so
+     * calling it "Official" would over-promise a verification Nimbus can't do
+     * (PLUG-13). "Community" covers everything else.
+     */
     public function providerLabel(): string
     {
-        return $this->official ? 'Official' : 'Community';
+        return $this->official ? 'nimbuscms namespace' : 'Community';
     }
 }

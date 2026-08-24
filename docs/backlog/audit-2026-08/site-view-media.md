@@ -49,7 +49,8 @@ not double-counted.
 
 ---
 
-### SVM-3 · Uploaded media is served straight from `public/uploads`, so it carries no `X-Content-Type-Options: nosniff` (or CSP)
+### SVM-3 · Uploaded media is served straight from `public/uploads`, so it carries no `X-Content-Type-Options: nosniff` (or CSP) ✅ RESOLVED
+- **Resolved:** Slice O (branch `slice-o-security-hardening-p3`) — docs. Confirmed defense-in-depth (the upload allow-list — no HTML/SVG, random name, sniffed MIME — is the primary control). Added a general operator hardening note to COMPATIBILITY ("Serving uploaded media") with nginx/Apache/Caddy snippets setting `X-Content-Type-Options: nosniff` on `/uploads/*`. A PHP media-serving fallback route for no-front-webserver installs is deferred (no evidence yet).
 - **Priority:** P3
 - **Type:** security
 - **Severity (if security):** Low (defense-in-depth; the primary vectors — HTML/SVG upload — are already blocked, and the webserver sets a correct `image/*`/`application/pdf` type)

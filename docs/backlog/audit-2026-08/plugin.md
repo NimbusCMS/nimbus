@@ -122,7 +122,8 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Fix:** Either a read-only `list_plugins` MCP tool gated `admin` (statuses are already data-only values, safe to serialize), or record the deferral in the decision ledger — one line either way; the omission being undecided is the defect.
 - **Effort:** S
 
-### PLUG-12 · `FieldType` contract carries no untrusted-value warning for `renderInput`/`renderCell`
+### PLUG-12 · `FieldType` contract carries no untrusted-value warning for `renderInput`/`renderCell` ✅ RESOLVED
+- **Resolved:** Slice O — added a SECURITY docblock to `FieldType` (escape the untrusted `$value` via `View::e()` in `renderInput`/`renderCell`; core types are the reference; CSP blocks script but not attribute/markup injection) + a COMPATIBILITY field-type-row note. Docs/contract only, matching the `PageContext` house precedent.
 - **Priority:** P3
 - **Type:** security
 - **Severity (if security):** Low (nonce-only CSP blunts the payoff)
@@ -132,7 +133,8 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Fix:** Add the same SECURITY docblock to `FieldType` (escape `$value` — `View::e()` — in both render methods; core types are the reference), and mention it in COMPATIBILITY's field-type row.
 - **Effort:** S
 
-### PLUG-13 · "Official" badge trusts the composer vendor prefix
+### PLUG-13 · "Official" badge trusts the composer vendor prefix ✅ RESOLVED
+- **Resolved:** Slice O — relabelled: `PluginStatus::providerLabel()` returns the neutral fact "nimbuscms namespace" (not "Official"), and the plugins-page empty-state copy states a namespace is not a guarantee. The `$official` flag stays (vendor-prefix match) but no longer reads as a trust claim; nothing gates on it. Test: `PluginsPageTest` asserts the new label.
 - **Priority:** P3
 - **Type:** product-gap
 - **Severity (if security):** Low

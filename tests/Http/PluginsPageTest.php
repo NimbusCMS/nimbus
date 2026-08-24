@@ -73,7 +73,8 @@ final class PluginsPageTest extends HttpTestCase
         self::assertStringContainsString('Markdown', $response->body);
         self::assertStringContainsString('nimbuscms/markdown', $response->body);
         self::assertStringContainsString('Enabled', $response->body);
-        self::assertStringContainsString('Official', $response->body);
+        // The badge states the neutral namespace fact, not a trust claim (PLUG-13).
+        self::assertStringContainsString('nimbuscms namespace', $response->body);
     }
 
     // ------------------------------------------------------------- contents
