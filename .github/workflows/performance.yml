@@ -1,0 +1,81 @@
+name: Performance
+
+# Tracks front-end performance over time on a fixed preset of page types
+# (see tests/perf/seed.php and .lighthouserc.json). Runs on every published
+# release and on demand. The deterministic composition budgets (script size,
+# total transfer, zero third-party) are a hard gate; the Lighthouse score and
+# Core Web Vitals are tracked (warn) so a noisy runner never flakes the build.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_NAME: nimbus_perf
+      DB_USER: root
+      DB_PASS: root
+      APP_URL: http://127.0.0.1:8099
+      APP_ENV: production
+      PORT: '8099'
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: nimbus_perf
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, gd, mbstring
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Install NimbusCMS (schema + admin)
+        run: php bin/nimbus install --email=perf@example.com --password='a long unique perf passphrase'
+
+      - name: Seed the page-type preset
+        run: php tests/perf/seed.php
+
+      - name: Serve the site
+        run: |
+          nohup php -S 127.0.0.1:${PORT} -t public public/index.php >/tmp/nimbus-serve.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null || { echo "server never came up"; cat /tmp/nimbus-serve.log; exit 1; }
+
+      - name: Lighthouse (collect + assert + upload)
+        run: npx --yes @lhci/cli@0.14.x autorun
+        # .lighthouserc.json: 3 preset URLs × 3 runs; hard budgets on
+        # composition, warn on score/CWV; uploads a public report per run.
+
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-${{ github.event.release.tag_name || github.run_id }}
+          path: .lighthouseci/
+          retention-days: 90
