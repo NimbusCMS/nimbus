@@ -102,7 +102,8 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Fix:** add the lint in `register()`; ensure no false positives (a plugin never legitimately DDLs `nb_*`; its own tables are prefixed). Deferred from Slice P because a false-positive-prone regex deserves the full two-skill burst, which was unavailable during the 2026-08-24 model incident.
 - **Effort:** S
 
-### FU-12 · No front-end performance baseline (Lighthouse / Core Web Vitals)
+### FU-12 · No front-end performance baseline (Lighthouse / Core Web Vitals) ⏳ BASELINE DONE
+- **Update (2026-08-24):** the **baseline is now measured + documented** (`docs/PERFORMANCE.md`): a 15-entry blog index on the starter theme scores **100/100 Lighthouse (mobile)** with perfect Core Web Vitals (FCP/LCP 0.8s, TBT 0ms, CLS 0) at ~5.6 KB / 2 requests / 0 JS, page cache off. README leads with it. **Still open:** a CI perf gate (a Lighthouse assertion or budget) and a representative *content* theme with images/fonts (the starter is a skeleton) — the M-effort half.
 - **Priority:** P3 (release-adjacent)
 - **Type:** performance / product
 - **Discovered:** 2026-08-24 (release-readiness discussion).
