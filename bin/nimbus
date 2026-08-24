@@ -286,6 +286,11 @@ try {
             $removed = (new Nimbus\Http\ApiRateLimiter($db))->prune(24 * 3600);
             echo "nb_api_rate: removed {$removed} stale row(s).\n";
 
+            // Login/reset throttle rows past their lock+decay window (FU-10);
+            // the prune never removes a row under an active lockout.
+            $throttled = (new Nimbus\Auth\LoginThrottle($db))->prune(24 * 3600);
+            echo "nb_login_throttle: removed {$throttled} stale row(s).\n";
+
             // Then every enabled plugin's retention/maintenance task.
             foreach ((new Nimbus\Application($db))->maintenanceRegistry()->all() as $task) {
                 try {

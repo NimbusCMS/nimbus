@@ -4,6 +4,7 @@ Items surfaced by the Fable two-skill bursts while building the audit slices —
 tracked here so the burn-down stays complete. Same format as the domain files.
 
 ### FU-1 · `roles:seed` re-run widens authority for placeholder users
+- **✅ RESOLVED** (Slice V) — `RoleSeeder::seed()` now seeds the legacy-`role`-derived system role ONLY for a user with zero `nb_user_roles` rows (`RoleRepository::hasAnyRole()`); a user who already holds any role is skipped, so a re-run can never widen a placeholder user to `author` caps or re-arm a demoted legacy admin (both closed whenever the demotion left ≥1 role). First boot still seeds everyone (zero assignments then). CLI-only trigger, single-process, no TOCTOU. Rated **Medium** (privilege widening past an admin decision, capped below High only by CLI-only reach). Residual (deliberately zero-role user re-acquires its legacy role): FU-16. Tests: `RoleSeederTest` (reseed-doesn't-widen-narrowed; reseed-doesn't-re-arm-demoted-admin; first-boot-still-seeds).
 - **Priority:** P2
 - **Type:** correctness (security-adjacent)
 - **Discovered:** Slice A review.
@@ -76,6 +77,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-9 · Password-reset request has the same timing oracle AUTH-1 closed for login
+- **✅ CLOSED — accepted risk** (Slice V, no code) — rated **Low** with the compensating control, and NOT code-fixed. Unlike AUTH-1 (both branches CPU-bound hashing → complete equal-work), the reset path's dominant cost is the I/O-bound **mail send**, which can't be faked for an unknown email without sending decoy mail; a partial mint-and-discard would be security theater (closes only the DB-write slice, leaves the ~100ms mail-send signal). The dual digest-keyed reset throttle (`pwreset-ip:` + `pwreset-em:`, recorded BEFORE the service call) defeats repeat-sampling of a target; the residual is a bounded, loud (every hit mails the victim), low-value ('account exists' on a small-admin-set CMS) one-shot list-enumeration oracle. The `PasswordResetService` docblock already documents it honestly. Recorded in the security ledger. **Revisit trigger:** async/queued mail dispatch landing (fixes it for free), or a deployment mode that raises the value of 'account exists'. No ADR (Low, not High).
 - **Priority:** P3
 - **Type:** security (Low, enumeration)
 - **Discovered:** Slice N reviews (both lenses).
@@ -85,6 +87,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** M
 
 ### FU-10 · Login/reset throttle rows accumulate (no pruning of stale keys)
+- **✅ RESOLVED** (Slice V) — `LoginThrottle::prune(int $olderThanSeconds): int` removes decayed `nb_login_throttle` rows, wired into `nimbus prune` beside the `ApiRateLimiter` prune (24h). **Lockout-safe predicate** (the load-bearing part): `WHERE last_attempt < :cutoff AND (locked_until IS NULL OR locked_until < :now)` — copying `ApiRateLimiter::prune`'s `updated_at`-only predicate would delete an actively-locking row and reset the lockout (an AUTH-2 bypass). Cutoff (24h) ≥ MAX_LOCK. Tests: `LoginThrottleTest` (prune-removes-stale; **prune-preserves-an-active-lockout** — the merge gate; noop-on-empty).
 - **Priority:** P3
 - **Type:** performance / housekeeping
 - **Discovered:** Slice N reviews.
@@ -134,4 +137,12 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Discovered:** 2026-08-24 (Slice U platform review).
 - **What:** SVM-4 (Slice U) 404s a *single-kind* home's `/{handle}`, but a **browsable** collection set as the home (`settings.home = posts`) still serves identical content at both `/` and `/posts`, and the sitemap lists both — split canonical signal. Unlike the single case this is NOT a 404 fix: `/posts` is a legitimate advertised URL for a browsable collection.
 - **Fix:** a canonical-tag policy (emit `<link rel="canonical" href="/">` on the collection index when it is the designated home, or vice-versa), not a route change. Decide the canonical direction.
+- **Effort:** S
+
+### FU-16 · A deliberately zero-role legacy admin re-acquires `admin` on a `roles:seed` re-run
+- **Priority:** P3
+- **Type:** security (privilege widening, Low residual of FU-1)
+- **Discovered:** 2026-08-24 (Slice V reviews).
+- **What:** FU-1's guard skips any user with ≥1 `nb_user_roles` row, treating **zero** roles as "never seeded". So a legacy admin (`nb_users.role='admin'`) whom an operator deliberately stripped to **zero** roles (a non-last admin can be) re-acquires the `admin` system role on the next `roles:seed`. Narrow (legacy-admin + demoted-to-exactly-zero + a reseed), CLI-only, but re-grants admin specifically.
+- **Fix (the platform review's companion, deferred here to keep Slice V tight):** when the admin UI (`UsersController::update`) or MCP `set_role` edits a user's roles on a seeded install, normalize `nb_users.role` to the `'author'` placeholder (the legacy column is non-authoritative once `nb_user_roles` drives authority), so a later reseed of a zero-role user can only grant the least-privilege role. Small; touches the two role-edit paths.
 - **Effort:** S

@@ -65,4 +65,26 @@ final class LoginThrottle
     {
         $this->db->execute('DELETE FROM nb_login_throttle WHERE id = :k', ['k' => $key]);
     }
+
+    /**
+     * Remove decayed throttle rows so the table doesn't accumulate one row per
+     * distinct IP/email key forever (FU-10). Run from `nimbus prune`.
+     *
+     * A row is prunable only when its last attempt is older than
+     * `$olderThanSeconds` **and** it is not under an active lockout: deleting a
+     * currently-locking row would reset the counter and let a locked-out client
+     * start a fresh window (an AUTH-2 lockout bypass), so the `locked_until`
+     * guard is load-bearing regardless of the age passed. Pass an age ≥
+     * {@see MAX_LOCK} so a row still inside its counting/lock window is never
+     * pruned mid-accumulation. Returns the number of rows removed.
+     */
+    public function prune(int $olderThanSeconds): int
+    {
+        $now = time();
+        return $this->db->execute(
+            'DELETE FROM nb_login_throttle
+             WHERE last_attempt < :cutoff AND (locked_until IS NULL OR locked_until < :now)',
+            ['cutoff' => date('Y-m-d H:i:s', $now - $olderThanSeconds), 'now' => date('Y-m-d H:i:s', $now)],
+        );
+    }
 }

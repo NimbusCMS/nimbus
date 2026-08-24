@@ -64,6 +64,64 @@ final class RoleSeederTest extends IntegrationTestCase
         return $role->capabilities;
     }
 
+    private function makeUser(string $legacyRole, string $email): int
+    {
+        return $this->db->insert(
+            'INSERT INTO nb_users (name, email, password, role, created_at, updated_at) VALUES (:n, :e, :p, :r, NOW(), NOW())',
+            ['n' => ucfirst($legacyRole), 'e' => $email, 'p' => 'x', 'r' => $legacyRole],
+        );
+    }
+
+    /** @return list<string> the names of a user's assigned roles */
+    private function roleNames(int $userId): array
+    {
+        return array_map(static fn ($r): string => $r->name, $this->roles->rolesForUser($userId));
+    }
+
+    // ------------------------------------------------------------- FU-1: no widen
+
+    public function test_a_reseed_does_not_widen_a_user_whose_roles_were_narrowed(): void
+    {
+        // FU-1: a placeholder user (legacy role 'author') given a narrow custom
+        // role must NOT gain the 'author' system role's caps on a re-run.
+        $this->seeder()->seed();
+        $uid = $this->makeUser('author', 'u@t.test');
+        $custom = $this->roles->create('narrow', ['posts:read'], false);
+        $this->roles->syncUserRoles($uid, [$custom]);
+
+        $this->seeder()->seed(); // re-run (upgrade)
+
+        self::assertSame(['narrow'], $this->roleNames($uid), 'a re-run must not add the author system role');
+    }
+
+    public function test_a_reseed_does_not_re_arm_a_demoted_legacy_admin(): void
+    {
+        // A legacy admin (nb_users.role='admin') demoted to a lesser role must
+        // not regain 'admin' on a re-run.
+        $uid = $this->makeUser('admin', 'a@t.test');
+        $this->seeder()->seed(); // first boot assigns 'admin' (zero roles then)
+        $editor = $this->roles->findByName('editor');
+        self::assertNotNull($editor);
+        $this->roles->syncUserRoles($uid, [$editor->id]);
+
+        $this->seeder()->seed(); // re-run
+
+        self::assertSame(['editor'], $this->roleNames($uid), 'a demoted legacy admin is not re-armed');
+    }
+
+    public function test_first_boot_still_assigns_every_user_its_legacy_role(): void
+    {
+        // The guard must not under-seed: users with zero assignments still get
+        // their legacy-named role on the first seed.
+        $admin  = $this->makeUser('admin', 'a@t.test');
+        $editor = $this->makeUser('editor', 'e@t.test');
+
+        $this->seeder()->seed();
+
+        self::assertSame(['admin'], $this->roleNames($admin));
+        self::assertSame(['editor'], $this->roleNames($editor));
+    }
+
     // ------------------------------------------------------- fresh-install seed
 
     public function test_seed_grants_media_to_content_roles(): void

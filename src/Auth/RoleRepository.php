@@ -84,6 +84,15 @@ final class RoleRepository
     }
 
     /** Assign a role to a user, idempotently (the composite key dedupes). */
+    /** Does this user hold any role assignment yet? RoleSeeder uses this to skip
+     *  seeding a legacy-derived role onto a user whose authority an admin already
+     *  curated — a re-run must never widen it (FU-1). "Zero roles" is treated as
+     *  "never seeded". */
+    public function hasAnyRole(int $userId): bool
+    {
+        return $this->db->selectOne('SELECT 1 AS x FROM nb_user_roles WHERE user_id = :u LIMIT 1', ['u' => $userId]) !== null;
+    }
+
     public function assignToUser(int $userId, int $roleId): void
     {
         $this->db->execute(

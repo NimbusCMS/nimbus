@@ -16,10 +16,14 @@ use Nimbus\Database\Connection;
  *   `media:read`+`media:write` (the media library was open to all pre-Slice-3b)
  *   plus `{handle}:write` for each collection whose manage-list named them.
  *
- * Then each existing user is assigned the system role matching their legacy
- * `users.role`, so the union of their roles equals the single role they had —
- * no one's access changes. Idempotent: existing roles are not overwritten (an
- * admin may have edited them) and assignments dedupe on the composite key.
+ * Then each existing user **that has no role assignments yet** is assigned the
+ * system role matching their legacy `users.role`, so the union of their roles
+ * equals the single role they had — no one's access changes. Idempotent, and
+ * **never widening**: existing roles are not overwritten (an admin may have
+ * edited them), and a user who already holds any role is skipped, so a re-run
+ * can never add authority past an admin's decision (FU-1). A user with zero
+ * roles is treated as "never seeded" and re-acquires the legacy role on a
+ * re-run — the least-privilege content role for the common placeholder case.
  */
 final class RoleSeeder
 {
@@ -58,6 +62,15 @@ final class RoleSeeder
         }
 
         foreach ($this->db->select('SELECT id, role FROM nb_users') as $user) {
+            // FU-1: seed the legacy-`role`-derived system role ONLY for a user
+            // that has no assignments yet (first boot, or a `create-user` CLI
+            // user). A user who already holds any nb_user_roles row has an
+            // authority set an admin curated — a re-run of this idempotent
+            // seeder must never *widen* it (a placeholder user gaining `author`
+            // caps, or a demoted legacy admin regaining `admin`).
+            if ($this->roles->hasAnyRole((int) $user['id'])) {
+                continue;
+            }
             $roleId = $ids[(string) $user['role']] ?? null;
             if ($roleId !== null) {
                 $this->roles->assignToUser((int) $user['id'], $roleId);
