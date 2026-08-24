@@ -17,6 +17,15 @@
 
 Most PHP CMSes are either enormous (WordPress) or abandoned. NimbusCMS is a small, modern, readable codebase you can actually understand end-to-end: PHP 8.2+, PDO, a clean layered architecture, its own schema via migrations, and a clean separation between content, admin and delivery. It's not trying to be WordPress — it's trying to be the CMS you'd be happy to fork.
 
+## ⚡ Fast by default
+
+A public page is server-rendered HTML + one ~1 KB stylesheet — **no client-side
+framework, no render-blocking JavaScript, no web fonts, no third-party requests.**
+A real content page scores **100 / 100 on Lighthouse** (mobile) with **perfect
+Core Web Vitals** (FCP/LCP 0.8 s, TBT 0 ms, CLS 0) at **~5.6 KB over 2 requests**,
+out of the box — before the optional page cache. Measured and reproducible:
+[docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+
 ## What works today
 
 ### ✅ Available now — built, integrated and covered by CI
