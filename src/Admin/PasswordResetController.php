@@ -75,7 +75,9 @@ final class PasswordResetController extends Controller
         $email    = (string) $req->input('email');
         $throttle = new LoginThrottle($this->db);
         $ipKey    = 'pwreset-ip:' . $req->ip();
-        $emailKey = 'pwreset-em:' . strtolower(trim($email));
+        // Hash the email into the key so an over-long address can't overflow
+        // nb_login_throttle.id (VARCHAR 190) → 1406/500 (mirrors the login key).
+        $emailKey = 'pwreset-em:' . hash('sha256', strtolower(trim($email)));
 
         // Rate-limit by source AND by target; either over the cap → skip sending,
         // but still show the identical generic response (no enumeration).

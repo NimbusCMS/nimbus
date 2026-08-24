@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Tests\Http;
 
 use Nimbus\Http\Csrf;
+use Nimbus\Http\Request;
 
 final class AuthRoutesTest extends HttpTestCase
 {
@@ -88,6 +89,65 @@ final class AuthRoutesTest extends HttpTestCase
         self::assertSame(200, $response->status);
         self::assertStringContainsString('session expired', $response->body);
         self::assertArrayNotHasKey('nimbus_uid', $_SESSION, 'a CSRF failure must never authenticate');
+    }
+
+    /** A login POST from a specific client IP (the shared helper hardcodes 127.0.0.1). */
+    private function loginFrom(string $ip, string $email, string $password): \Nimbus\Http\Response
+    {
+        $body = ['email' => $email, 'password' => $password, '_token' => Csrf::token()];
+        return $this->throughKernel(new Request('POST', '/admin/login', [], $body, ['REMOTE_ADDR' => $ip], []));
+    }
+
+    public function test_a_single_account_is_locked_even_when_the_ip_varies(): void
+    {
+        // AUTH-2: distributed spray — one email, a different IP each attempt. The
+        // per-account (login-em:) key must lock it though no single IP repeats.
+        $this->createUser('admin', 'admin@test.local', 'correct-horse');
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->loginFrom("203.0.113.{$i}", 'admin@test.local', 'wrong');
+        }
+
+        // A fresh IP with the correct password is still refused — the account is locked.
+        $response = $this->loginFrom('198.51.100.7', 'admin@test.local', 'correct-horse');
+        self::assertStringContainsString('Too many attempts', $response->body);
+        self::assertArrayNotHasKey('nimbus_uid', $_SESSION);
+    }
+
+    public function test_a_locked_known_account_and_a_flooded_unknown_email_are_indistinguishable(): void
+    {
+        // AUTH-2 must not re-open AUTH-1: locking a real account and a nonexistent
+        // one look identical (same status + message), so lockout is no oracle.
+        $this->createUser('admin', 'real@test.local', 'correct-horse');
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->loginFrom("203.0.113.{$i}", 'real@test.local', 'wrong');
+        }
+        for ($i = 0; $i < 5; $i++) {
+            $this->loginFrom("203.0.114.{$i}", 'ghost@test.local', 'wrong'); // no such user
+        }
+
+        $known   = $this->loginFrom('198.51.100.1', 'real@test.local', 'whatever');
+        $unknown = $this->loginFrom('198.51.100.2', 'ghost@test.local', 'whatever');
+
+        // Bodies are identical except the per-request CSP nonce (random, unrelated
+        // to whether the account exists — not an oracle); normalize it out.
+        $norm = static fn (string $b): string => (string) preg_replace('/nonce="[^"]*"/', 'nonce="X"', $b);
+        self::assertSame($known->status, $unknown->status);
+        self::assertSame($norm($known->body), $norm($unknown->body), 'a locked account is indistinguishable from a flooded unknown email');
+        self::assertStringContainsString('Too many attempts', $known->body);
+    }
+
+    public function test_a_successful_login_clears_both_throttle_keys(): void
+    {
+        $this->createUser('admin', 'admin@test.local', 'correct-horse');
+        for ($i = 0; $i < 3; $i++) {
+            $this->loginFrom('203.0.113.9', 'admin@test.local', 'wrong');
+        }
+        // Correct password from the same IP still under the cap → succeeds + clears.
+        $this->resetSession();
+        $ok = $this->loginFrom('203.0.113.9', 'admin@test.local', 'correct-horse');
+        self::assertSame(302, $ok->status, 'a correct login under the cap succeeds');
     }
 
     public function test_login_is_throttled_after_repeated_failures(): void

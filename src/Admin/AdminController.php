@@ -126,19 +126,35 @@ final class AdminController extends Controller
             return $this->loginForm('Your session expired. Please try again.');
         }
 
+        // Throttle on BOTH the client IP (flood control) and the submitted account
+        // (so a distributed spray against one admin from many IPs still locks the
+        // account — AUTH-2). The email is hashed into the key so an over-long
+        // address can't overflow nb_login_throttle.id (VARCHAR 190). The lockout
+        // message is identical whichever key trips, so a locked known account and
+        // a flooded unknown email are indistinguishable (no enumeration oracle).
+        $email    = (string) $req->input('email');
         $throttle = new LoginThrottle($this->db);
-        $key      = $req->ip();
-        if ($throttle->tooManyAttempts($key)) {
-            $minutes = (int) ceil($throttle->lockedFor($key) / 60);
-            return $this->loginForm("Too many attempts. Try again in {$minutes} minute(s).");
+        $ipKey    = 'login-ip:' . $req->ip();
+        $emailKey = 'login-em:' . hash('sha256', strtolower(trim($email)));
+
+        foreach ([$ipKey, $emailKey] as $key) {
+            if ($throttle->tooManyAttempts($key)) {
+                $minutes = (int) ceil($throttle->lockedFor($key) / 60);
+                return $this->loginForm("Too many attempts. Try again in {$minutes} minute(s).");
+            }
         }
 
-        if ($this->auth->attempt((string) $req->input('email'), (string) $req->input('password'))) {
-            $throttle->clear($key);
+        if ($this->auth->attempt($email, (string) $req->input('password'))) {
+            $throttle->clear($ipKey);
+            $throttle->clear($emailKey);
             return $this->redirect(Url::to('admin.dashboard'));
         }
 
-        $throttle->recordFailure($key);
+        // Record a failure on both keys — uniformly, whether or not the email
+        // exists (attempt() already did equal work), so the email key locks an
+        // unknown address just as it locks a real one.
+        $throttle->recordFailure($ipKey);
+        $throttle->recordFailure($emailKey);
         return $this->loginForm('Invalid email or password.');
     }
 

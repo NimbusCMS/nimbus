@@ -19,7 +19,8 @@ debt where the login path lags the newer, more careful reset path.
 
 ---
 
-### AUTH-1 · Login is a user-enumeration + credential-probing timing oracle (no equal-work on unknown email)
+### AUTH-1 · Login is a user-enumeration + credential-probing timing oracle (no equal-work on unknown email) ✅ RESOLVED
+- **Resolved:** Slice N (branch `slice-n-login-hardening`). `Auth::attempt` is now **single-code-path**: it verifies against the stored hash, or `Password::dummyHash()` when the email is unknown, then returns false if the row was absent — so both branches run one identical hash verify (no fast early-return to time). Critical (security M1): the dummy is **algo-matched to the runtime** (`Password::dummyHash()` returns an argon2id or bcrypt constant per `algo()`) — a hardcoded argon2id dummy on a bcrypt-only host would have re-opened the oracle. A `PasswordTest` drift guard asserts `password_get_info(dummyHash())['algoName']` matches the runtime AND `needsRehash === false`, so a param bump or algo mismatch fails loudly. The login error stays the generic "Invalid email or password" (no message/status oracle). Severity Medium. Note: the reset-request path has the same shape and is NOT yet equalized — filed as FU-9.
 - **Priority:** P2
 - **Type:** security
 - **Severity:** Medium
@@ -29,7 +30,8 @@ debt where the login path lags the newer, more careful reset path.
 - **Fix:** In `attempt()`, when the row is absent, run a `password_verify()` against a fixed dummy argon2id hash (a class constant) before returning false, so both branches do one hash. Same one-line pattern the reset flow already uses in spirit.
 - **Effort:** S
 
-### AUTH-2 · Login throttle is IP-only — no per-account lockout, so single-account brute force / spraying from many IPs is unthrottled
+### AUTH-2 · Login throttle is IP-only — no per-account lockout, so single-account brute force / spraying from many IPs is unthrottled ✅ RESOLVED
+- **Resolved:** Slice N. `AdminController::login` now throttles on **both** `login-ip:<ip>` AND `login-em:<sha256(lower(trim(email)))>` (mirroring the reset flow), so a distributed spray against one admin from many IPs locks the account. Critical (security M2): `recordFailure` fires on both keys **uniformly** whether or not the email exists (attempt() already did equal work), and the lockout message is byte-identical whichever key trips — so a locked known account and a flooded unknown email are indistinguishable (AUTH-2 doesn't re-open AUTH-1). The email is **hashed into the key** (fixed length) so an over-long address can't overflow `nb_login_throttle.id` VARCHAR(190) → 1406/500 — a live bug the naive mirror would have copied; the pre-existing `pwreset-em:` key was digested the same way. Lockout is time-bounded (1h cap / 15m decay, same as reset) — the deliberate-lockout DoS tradeoff is recorded. Severity Medium. Tests: `AuthRoutesTest` (single-account lockout with varying IP; locked-known == flooded-unknown; success clears both keys). Follow-ups: FU-9 (reset timing), FU-10 (throttle-row pruning); `TRUSTED_PROXIES`-unset IP-key degradation documented.
 - **Priority:** P2
 - **Type:** security
 - **Severity:** Medium
@@ -39,7 +41,8 @@ debt where the login path lags the newer, more careful reset path.
 - **Fix:** Add a second throttle key on the submitted email (mirror the reset flow: `login-em:<lower(email)>`), checked and recorded alongside the IP key, with a comparable threshold. Keep the IP key for flood control.
 - **Effort:** S
 
-### AUTH-3 · Weak-password floor is 8 chars + a 4-word denylist, but the reset/accept UI promises "at least 12 characters"
+### AUTH-3 · Weak-password floor is 8 chars + a 4-word denylist, but the reset/accept UI promises "at least 12 characters" ✅ RESOLVED
+- **Resolved:** Slice N — **raised the floor to 12** (both lenses: security release; per-account throttling now makes keyspace the real brake; the reset/accept UI already promised 12; `isWeak` runs only on *set*, never at login, so no existing user is locked out). One `Password::MIN_LENGTH = 12` const drives `isWeak` and every message. Swept **all seven** surfaces (the finding said three): reset/accept labels + reset-controller errors (already 12), `UsersController`, MCP `UsersToolset` error **and schema description**, and `bin/nimbus` — whose **inline duplicated predicate** now calls `Password::isWeak` (it had drifted from the shared helper). Denylist kept. Tests: `PasswordTest` (11 weak / 12 ok; denylist).
 - **Priority:** P3
 - **Type:** correctness (+ product-gap)
 - **Where:** `src/Auth/Password.php:34-38` (`isWeak`, `strlen < 8`, denylist of 4); message mismatch in `src/Admin/PasswordResetController.php:119,159` and `src/View/themes/nimbus/templates/reset.php:44`, `accept.php:45` ("at least 12 characters")
@@ -58,7 +61,8 @@ debt where the login path lags the newer, more careful reset path.
 - **Fix:** Make one column authoritative for the last-admin invariant. Simplest: when the admin UI assigns/removes the admin role, keep `nb_users.role` in step (write `'admin'`/`'author'`), or route both surfaces' last-admin check through the same predicate (count users holding the admin *role* via `RoleRepository::assignedUserCount`). Don't leave two counters over two columns.
 - **Effort:** M
 
-### AUTH-5 · OAuth `start` is a state-changing GET with no CSRF token (forced-flow initiation / session flow overwrite)
+### AUTH-5 · OAuth `start` is a state-changing GET with no CSRF token (forced-flow initiation / session flow overwrite) ✅ RESOLVED
+- **Resolved:** Slice N — **fixed** (both lenses preferred fixing over accept-Low since this is the dedicated login-hardening slice and the change is small). Linking is now an **authed CSRF POST** `/admin/oauth/{provider}/link` (the settings "Connect" control became a POST form, symmetric with the existing Disconnect form); `GET /start` is **login-intent only** — it can no longer begin a link flow (❌3: stripping link from GET, not just adding a POST, is what actually closes it). `intent=login` stays a public GET (pre-session, unavoidable) with its residual flow-clobber accepted as a documented Low. Avoided token-in-query (Referer/log leak). Tests: `OAuthFlowTest` (link requires CSRF; link requires auth; GET link → 405; the linked/bound/already-linked flows switched to the POST route).
 - **Priority:** P3
 - **Type:** security
 - **Severity:** Low
@@ -68,7 +72,8 @@ debt where the login path lags the newer, more careful reset path.
 - **Fix:** Defense-in-depth only: this is acceptable as-is given `state`, but if tightened, gate `intent=link` starts behind a CSRF token (they already require an authed session), and/or key the session flow by a nonce so concurrent flows don't clobber. Record as an accepted Low if not fixed.
 - **Effort:** S
 
-### AUTH-6 · Test gaps: no equal-work login assertion, no per-account throttle, no admin-role-sync coverage
+### AUTH-6 · Test gaps: no equal-work login assertion, no per-account throttle, no admin-role-sync coverage ✅ RESOLVED
+- **Resolved:** Slice N (the guarding tests landed with AUTH-1/2). Equal-work: `PasswordTest` pins the dummy-hash algo-match + no-rehash drift guard (the non-flaky structural guarantee, not wall-clock) + `Auth::attempt` single-code-path. Per-account throttle: `AuthRoutesTest::test_a_single_account_is_locked_even_when_the_ip_varies` + the no-oracle indistinguishability test + success-clears-both. Admin-role-sync (AUTH-4) was already covered by the Slice A test (`set_role` counts by role, not the legacy column).
 - **Priority:** P3
 - **Type:** test-gap
 - **Where:** `tests/Http/AuthRoutesTest.php`, `tests/Integration/LoginThrottleTest.php`, `tests/Http/UsersAdminTest.php`

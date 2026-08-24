@@ -196,11 +196,43 @@ final class OAuthFlowTest extends HttpTestCase
         $uid = $this->actingAs('admin');
         $this->useProvider($this->identity('link-sub-1', 'me@example.com'));
 
-        $this->get('/admin/oauth/google/start', ['intent' => 'link']);
+        $this->post('/admin/oauth/google/link', []);
         $cb = $this->get('/admin/oauth/google/callback', ['code' => 'abc', 'state' => $this->currentState()]);
 
         $this->assertRedirectsTo($cb, '/admin/settings?oauth=linked');
         self::assertSame($uid, $this->repo()->userIdFor('google', 'link-sub-1'));
+    }
+
+    public function test_a_link_start_requires_csrf(): void
+    {
+        // AUTH-5: starting a link flow is a state change (mints/stores session
+        // flow state), so it is an authed CSRF POST — not a GET a cross-site page
+        // can force. Without a token it is refused and no flow is started.
+        $this->actingAs('admin');
+        $this->useProvider($this->identity('nope-sub', 'me@example.com'));
+
+        $resp = $this->postWithoutCsrf('/admin/oauth/google/link', []);
+
+        self::assertSame(302, $resp->status);
+        self::assertStringNotContainsString('accounts.google', (string) $resp->header('Location'), 'no provider redirect without CSRF');
+    }
+
+    public function test_link_requires_authentication(): void
+    {
+        // Anonymous POST to link → the auth middleware turns it away (no session
+        // to bind a link to).
+        $resp = $this->post('/admin/oauth/google/link', []);
+        self::assertSame(302, $resp->status);
+        self::assertSame('/admin/login', $resp->header('Location'));
+    }
+
+    public function test_a_get_cannot_begin_a_link_flow(): void
+    {
+        // The link route is POST-only; a GET to it does not exist (405/allow),
+        // and GET /start no longer honors intent=link.
+        $this->actingAs('admin');
+        $resp = $this->get('/admin/oauth/google/link');
+        self::assertSame(405, $resp->status, 'link is not reachable by GET');
     }
 
     public function test_link_is_bound_to_the_initiating_user(): void
@@ -209,7 +241,7 @@ final class OAuthFlowTest extends HttpTestCase
         $this->useProvider($this->identity('shared-sub', 'a@example.com'));
 
         // A starts a link flow (uid=A recorded in the session).
-        $this->get('/admin/oauth/google/start', ['intent' => 'link']);
+        $this->post('/admin/oauth/google/link', []);
         $state = $this->currentState();
 
         // The session user changes to B before the callback returns. A fresh Auth
@@ -233,7 +265,7 @@ final class OAuthFlowTest extends HttpTestCase
         $other = $this->actingAs('editor', 'other@test.local');
         $this->useProvider($this->identity('claimed-sub', 'other@example.com'));
 
-        $this->get('/admin/oauth/google/start', ['intent' => 'link']);
+        $this->post('/admin/oauth/google/link', []);
         $cb = $this->get('/admin/oauth/google/callback', ['code' => 'abc', 'state' => $this->currentState()]);
 
         $this->assertRedirectsTo($cb, '/admin/settings?oauth_error=already');

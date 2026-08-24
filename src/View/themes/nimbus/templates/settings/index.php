@@ -76,7 +76,10 @@ $e = static fn (?string $v): string => View::e($v);
                         <button type="submit" class="nb-btn nb-btn-sm">Disconnect</button>
                     </form>
                 <?php else: ?>
-                    <a class="nb-btn nb-btn-sm" href="/admin/oauth/<?= $e($acct['key']) ?>/start?intent=link">Connect</a>
+                    <form method="post" action="/admin/oauth/<?= $e($acct['key']) ?>/link">
+                        <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
+                        <button type="submit" class="nb-btn nb-btn-sm">Connect</button>
+                    </form>
                 <?php endif; ?>
             </li>
         <?php endforeach; ?>

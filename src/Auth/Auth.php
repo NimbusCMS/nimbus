@@ -24,7 +24,13 @@ final class Auth
     public function attempt(string $email, string $password): bool
     {
         $row = $this->db->selectOne('SELECT * FROM nb_users WHERE email = :e', ['e' => $email]);
-        if ($row === null || !Password::verify($password, (string) $row['password'])) {
+        // Equal work on both branches: verify against the stored hash, or a fixed
+        // dummy of the same algorithm when the email is unknown — so an unknown
+        // and a known email cost one identical argon2id/bcrypt verify. No fast
+        // return-early branch means no timing/enumeration oracle (AUTH-1).
+        $hash = $row === null ? Password::dummyHash() : (string) $row['password'];
+        $ok   = Password::verify($password, $hash);
+        if ($row === null || !$ok) {
             return false;
         }
         if (Password::needsRehash((string) $row['password'])) {

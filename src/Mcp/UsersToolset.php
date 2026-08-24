@@ -144,7 +144,7 @@ final class UsersToolset implements Toolset
         $generated = null;
         if ($provided !== '') {
             if (Password::isWeak($provided)) {
-                return ToolResult::error('That password is too weak (at least 8 non-default characters).', 'invalid');
+                return ToolResult::error('That password is too weak (at least ' . Password::MIN_LENGTH . ' non-default characters).', 'invalid');
             }
             $plain = $provided;
         } else {
@@ -316,7 +316,7 @@ final class UsersToolset implements Toolset
                 'email'    => ['type' => 'string'],
                 'name'     => ['type' => 'string'],
                 'role'     => ['type' => 'string', 'description' => 'A role name (see list_roles). Defaults to "editor".'],
-                'password' => ['type' => 'string', 'description' => 'Optional; at least 8 non-default characters. Omit to auto-generate.'],
+                'password' => ['type' => 'string', 'description' => 'Optional; at least ' . Password::MIN_LENGTH . ' non-default characters. Omit to auto-generate.'],
             ],
         ]);
     }

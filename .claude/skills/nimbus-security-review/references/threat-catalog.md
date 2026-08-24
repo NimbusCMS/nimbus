@@ -221,6 +221,25 @@ A plugin is in-process PHP and cannot be sandboxed — the boundary is a
 - **Sightings:** 2026-08-22 site-title (HTML/JSON XSS audit); SUP-2 (the mail subject
   the first audit missed) — the recurrence that promoted this to a standing check.
 
+## 16. Derived / prefixed value overflowing a bounded column → 1406/500
+
+- **Surfaces:** any user-influenced string that is *transformed* (slugified,
+  prefixed, hashed-or-not, concatenated) and then stored in a fixed-width column —
+  `nb_collections.handle`/`nb_fields.handle` (VARCHAR 80), `nb_migrations.migration`
+  (191, `pluginId:name`), `nb_login_throttle.id` (190, `login-em:`/`pwreset-em:`),
+  `nb_entries.slug`/`title`.
+- **Check:** the length bound must be enforced on the **derived** value at its
+  **column width**, not on the raw input — a valid-looking input can derive an
+  over-long stored value. Under `STRICT_TRANS_TABLES` an overflow is a 1406 →
+  uncaught 500 (often on an **unauthenticated** path — login, install, migrate).
+- **Control:** validate/clamp the derived value against the column width, or key on
+  a fixed-length **digest** of an unbounded input (`hash('sha256', …)`), or bound
+  the raw input tightly enough that no derivation can overflow.
+- **Sightings:** Slice F slug suffix-overflow; Slice G collection handle-80 (the
+  derived handle, not the name); PLUG-2 plugin-id → migration name; AUTH-2 throttle
+  key → the recurrence (3rd) that promoted this to a standing check. **A "mirror the
+  existing pattern" instruction can faithfully copy this bug** — check the mirror.
+
 ---
 
 ## Cross-cutting reminders

@@ -17,9 +17,14 @@ use Nimbus\Support\EventDispatcher;
  *
  * Anti-enumeration is a property of the *caller* contract: {@see request()}
  * returns void and the controller always shows the same "if that account exists,
- * a link was sent" — so the response never reveals whether an email is
- * registered. A token is minted (the costly part) regardless, and the request
- * endpoint is rate-limited, so the residual timing signal is not sampleable.
+ * a link was sent" — so the *response body* never reveals whether an email is
+ * registered, and the endpoint is dual-key rate-limited (IP + email).
+ *
+ * NOTE: unlike {@see \Nimbus\Auth\Auth::attempt} (equal-work login, AUTH-1), this
+ * path does NOT yet equalize *timing* — an unknown email returns early while a
+ * known one mints a token and sends mail. The rate limit blunts sampling but a
+ * residual timing oracle remains (tracked as a follow-up); do not rely on this
+ * being timing-safe.
  */
 final class PasswordResetService
 {

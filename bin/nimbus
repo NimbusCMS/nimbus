@@ -81,8 +81,8 @@ try {
                     fwrite(STDERR, "Refusing to install outside dev without --email and --password. (Set APP_ENV=local for a demo default.)\n");
                     exit(1);
                 }
-                if (in_array(strtolower($password), ['password', 'admin', '123456', 'changeme'], true) || strlen($password) < 8) {
-                    fwrite(STDERR, "Refusing a weak admin password. Use at least 8 non-default characters.\n");
+                if (Password::isWeak($password)) {
+                    fwrite(STDERR, 'Refusing a weak admin password. Use at least ' . Password::MIN_LENGTH . " non-default characters.\n");
                     exit(1);
                 }
             }

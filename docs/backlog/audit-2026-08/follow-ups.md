@@ -74,3 +74,21 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **What:** the route is behind auth + `users:write` + CSRF + the subset guard + **pending-gate** (only genuinely-pending users are resendable), so abuse is already bounded to a privileged insider hitting the finite set of pending users. But unlike the public `/admin/forgot` (IP+email throttled), a resend has no per-actor/per-target rate limit — an authenticated `users:write` insider could still repeatedly resend to spam a pending user's inbox / grow `nb_password_resets`.
 - **Fix:** reuse `LoginThrottle` keyed by actor and/or target email on the resend route (mirrors the reset flow), if evidence warrants. Proportionality: the pending-gate is the primary bound; don't build a bespoke throttle speculatively.
 - **Effort:** S
+
+### FU-9 · Password-reset request has the same timing oracle AUTH-1 closed for login
+- **Priority:** P3
+- **Type:** security (Low, enumeration)
+- **Discovered:** Slice N reviews (both lenses).
+- **Where:** `src/Auth/PasswordResetService::request()` — early-returns on an unknown email; a known email mints a token + sends mail synchronously (100ms+).
+- **What:** the login path was equalized (AUTH-1: a dummy-hash verify on the unknown branch), but the reset-request path still does far more work for a known email than an unknown one → a single-sample timing oracle for "is this email registered?", blunted only by the dual-key rate limit. The `PasswordResetService` docblock previously overclaimed timing-safety (corrected in Slice N).
+- **Fix:** equalize the work on the unknown branch (e.g. always do comparable token/mail work, or move mail send off the request path / to a queue so both branches return in constant time), mirroring AUTH-1's approach. Async mail also fixes the latency.
+- **Effort:** M
+
+### FU-10 · Login/reset throttle rows accumulate (no pruning of stale keys)
+- **Priority:** P3
+- **Type:** performance / housekeeping
+- **Discovered:** Slice N reviews.
+- **Where:** `nb_login_throttle` — `LoginThrottle::clear` only runs on a *successful* login/reset; failed keys (`login-ip:`/`login-em:`/`pwreset-*`/`oauth-ip:`) for random sprayed IPs/emails are never removed.
+- **What:** a spray against random emails/IPs mints one row per key that lingers past its decay window forever, growing the table unboundedly.
+- **Fix:** prune rows older than the decay window in `nimbus prune` (a `MaintenanceRegistry`-style task or a direct DELETE `WHERE updated_at < NOW() - INTERVAL <decay>`). Low-risk, opportunistic.
+- **Effort:** S
