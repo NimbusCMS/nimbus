@@ -11,6 +11,66 @@ All notable changes to NimbusCMS are recorded here. The format follows
 
 ## [Unreleased]
 
+The **0.1.0 candidate**. Everything below has shipped since `0.1.0-alpha.1`, which
+turns the "working core + plugins" foundation into a usable CMS with a public
+site, a full read+write API, an agent control surface, roles, and SSO — followed
+by a pre-release security & correctness audit (Slices A–P).
+
+### Added
+
+- **Public site** — themeable, server-rendered pages for collections and entries,
+  a starter theme, page metadata + Open Graph, canonical URLs, an XML sitemap,
+  reusable content *blocks*, and config-driven menus. Themes are plain PHP
+  templates handed a data-only view-model.
+- **Optional page cache** — a filesystem cache for public GETs (`PAGE_CACHE_TTL`,
+  off by default), flushed on every content write and TTL-bounded for scheduled
+  changes; CSP-nonce-consistent on a hit.
+- **Media library** — uploads with MIME sniffing + an extension allow-list, a
+  media field type, and a usage index kept in step with content.
+- **Headless HTTP API (`/api/v1`)** — read and write. Bearer tokens with
+  per-collection `read`/`write` scopes; paginated list + single-entry reads;
+  `POST`/`PATCH`/`DELETE` writes with structured `422` validation; `If-Match`
+  ETags with an **atomic compare-and-swap** so concurrent machine clients can't
+  silently overwrite each other; a per-token quota and a per-IP flood guard; a
+  generated **OpenAPI 3.0** document scoped to the presenting token.
+- **MCP control surface** — an agent with a scoped token operates the CMS over the
+  Model Context Protocol (content, schema, media, users, tokens, settings) through
+  the same services the admin uses, never separate logic.
+- **Roles & capabilities** — named capability bundles for users and tokens, a
+  deny-by-default `Authorizer`/`Gate`, subset-only granting, and a Roles admin UI.
+- **Users, invitations & password reset** — admin user management, emailed invites
+  and one-time password-reset links (hashed at rest, single-use, purpose-scoped),
+  and a pluggable mailer (log / native / API transports) with `nimbus mail:test`.
+- **OAuth SSO** — "Sign in with Google / GitHub" for the admin (opt-in, off by
+  default): Authorization-Code + PKCE + single-use `state`, identity mapped by
+  provider subject, explicit linking from settings. Password login always stays.
+- **Admin experience** — a redesigned, phone-native admin with four selectable
+  themes (Nimbus / Nocturne / Daybreak / Grimoire).
+- **More field types & relations** — relation cardinality + integrity, and a
+  universal length/validation backstop on entry writes.
+- **CLI** — `migrate` (self-healing on a partial apply), `install`, `create-user`,
+  `token:*`, `roles:seed`, `mail:test`, `openapi`, `mcp`, `prune`.
+
+### Changed
+
+- **HTTP semantics** — `HEAD` is served by the `GET` route (empty body); a
+  wrong-method request returns `405` + `Allow` (not `404`). The API surface no
+  longer mints a session cookie (it is bearer-only), and the CORS preflight
+  advertises the write + MCP methods and is counted by the flood limiter.
+- **Password floor** raised to 12 characters, enforced consistently everywhere a
+  password is set (affects newly-set passwords only).
+- Public pagination past the last page is a `404` (not a cacheable empty `200`).
+
+### Security
+
+- Pre-release audit hardening (Slices A–P): equal-work login + per-account
+  throttle (no user-enumeration timing oracle, no distributed-spray gap);
+  role-delete honors the subset guard; input-length backstops on every write path;
+  plugin-id and admin-slug validation with full two-phase rollback; a CSP nonce
+  that survives the page cache; and defense-in-depth on uploads, the mail log, and
+  the plugin/field-type contracts. See `docs/backlog/audit-2026-08/` for the
+  finding-by-finding record.
+
 ## [0.1.0-alpha.1] — 2026-08-02
 
 The first tagged release. A working, deliberately small CMS core with a proven
