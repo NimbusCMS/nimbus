@@ -44,17 +44,38 @@ final class OAuthController extends Controller
 
     public function routes(Router $r): void
     {
-        // Public — no auth middleware (the sign-in case has no session yet).
+        // Public sign-in start — no auth middleware (the sign-in case has no
+        // session yet). GET can only begin a *login* flow.
         $r->get('/admin/oauth/{provider}/start', fn (Request $req, array $p): Response => $this->start($req, (string) $p['provider']))->name('admin.oauth.start');
         $r->get('/admin/oauth/{provider}/callback', fn (Request $req, array $p): Response => $this->callback($req, (string) $p['provider']))->name('admin.oauth.callback');
 
-        // Disconnect is a state change by the account owner — authed + CSRF.
+        // Linking and disconnecting are state changes by the account owner —
+        // authed + CSRF. Link is a POST (not a GET) so a cross-site page cannot
+        // force-start / clobber a logged-in admin's link flow (AUTH-5).
         $r->group('/admin/oauth', [$this->authMw], function (Router $g): void {
+            $g->post('/{provider}/link', fn (Request $req, array $p): Response => $this->link($req, (string) $p['provider']))->name('admin.oauth.link');
             $g->post('/{provider}/disconnect', fn (Request $req, array $p): Response => $this->disconnect($req, (string) $p['provider']))->name('admin.oauth.disconnect');
         });
     }
 
+    /** Public sign-in start (GET). A GET can never begin a link flow — see link(). */
     private function start(Request $req, string $providerKey): Response
+    {
+        return $this->beginFlow($req, $providerKey, OAuthService::INTENT_LOGIN, null);
+    }
+
+    /** Authed, CSRF-checked start of a link flow (POST from the settings page). */
+    private function link(Request $req, string $providerKey): Response
+    {
+        $this->requireCsrf($req, Url::to('admin.settings'));
+        $user = $this->auth->user();
+        if ($user === null) {
+            return $this->redirect(Url::to('admin.login'));
+        }
+        return $this->beginFlow($req, $providerKey, OAuthService::INTENT_LINK, $user->id);
+    }
+
+    private function beginFlow(Request $req, string $providerKey, string $intent, ?int $uid): Response
     {
         if (!$this->providers->has($providerKey)) {
             return $this->redirect(Url::to('admin.login') . '?oauth_error=config');
@@ -64,16 +85,6 @@ final class OAuthController extends Controller
         $ipKey    = 'oauth-ip:' . $req->ip();
         if ($throttle->tooManyAttempts($ipKey)) {
             return $this->redirect(Url::to('admin.login') . '?oauth_error=throttled');
-        }
-
-        $intent = $req->query('intent') === OAuthService::INTENT_LINK ? OAuthService::INTENT_LINK : OAuthService::INTENT_LOGIN;
-        $uid    = null;
-        if ($intent === OAuthService::INTENT_LINK) {
-            $user = $this->auth->user();
-            if ($user === null) {
-                return $this->redirect(Url::to('admin.login'));
-            }
-            $uid = $user->id;
         }
 
         try {

@@ -110,7 +110,7 @@ final class UsersController extends Controller
         $password = (string) $req->input('password');
         $invite   = trim($password) === '';
         if (!$invite && Password::isWeak($password)) {
-            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('Choose a password of at least 8 non-default characters.'));
+            return $this->redirect(Url::to('admin.users.index') . '?err=' . rawurlencode('Choose a password of at least ' . Password::MIN_LENGTH . ' non-default characters.'));
         }
         $name = trim((string) $req->input('name'));
         if ($name === '') {

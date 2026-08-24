@@ -19,6 +19,36 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice N — login hardening: enumeration oracle + distributed spray closed (AUTH-1/2/3/5)
+- **Status:** fixed. Fable two-skill burst — **security-green, no Critical/High.** Two Medium P2s
+  (AUTH-1/2 — the audit's last two) + P3s. Catalog: #10 auth/session (enumeration, throttle).
+- **Surface:** `src/Auth/Auth.php`, `src/Auth/Password.php`, `src/Admin/AdminController.php`,
+  `src/Admin/PasswordResetController.php`, `src/Admin/OAuthController.php`.
+- **AUTH-1 (Medium, fixed) — login timing/enumeration oracle.** Unknown email = ~1ms SELECT-return;
+  known = full argon2id verify → single-sample enumeration. Fix: single-code-path equal-work — verify
+  against the stored hash or `Password::dummyHash()`, return false after. **M1 (the load-bearing
+  subtlety):** the dummy is algo-matched to the runtime (`algo()` falls back to bcrypt; a hardcoded
+  argon2id dummy on a bcrypt host does different work → oracle re-opens); drift guard asserts
+  `algoName` match + `needsRehash===false`. No message/status oracle (generic error). Argon2id cost is
+  input-length-independent → no residual signal from password length. Guard: `PasswordTest` drift +
+  `AuthRoutesTest` indistinguishability.
+- **AUTH-2 (Medium, fixed) — distributed spray.** IP-only throttle → many-IP spray on one account
+  never locks. Fix: dual key `login-ip:` + `login-em:`. **M2:** `recordFailure` fires uniformly on the
+  unknown-email branch + byte-identical lockout message → a locked known account is indistinguishable
+  from a flooded unknown email (doesn't re-open AUTH-1). Lockout time-bounded (1h/15m) = the same
+  deliberate-lockout-DoS tradeoff `pwreset-em:` already ships (recorded). **Key-length fix:** the email
+  is SHA-256'd into the key so an over-long address can't overflow `nb_login_throttle.id` VARCHAR(190)
+  → 1406/500 (a live bug in the existing `pwreset-em:` too — fixed both). Guard: `AuthRoutesTest`
+  (vary-IP lockout, no-oracle, clears-both).
+- **AUTH-3 (P3):** floor raised to 12 (per-account throttling makes keyspace the brake; only affects
+  newly-set passwords). Single `MIN_LENGTH` across 7 surfaces incl. `bin/nimbus`'s drifted inline copy.
+- **AUTH-5 (Low, fixed):** OAuth link start moved to an authed CSRF POST; GET stripped of link-intent
+  (the callback was already state/session/provider-bound — this is defense-in-depth on the one
+  tokenless auth mutation). Avoided token-in-query (Referer/log leak).
+- **Left open (recorded):** FU-9 — the **reset-request path has the same timing oracle** AUTH-1 closed
+  for login (its docblock overclaimed timing-safety — corrected); FU-10 — throttle-row pruning; the
+  `TRUSTED_PROXIES`-unset IP-key degradation (email key still protects per-account) documented.
+
 ### 2026-08-23 · Slice M — plugin-boundary containment + contract honesty (PLUG-2/4/6/8)
 - **Status:** fixed. Fable two-skill burst — **security-green, no Critical/High/Medium** (all Low or
   informational). Catalog: #12 plugin-boundary-abuse / containment.
