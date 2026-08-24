@@ -17,6 +17,14 @@ When a finding **class** appears here twice, promote it into
 
 ---
 
+### 2026-08-24 · Slice X — Collection-delete integrity + settings-audit decision (FU-14 built / FU-13 accepted)
+Reviewed via the Fable security burst before building. Security-green, **no ADR** (both Low/correctness).
+
+- **FU-13 — Low (forensic/observability gap), ACCEPTED as documented scope.** A hijacked `settings:write` admin session can change `site.home`/`site.title`/`site.description` with no actor-attributed trail. Bounded: the settings surface holds **no secrets** (OAuth creds are env-only, never `Settings`), no script sink, no authz input — so this is anti-forensics only, no capability gained, and the same absence exists on every admin write (schema/users/tokens). The `api.*` audit is a token trail by design (ADR 0006). Recorded as an accepted Low with revisit triggers; **the security loop co-owns revisit trigger #1** (a future SMTP/mail/OAuth/URL settings key would silently inherit the unaudited surface — re-rate then). No code (emitting would freeze a zero-consumer event family + create a misleading partial audit).
+- **FU-14 — no security finding (correctness).** Confirmed the current dangling-target state is already fail-closed (the DATA-1 read guards: target-handle JOIN + `canRead` gate + FK cascade → `[]`, no leak/500/oracle). The refuse-to-delete fix adds no attack surface: the in-use detail (collection names + field labels) reaches only `schema:write` holders (the highest structural privilege — they read all schema anyway; no non-enumeration regression), the admin render **escapes** the operator-authored labels server-side (ADMIN-10-safe, not URL-reflected), the guard is a *refusal* not a new grant and runs post-authz at the shared chokepoint (no bypass), the confirm flow is untouched, and cross-privilege pinning is impossible (creating the targeting field needs the same `schema:write`). TOCTOU (concurrent field-create vs delete) composes into today's fail-closed dangling state, not a hole — accepted (media parity), mitigated by the transaction wrap.
+
+Verdict: **security-green.** Hardens: completes the schema-integrity triangle (collection delete gains the in-use discipline media already has); records the settings-attribution gap as a deliberate, revisit-triggered scope decision rather than silent debt. Leaves open (tracked): grandfathered dangling targets (fail-closed by DATA-1); the platform-wide "admin writes carry no actor" posture (ADR 0006 family, revisit on a compliance trigger).
+
 ### 2026-08-24 · Slice W — Reserve names at schema-create (FU-4/FU-6)
 Reviewed via the Fable security burst before building. Security-green, **no ADR** (FU-4 is a Medium fixed in-slice).
 

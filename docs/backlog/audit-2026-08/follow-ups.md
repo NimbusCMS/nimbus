@@ -118,6 +118,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S (baseline + docs) / M (CI perf gate + a real theme)
 
 ### FU-13 · Admin `saveSite` writes are unaudited (asymmetry vs MCP `set_settings`)
+- **✅ CLOSED — documented decision (Slice X, no code).** Both review hats: the `api.*` audit is deliberately a **token trail** (ADR 0006 — it exists because tokens are non-human principals; its payload is `token_id`/`token_name`). Interactive admin writes have **never** been actor-audited anywhere (schema deletes, user edits, admin token mints are all equally silent) — the asymmetry is the existing design, not a Slice-Q accident. Emitting a settings-only admin event would (a) freeze a NEW pre-1.0 public event family with **zero consumers** (Drift-Guard #3 fail — no requesting operator, three cosmetic keys at stake), and (b) create a misleading **partial** audit surface (worse than documented absence). Rated a **Low** forensic gap with no exploit path (the settings surface holds no secrets — OAuth creds are env-only, never Settings). The coherent capability is an **admin activity log** (the dormant `nb_activity` table, `user_id`/`action`/`subject`, is its natural home) — deferred until evidence. **Revisit triggers:** (1) settings gain a security-relevant key (SMTP/mail, OAuth, URLs) — the security loop co-owns this; (2) a real operator/compliance request for admin attribution; (3) the `nb_activity` use-or-drop decision.
 - **Priority:** P3
 - **Type:** observability / parity
 - **Discovered:** 2026-08-24 (Slice Q security review).
@@ -126,6 +127,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-14 · Deleting a collection silently breaks relation fields that target it
+- **✅ RESOLVED** (Slice X) — `CollectionService::delete` now **refuses** (transaction-wrapped) when a relation field in ANOTHER collection targets this one (`CollectionRepository::relationFieldsTargeting`, PHP-side JSON decode, **excluded by collection id** so a self-targeting field never blocks its own deletion), throwing `CollectionInUse` (mirrors `MediaInUse`) — the reverse of ADMIN-14a's write-time validation. Refuse (not null/re-point) is the reversible, no-surprise choice — re-pointing would silently mutate a sibling collection's schema + bump its version. Admin `destroy` catches → **server-renders the escaped detail** (never round-tripped through `?err=` — ADMIN-10); MCP `delete_collection` → `in_use` ToolResult carrying the usage; `confirm` flow untouched. Grandfathered dangling targets stay fail-closed by the DATA-1 read guards (no migration). Tests: `CollectionRoutesTest` (targeted→refused naming the field; self-target→deletes; untargeted→deletes) + `McpSchemaToolsTest` (in_use + usage payload parity).
 - **Priority:** P3
 - **Type:** correctness (data integrity)
 - **Discovered:** 2026-08-24 (Slice R platform review).

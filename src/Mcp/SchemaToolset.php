@@ -7,6 +7,7 @@ namespace Nimbus\Mcp;
 use Nimbus\Api\EntryOpContext;
 use Nimbus\Api\TokenPrincipal;
 use Nimbus\Content\Collection;
+use Nimbus\Content\CollectionInUse;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\CollectionService;
 use Nimbus\Content\DuplicateHandle;
@@ -294,7 +295,13 @@ final class SchemaToolset implements Toolset
             );
         }
 
-        $this->service->delete($collection->id);
+        try {
+            $this->service->delete($collection->id);
+        } catch (CollectionInUse $e) {
+            // A relation field elsewhere still targets it — refuse (FU-14),
+            // carrying the usage so the agent knows what to retarget first.
+            return ToolResult::error($e->getMessage(), 'in_use', [], ['usage' => $e->usage]);
+        }
         $this->announce($principal, $ctx, 'delete_collection', $collection->handle);
         return ToolResult::ok(['deleted' => $collection->handle, 'entries_removed' => $entries]);
     }
@@ -535,7 +542,7 @@ final class SchemaToolset implements Toolset
     /** @return array<string,mixed> */
     private function deleteCollectionDefinition(): array
     {
-        return $this->tool('delete_collection', 'Permanently delete a collection and all its entries. Irreversible; requires confirm:true (call once without it to see how many entries would be destroyed).', [
+        return $this->tool('delete_collection', 'Permanently delete a collection and all its entries. Irreversible; requires confirm:true (call once without it to see how many entries would be destroyed). Refused if a relation field in another collection still targets this one — retarget or remove that field first.', [
             'type'       => 'object',
             'required'   => ['handle'],
             'properties' => [

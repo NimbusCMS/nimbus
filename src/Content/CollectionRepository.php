@@ -92,6 +92,40 @@ final class CollectionRepository
         return $out;
     }
 
+    /**
+     * Relation fields (in OTHER collections) that declare $handle as their
+     * target — the "who points at me?" query the delete guard uses (FU-14).
+     * Decoded in PHP over the handful of relation fields (no JSON_EXTRACT, so
+     * no dialect coupling). Excludes the collection being deleted by **id** so a
+     * self-targeting field never blocks its own collection's deletion.
+     *
+     * @return list<array{collection:string,collection_name:string,field_handle:string,field_label:string}>
+     */
+    public function relationFieldsTargeting(string $handle, int $excludeCollectionId): array
+    {
+        $out  = [];
+        $rows = $this->db->select(
+            "SELECT f.handle AS field_handle, f.label AS field_label, f.options,
+                    c.handle AS collection, c.name AS collection_name
+             FROM nb_fields f JOIN nb_collections c ON c.id = f.collection_id
+             WHERE f.type = 'relation' AND f.collection_id <> :ex",
+            ['ex' => $excludeCollectionId],
+        );
+        foreach ($rows as $r) {
+            $options = json_decode((string) ($r['options'] ?? ''), true);
+            $target  = is_array($options) ? (string) ($options['target'] ?? '') : '';
+            if ($target === $handle) {
+                $out[] = [
+                    'collection'      => (string) $r['collection'],
+                    'collection_name' => (string) $r['collection_name'],
+                    'field_handle'    => (string) $r['field_handle'],
+                    'field_label'     => (string) $r['field_label'],
+                ];
+            }
+        }
+        return $out;
+    }
+
     /** @param array<string,mixed> $options */
     public function create(string $handle, string $name, string $icon, string $description, array $options): int
     {
