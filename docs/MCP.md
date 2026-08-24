@@ -23,7 +23,16 @@ diverge:
   bearer path does), so even locally the session is capability-scoped — never raw
   database access.
 
-Implemented methods: `initialize`, `tools/list`, `tools/call`, `ping`.
+Implemented methods: `initialize`, `tools/list`, `tools/call`, `ping`,
+`resources/list`, `resources/read`.
+
+**Agent guidance (ADR 0013).** `initialize` returns an `instructions` brief, and
+`resources/list` / `resources/read` serve the operating guide as markdown
+documents — `nimbus://guide/core`, plus `nimbus://guide/plugin/{id}` for each
+enabled plugin that ships one. This means any MCP client gets Nimbus's operating
+knowledge for free, with nothing to install. Resource URIs are registry keys
+(never file paths); an unknown URI is a resource-not-found. MCP prompts and
+sampling are **not** implemented (and not advertised).
 
 **One request per call.** JSON-RPC batches (a top-level array of messages) are
 **not supported** — a batch is answered with a single `Invalid Request`

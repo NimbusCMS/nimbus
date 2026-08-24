@@ -18,6 +18,8 @@ final class JsonRpc
     public const METHOD_NOT_FOUND = -32601;
     public const INVALID_PARAMS   = -32602;
     public const INTERNAL_ERROR   = -32603;
+    /** MCP resource-not-found — the reserved server-error code for `resources/read`. */
+    public const RESOURCE_NOT_FOUND = -32002;
 
     /**
      * A success envelope for request $id.

@@ -118,7 +118,10 @@ response shapes, not on any PHP class. What is promised:
   from the live model and the token's scopes**, so — like the content shape
   itself — it is not frozen: a `0.x` release may add, rename or remove tools.
   Treat tool names/inputs as evolving until `1.0`. See [docs/MCP.md](MCP.md) and
-  [ADR 0009](adr/0009-mcp-control-surface.md).
+  [ADR 0009](adr/0009-mcp-control-surface.md). Likewise the **agent-guidance
+  resources** (`initialize.instructions`, the `nimbus://guide/*` resource URIs and
+  their content — [ADR 0013](adr/0013-mcp-agent-guidance.md)) are documentation,
+  evolving until `1.0`; do not parse them as a stable contract.
 - **Rate limiting** — requests are limited per token (and per IP for the
   unauthenticated flood guard); over the limit is `429` `rate_limited` with a
   `Retry-After` header. Limits are deployment config, not part of the contract.
