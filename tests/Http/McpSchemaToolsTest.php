@@ -132,6 +132,35 @@ final class McpSchemaToolsTest extends HttpTestCase
         self::assertSame('invalid', $again['result']['structuredContent']['error']['code']);
     }
 
+    public function test_a_reserved_collection_handle_is_rejected_over_mcp(): void
+    {
+        // FU-4 parity: a collection handle colliding with a management capability
+        // is rejected on the agent surface too, and the error names the set so an
+        // agent self-corrects.
+        $schema   = $this->tokens->create('S', ['schema:write']);
+        $response = $this->call('create_collection', ['handle' => 'media', 'name' => 'Media'], $schema);
+
+        self::assertTrue($response['result']['isError']);
+        self::assertSame('invalid', $response['result']['structuredContent']['error']['code']);
+        self::assertStringContainsStringIgnoringCase('reserved', (string) $response['result']['structuredContent']['error']['message']);
+        self::assertNull($this->collections->findByHandle('media'), 'nothing was created');
+    }
+
+    public function test_a_reserved_field_handle_is_rejected_over_mcp(): void
+    {
+        // FU-6 parity: a field named `title` is rejected via create_collection and
+        // add_field.
+        $schema = $this->tokens->create('S', ['schema:write']);
+
+        $onCreate = $this->call('create_collection', ['handle' => 'posts', 'name' => 'Posts', 'fields' => [$this->field('Title', 'text')]], $schema);
+        self::assertTrue($onCreate['result']['isError']);
+        self::assertNull($this->collections->findByHandle('posts'));
+
+        $this->call('create_collection', ['handle' => 'posts', 'name' => 'Posts'], $schema);
+        $onAdd = $this->call('add_field', ['handle' => 'posts', 'field' => $this->field('Slug', 'text')], $schema);
+        self::assertTrue($onAdd['result']['isError'], 'add_field rejects a reserved field handle');
+    }
+
     // -------------------------------------------------------- destructive
 
     public function test_delete_collection_requires_confirmation_and_reports_the_blast_radius(): void

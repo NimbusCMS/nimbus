@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Content;
 
 use Nimbus\Database\Connection;
+use Nimbus\Support\Str;
 
 /**
  * Transactional writes for a collection + its fields. Creating/updating a
@@ -21,6 +22,24 @@ final class CollectionService
     public const DESC_MAX   = 255;  // nb_collections.description VARCHAR(255)
     public const LABEL_MAX  = 120;  // nb_fields.label VARCHAR(120)
 
+    /**
+     * Handles a collection may not own (FU-4). The first seven collide with a
+     * permission-capability name, so `Authorizer` would judge the collection
+     * under management rules (a `media:read` holder gaining content-read of a
+     * collection named `media`); the rest are built-in public route prefixes
+     * that would shadow the collection's own pages. Kept a superset of
+     * `Authorizer::MANAGEMENT ∪ {'admin'}` by a drift-guard test (PHP consts
+     * can't merge arrays, so the invariant is asserted, not computed).
+     */
+    public const RESERVED_COLLECTION_HANDLES = [
+        'schema', 'media', 'users', 'tokens', 'settings', 'roles', 'admin',
+        'api', 'uploads', 'theme',
+    ];
+
+    /** Field handles that collide with a built-in entry attribute in the flat
+     *  validation error map / entry shape (FU-6). */
+    public const RESERVED_FIELD_HANDLES = ['title', 'slug', 'published_at'];
+
     public function __construct(
         private Connection $db,
         private CollectionRepository $collections,
@@ -33,6 +52,17 @@ final class CollectionService
      */
     public function create(string $handle, string $name, string $icon, string $description, array $options, array $fieldDefs): int
     {
+        // Reserved-name guard (FU-4/FU-6). Normalize here too so a caller that
+        // skipped Str::handle (e.g. a seeder) can't slip a reserved name past.
+        if (in_array(Str::handle($handle), self::RESERVED_COLLECTION_HANDLES, true)) {
+            throw new ReservedHandle($handle, 'collection');
+        }
+        foreach ($fieldDefs as $def) {
+            if (in_array(Str::handle((string) $def['handle']), self::RESERVED_FIELD_HANDLES, true)) {
+                throw new ReservedHandle((string) $def['handle'], 'field');
+            }
+        }
+
         try {
             return $this->db->transaction(function () use ($handle, $name, $icon, $description, $options, $fieldDefs): int {
                 $id = $this->collections->create($handle, $name, $icon, $description, $options);
@@ -55,6 +85,25 @@ final class CollectionService
      */
     public function update(int $id, string $name, string $icon, string $description, array $options, array $fieldDefs): void
     {
+        // New-field-only reserved guard (FU-6): a reserved field handle that is
+        // already stored is grandfathered — rejecting it would force syncFields
+        // (which matches by handle) into a data-lossy DELETE+INSERT rename. Only
+        // a field handle NOT already on the collection is checked. The collection
+        // handle is immutable on update, so it is never re-checked here.
+        $existing = [];
+        $stored   = $this->collections->find($id);
+        if ($stored !== null) {
+            foreach ($stored->fields as $field) {
+                $existing[$field->handle] = true;
+            }
+        }
+        foreach ($fieldDefs as $def) {
+            $handle = (string) $def['handle'];
+            if (!isset($existing[$handle]) && in_array(Str::handle($handle), self::RESERVED_FIELD_HANDLES, true)) {
+                throw new ReservedHandle($handle, 'field');
+            }
+        }
+
         $this->db->transaction(function () use ($id, $name, $icon, $description, $options, $fieldDefs): void {
             $this->collections->update($id, $name, $icon, $description, $options);
             $this->collections->syncFields($id, $fieldDefs);

@@ -183,6 +183,80 @@ final class CollectionRoutesTest extends HttpTestCase
         self::assertNull($this->repo->findByHandle('books'));
     }
 
+    public function test_a_collection_handle_that_collides_with_a_permission_name_is_rejected(): void
+    {
+        // FU-4: a collection named after a management capability would be judged
+        // under management authz rules. Rejected at create on the admin form.
+        $this->actingAs('admin');
+        foreach (['media', 'users', 'tokens', 'settings', 'roles', 'schema', 'admin'] as $reserved) {
+            $response = $this->post('/admin/collections', ['name' => ucfirst($reserved), 'handle' => $reserved]);
+            self::assertSame(200, $response->status, "{$reserved} is rejected + re-rendered");
+            self::assertStringContainsString('reserved', $response->body);
+            self::assertNull($this->repo->findByHandle($reserved), "no {$reserved} collection created");
+        }
+    }
+
+    public function test_the_reserved_handle_check_is_normalization_insensitive(): void
+    {
+        // "Media" Str::handle-normalizes to "media" — the check must see the
+        // normalized handle, not the raw input (else the guard is bypassable).
+        $this->actingAs('admin');
+        $response = $this->post('/admin/collections', ['name' => 'Press', 'handle' => 'Media']);
+
+        self::assertSame(200, $response->status);
+        self::assertNull($this->repo->findByHandle('media'));
+    }
+
+    public function test_a_field_handle_that_collides_with_a_built_in_entry_key_is_rejected(): void
+    {
+        // FU-6: a field named title/slug/published_at collides with the entry's
+        // own keys in the flat error map. Rejected as a NEW field at create.
+        $this->actingAs('admin');
+        foreach (['title', 'slug', 'published_at'] as $reserved) {
+            $handle   = 'posts_' . $reserved;
+            $response = $this->post('/admin/collections', ['name' => 'C ' . $reserved, 'handle' => $handle]
+                + $this->fields([ucfirst($reserved), $reserved, 'text']));
+            self::assertSame(200, $response->status);
+            self::assertStringContainsString('reserved', $response->body);
+            self::assertNull($this->repo->findByHandle($handle));
+        }
+    }
+
+    public function test_a_pre_existing_collection_with_a_reserved_handle_still_edits(): void
+    {
+        // Grandfathering: the collection-handle check is create-only, so a
+        // collection named `media` from before this guard (seeded past the
+        // service here) still saves on edit — the handle is immutable anyway.
+        $this->actingAs('admin');
+        $c = $this->makeCollection('legacymedia');
+        $this->db->execute('UPDATE nb_collections SET handle = :h WHERE id = :id', ['h' => 'media', 'id' => (int) $c->id]);
+
+        $response = $this->post('/admin/collections/' . (int) $c->id, ['name' => 'Media Renamed', 'handle' => 'media']);
+
+        $this->assertRedirects($response, '/admin/collections?msg=updated');
+        self::assertSame('Media Renamed', $this->repo->find((int) $c->id)->name);
+    }
+
+    public function test_a_pre_existing_reserved_field_survives_an_edit(): void
+    {
+        // Grandfathering: a stored field named `title` is not renamed out from
+        // under its values (new-only check) — an edit that keeps it and adds a
+        // normal field saves.
+        $this->actingAs('admin');
+        $c = $this->makeCollection('legacy');
+        $this->db->execute(
+            "INSERT INTO nb_fields (collection_id, handle, label, type, required, options, sort, created_at)
+             VALUES (:c, 'title', 'Title', 'text', 0, NULL, 0, NOW())",
+            ['c' => (int) $c->id],
+        );
+
+        $response = $this->post('/admin/collections/' . (int) $c->id, ['name' => 'Legacy', 'handle' => 'legacy']
+            + $this->fields(['Title', 'title', 'text'], ['Body', 'body', 'textarea']));
+
+        $this->assertRedirects($response, '/admin/collections?msg=updated');
+        self::assertSame(['title', 'body'], array_map(static fn ($f) => $f->handle, $this->repo->find((int) $c->id)->fields));
+    }
+
     public function test_an_over_long_field_label_is_caught_before_the_write(): void
     {
         $this->actingAs('admin');

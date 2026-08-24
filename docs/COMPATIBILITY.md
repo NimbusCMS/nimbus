@@ -166,6 +166,15 @@ Authorization for users and tokens is one `resource:action` capability vocabular
 - **The management boundary.** `schema`, `media`, `users`, `tokens`, `settings`,
   `roles` are grantable only exactly (or by `admin`); the content wildcard
   `*:action` **never** confers a management capability.
+- **Reserved handles (FU-4/FU-6).** A **collection** handle may not be a
+  management-capability name (`schema`/`media`/`users`/`tokens`/`settings`/
+  `roles`/`admin`) or a built-in route prefix (`api`/`uploads`/`theme`) — such a
+  handle would be judged under management authz rules or shadowed by a core
+  route. A **field** handle may not be a built-in entry attribute (`title`/
+  `slug`/`published_at`). Both are rejected at schema-create on the admin form
+  and over MCP with a friendly error. The reservation is **create-time only**: a
+  collection or field that already carries such a name (from before this guard)
+  still edits and saves — its handle is never renamed out from under it.
 - **Content implication.** `handle:write` implies `handle:read`; management caps
   carry no such implication (each is explicit).
 - **Subset-only granting.** No surface (admin UI, MCP) lets an actor grant, into a

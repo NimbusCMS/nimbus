@@ -11,6 +11,7 @@ use Nimbus\Content\CollectionService;
 use Nimbus\Content\DuplicateHandle;
 use Nimbus\Content\Field;
 use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Content\ReservedHandle;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
@@ -120,6 +121,8 @@ final class CollectionsController extends Controller
                 return $this->redirect(Url::to('admin.collections.index') . '?msg=created');
             } catch (DuplicateHandle $e) {
                 $errors['handle'] = 'The handle “' . $e->handle . '” is already taken. Pick another.';
+            } catch (ReservedHandle $e) {
+                $errors['handle'] = $this->reservedMessage($e);
             }
         }
         // Re-render what was submitted rather than throwing the work away.
@@ -143,8 +146,22 @@ final class CollectionsController extends Controller
             return $this->renderCollectionForm($collection, $draft, $errors);
         }
 
-        $this->collectionService->update($id, $draft['name'], $draft['icon'], $draft['description'], $this->options($req), $defs);
+        try {
+            $this->collectionService->update($id, $draft['name'], $draft['icon'], $draft['description'], $this->options($req), $defs);
+        } catch (ReservedHandle $e) {
+            // Only a *new* reserved field handle reaches here (grandfathered
+            // fields are allowed through) — collection handles are immutable.
+            $errors['handle'] = $this->reservedMessage($e);
+            return $this->renderCollectionForm($collection, $draft, $errors);
+        }
         return $this->redirect(Url::to('admin.collections.index') . '?msg=updated');
+    }
+
+    private function reservedMessage(ReservedHandle $e): string
+    {
+        return $e->kind === 'collection'
+            ? 'The handle “' . $e->handle . '” is reserved — it collides with a built-in permission or route name. Pick another.'
+            : 'The field handle “' . $e->handle . '” is reserved — title, slug and published_at are built-in entry attributes. Rename that field.';
     }
 
     /**

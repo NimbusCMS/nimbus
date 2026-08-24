@@ -45,14 +45,14 @@ final class EntryServiceTest extends IntegrationTestCase
 
     public function test_singleton_cannot_have_two_entries(): void
     {
-        $c = $this->collection('settings', ['kind' => 'single', 'permissions' => ['manage' => []]]);
+        $c = $this->collection('homepage', ['kind' => 'single', 'permissions' => ['manage' => []]]);
         $this->service->save($c, new EntryInput('', '', 'draft', []), null, null);
         $this->service->save($c, new EntryInput('', '', 'draft', []), null, null);
 
         self::assertSame(1, $this->entryCount($c->id));
         $row = $this->db->selectOne('SELECT title, slug FROM nb_entries WHERE collection_id = :c', ['c' => $c->id]);
         self::assertSame(EntryService::SINGLETON_SLUG, $row['slug']);
-        self::assertSame('Settings', $row['title']); // auto from collection name
+        self::assertSame('Homepage', $row['title']); // auto from collection name
     }
 
     public function test_slug_is_unique_within_collection_and_collision_is_handled(): void
