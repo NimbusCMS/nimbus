@@ -17,6 +17,7 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\Url;
+use Nimbus\Settings\Settings;
 
 /**
  * Manage API tokens: mint (shown once), list them with their lifecycle state,
@@ -44,9 +45,9 @@ final class TokensController extends Controller
     private CollectionRepository $collections;
     private RoleRepository $roles;
 
-    public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null)
+    public function __construct(Connection $db, Auth $auth, Settings $settings, ?AdminPageRegistry $adminPages = null)
     {
-        parent::__construct($db, $auth, $adminPages);
+        parent::__construct($db, $auth, $settings, $adminPages);
         $this->tokens      = new ApiTokenRepository($this->db);
         $this->collections = new CollectionRepository($this->db);
         $this->roles       = new RoleRepository($this->db);

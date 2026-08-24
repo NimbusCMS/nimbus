@@ -70,4 +70,35 @@ final class Settings
         $this->repo->set($key, $value);
         $this->stored = null;
     }
+
+    /**
+     * Persist several already-validated values **atomically** — all keys commit
+     * or none do (a mid-batch DB failure rolls the whole batch back), so the
+     * "validate all, then write all" contract both write surfaces promise holds
+     * under a `PDOException`, not only under a validation failure.
+     *
+     * Every key must be registry-known: callers already build the map from the
+     * registry (never from raw request keys), and this assertion keeps that
+     * boundary true even if a future caller forgets — an unknown key is a
+     * programmer error, not a silent arbitrary-row write.
+     *
+     * The memo is dropped once, **after** commit, so a subsequent read in the
+     * same request sees the new values (and a rolled-back batch leaves the memo
+     * — still valid, since the table is unchanged — intact).
+     *
+     * @param array<string,string> $values key => already-validated value
+     */
+    public function setMany(array $values): void
+    {
+        if ($values === []) {
+            return;
+        }
+        foreach (array_keys($values) as $key) {
+            if ($this->registry->find($key) === null) {
+                throw new \InvalidArgumentException("Unknown setting \"{$key}\".");
+            }
+        }
+        $this->repo->setMany($values);
+        $this->stored = null;
+    }
 }

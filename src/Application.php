@@ -82,6 +82,11 @@ final class Application
     /** Request-scoped carrier for the authenticated API principal (ADR 0006). */
     private ApiAuthContext $apiAuth;
 
+    /** The read/write settings store — composed once (SUP-10) so the shell
+     *  title and the handling controller share one memo/one query, and every
+     *  write goes through one atomic {@see Settings::setMany}. */
+    private Settings $settings;
+
     /** Outgoing-mail transport (password reset, later notifications). */
     private Mailer $mailer;
 
@@ -131,6 +136,9 @@ final class Application
         $this->maintenance      = new MaintenanceRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
+        // Composed after the env/db block above so the registry captures loaded
+        // config; construction touches no DB (the query is lazy in get()).
+        $this->settings         = new Settings(new SettingsRepository($this->db), new SettingsRegistry(new CollectionRepository($this->db)));
         $this->mailer           = $mailer ?? MailerFactory::fromConfig();
         $this->oauthProviders   = $oauthProviders ?? \Nimbus\Auth\OAuth\OAuthProviders::fromConfig();
         $this->redirects  = $redirects ?? Config::redirects();
@@ -223,6 +231,14 @@ final class Application
     public function events(): EventDispatcher
     {
         return $this->events;
+    }
+
+    /** The composed-once settings store (SUP-10) — exposed like {@see events()}
+     *  so an alternate entrypoint can share the one instance rather than
+     *  hand-building another. */
+    public function settings(): Settings
+    {
+        return $this->settings;
     }
 
     public function run(): void
@@ -355,28 +371,24 @@ final class Application
     public function routes(): Router
     {
         $router = new Router();
-        (new AdminController($this->db, $this->auth, $this->pluginStatuses, $this->adminPages))->routes($router);
-        (new PasswordResetController($this->db, $this->auth, $this->mailer, $this->events, $this->adminPages))->routes($router);
-        (new OAuthController($this->db, $this->auth, $this->oauthProviders, null, $this->adminPages))->routes($router);
-        (new CollectionsController($this->db, $this->auth, $this->fieldTypes, $this->adminPages))->routes($router);
-        (new EntriesController($this->db, $this->auth, $this->fieldTypes, $this->events, $this->adminPages))->routes($router);
-        (new MediaController($this->db, $this->auth, $this->adminPages))->routes($router);
-        (new UsersController($this->db, $this->auth, $this->adminPages, $this->mailer, $this->events))->routes($router);
-        (new RolesController($this->db, $this->auth, $this->adminPages))->routes($router);
-        (new TokensController($this->db, $this->auth, $this->adminPages))->routes($router);
-        (new SettingsController($this->db, $this->auth, $this->adminPages))->routes($router);
+        (new AdminController($this->db, $this->auth, $this->settings, $this->pluginStatuses, $this->adminPages))->routes($router);
+        (new PasswordResetController($this->db, $this->auth, $this->settings, $this->mailer, $this->events, $this->adminPages))->routes($router);
+        (new OAuthController($this->db, $this->auth, $this->settings, $this->oauthProviders, null, $this->adminPages))->routes($router);
+        (new CollectionsController($this->db, $this->auth, $this->settings, $this->fieldTypes, $this->adminPages))->routes($router);
+        (new EntriesController($this->db, $this->auth, $this->settings, $this->fieldTypes, $this->events, $this->adminPages))->routes($router);
+        (new MediaController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
+        (new UsersController($this->db, $this->auth, $this->settings, $this->adminPages, $this->mailer, $this->events))->routes($router);
+        (new RolesController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
+        (new TokensController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
+        (new SettingsController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
         // Plugin admin pages, after the core admin controllers so a plugin slug
         // can never shadow a core /admin route.
-        (new PluginPagesController($this->db, $this->auth, $this->adminPages))->routes($router);
-        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth, $this->events, $this->apiFlood))->routes($router);
+        (new PluginPagesController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
+        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth, $this->events, $this->apiFlood, $this->settings))->routes($router);
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.
-        $settings = new Settings(
-            new SettingsRepository($this->db),
-            new SettingsRegistry(new CollectionRepository($this->db)),
-        );
-        (new SiteController($this->db, $this->fieldTypes, Config::home(), null, $this->headContributors, $settings))->routes($router);
+        (new SiteController($this->db, $this->fieldTypes, Config::home(), null, $this->headContributors, $this->settings))->routes($router);
         return $router;
     }
 

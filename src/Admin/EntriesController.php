@@ -20,6 +20,7 @@ use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\Url;
 use Nimbus\Media\MediaRepository;
+use Nimbus\Settings\Settings;
 use Nimbus\Support\EventDispatcher;
 
 /**
@@ -55,11 +56,12 @@ final class EntriesController extends Controller
     public function __construct(
         Connection $db,
         Auth $auth,
+        Settings $settings,
         private FieldTypeRegistry $types,
         EventDispatcher $events,
         ?AdminPageRegistry $adminPages = null,
     ) {
-        parent::__construct($db, $auth, $adminPages);
+        parent::__construct($db, $auth, $settings, $adminPages);
         $this->collections  = new CollectionRepository($this->db);
         $this->entries      = new EntryRepository($this->db);
         $this->relations    = new RelationRepository($this->db);

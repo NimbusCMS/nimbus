@@ -11,7 +11,6 @@ use Nimbus\Auth\Password;
 use Nimbus\Auth\PasswordResetRepository;
 use Nimbus\Auth\RoleRepository;
 use Nimbus\Auth\UserRepository;
-use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
@@ -21,8 +20,6 @@ use Nimbus\Http\Url;
 use Nimbus\Mail\Mailer;
 use Nimbus\Mail\MailerFactory;
 use Nimbus\Settings\Settings;
-use Nimbus\Settings\SettingsRegistry;
-use Nimbus\Settings\SettingsRepository;
 use Nimbus\Support\EventDispatcher;
 
 /**
@@ -38,16 +35,16 @@ final class UsersController extends Controller
     private InvitationService $invitations;
     private PasswordResetRepository $resets;
 
-    public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null, ?Mailer $mailer = null, ?EventDispatcher $events = null)
+    public function __construct(Connection $db, Auth $auth, Settings $settings, ?AdminPageRegistry $adminPages = null, ?Mailer $mailer = null, ?EventDispatcher $events = null)
     {
-        parent::__construct($db, $auth, $adminPages);
+        parent::__construct($db, $auth, $settings, $adminPages);
         $this->users  = new UserRepository($db);
         $this->roles  = new RoleRepository($db);
         $this->resets = new PasswordResetRepository($db);
         $this->invitations = new InvitationService(
             new AccountTokenService($this->users, $this->resets, $events ?? new EventDispatcher()),
             $mailer ?? MailerFactory::fromConfig(),
-            new Settings(new SettingsRepository($db), new SettingsRegistry(new CollectionRepository($db))),
+            $this->settings,
         );
     }
 

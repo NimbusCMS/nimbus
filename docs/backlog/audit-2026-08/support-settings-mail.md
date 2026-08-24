@@ -45,6 +45,7 @@ silently dropping later listeners (audit records included) when an earlier one t
 - **Effort:** S
 
 ### SUP-4 · Admin settings save discards the field-level error — the operator gets a generic flash while MCP gets per-key messages
+- **✅ RESOLVED** (Slice Q) — `saveSite()` now collects **every** validation failure (not just the first) and **re-renders** the settings page in the POST response (200, not a redirect) with the per-key validator messages beside the fields and the operator's own submitted values overlaid — the same pattern `EntriesController::save()` uses. No redirect → no value loss and no text round-tripped through the URL (defuses the ADMIN-10 class for this surface); the `?flash=site-error` generic banner is gone. The one validator message that echoed submitted input (`site.home`) is now a fixed string. Tests: `SettingsSiteTest` (partial-failure re-renders + preserves input + writes nothing; hostile value escaped; the five per-field rejections now assert 200 + message).
 - **Priority:** P3
 - **Type:** product-gap
 - **Where:** `src/Admin/SettingsController.php:186-190` (+ `src/View/themes/nimbus/templates/settings/index.php:25-27`)
@@ -74,6 +75,7 @@ silently dropping later listeners (audit records included) when an earlier one t
 - **Effort:** S
 
 ### SUP-7 · Multi-key settings save is not atomic — a mid-loop DB failure applies some keys and not others
+- **✅ RESOLVED** (Slice Q) — both surfaces now write via `Settings::setMany()` → `SettingsRepository::setMany()`, which wraps the per-key upserts in `Connection::transaction()` **on the connection that performs the writes** (single-repository batch: the transaction provably wraps its own writes, rather than a service-level transaction on a possibly-different connection). A mid-batch failure rolls the whole batch back and rethrows. The MCP `API_MANAGEMENT_WRITTEN` audit emits moved to **after** the atomic write, so a rolled-back batch emits no (lying) audit and every persisted key still audits. `setMany` also asserts each key is registry-known. Tests: `McpSettingsToolsTest` (real rollback via a TEXT-column overflow leaves neither key; audit parity = one event per persisted key; unregistered-key refusal).
 - **Priority:** P3
 - **Type:** error-handling
 - **Where:** `src/Admin/SettingsController.php:194-197`, `src/Mcp/SettingsToolset.php:120-127`
@@ -104,6 +106,7 @@ silently dropping later listeners (audit records included) when an earlier one t
 - **Effort:** S
 
 ### SUP-10 · `Settings`/`SettingsRegistry` are hand-assembled at six call sites instead of composed once
+- **✅ RESOLVED** (Slice Q) — `Settings` is composed **once** in `Application::__construct` (after the env/db block) and exposed via `Application::settings()`. It is threaded into the admin base `Controller` (a required ctor param, so `siteTitle()` reuses the one instance/memo) and every consumer (all 11 admin controllers, `ApiController`, `SiteController`, and the two CLI paths via the accessor). The six `src/` construction sites — plus the two the finding missed in `bin/nimbus` — are gone; `new Settings(` now appears only in `Application`, guarded by a static drift test (`SettingsCompositionTest`). No behaviour change; the lazy-title property is preserved (construction is query-free). Threaded through ~13 files; verified by the exact-assertion HTTP route/contract suite.
 - **Priority:** P3
 - **Type:** architecture
 - **Where:** `src/Application.php:323-327`, `src/Admin/Controller.php:134-137`, `src/Admin/SettingsController.php:51-52`, `src/Admin/PasswordResetController.php:48`, `src/Admin/UsersController.php:48`, `src/Api/ApiController.php:75-76`

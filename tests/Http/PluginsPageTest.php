@@ -25,7 +25,7 @@ final class PluginsPageTest extends HttpTestCase
     private function router(array $statuses): Router
     {
         $router = new Router();
-        (new AdminController($this->db, $this->auth, $statuses))->routes($router);
+        (new AdminController($this->db, $this->auth, $this->settings(), $statuses))->routes($router);
         return $router;
     }
 
@@ -115,7 +115,7 @@ final class PluginsPageTest extends HttpTestCase
         // none of its own — so its form and button counts match a page that is
         // purely informational. Compared against the dashboard for that baseline.
         $router    = new Router();
-        (new AdminController($this->db, $this->auth, []))->routes($router);
+        (new AdminController($this->db, $this->auth, $this->settings(), []))->routes($router);
         $dashboardResponse = $router->dispatch(
             new Request('GET', '/admin', [], [], ['REMOTE_ADDR' => '127.0.0.1'], []),
         );

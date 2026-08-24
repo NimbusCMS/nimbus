@@ -13,6 +13,7 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\Url;
+use Nimbus\Settings\Settings;
 
 /**
  * Managing roles (ADR 0011): named bundles of capabilities an admin composes and
@@ -37,9 +38,9 @@ final class RolesController extends Controller
     private RoleRepository $roles;
     private CollectionRepository $collections;
 
-    public function __construct(Connection $db, Auth $auth, ?AdminPageRegistry $adminPages = null)
+    public function __construct(Connection $db, Auth $auth, Settings $settings, ?AdminPageRegistry $adminPages = null)
     {
-        parent::__construct($db, $auth, $adminPages);
+        parent::__construct($db, $auth, $settings, $adminPages);
         $this->roles       = new RoleRepository($db);
         $this->collections = new CollectionRepository($db);
     }

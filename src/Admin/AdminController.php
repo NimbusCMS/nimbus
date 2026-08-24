@@ -13,6 +13,7 @@ use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\Url;
 use Nimbus\Plugin\PluginStatus;
+use Nimbus\Settings\Settings;
 
 /**
  * Authentication, the dashboard, and the read-only plugins page. The admin shell
@@ -25,9 +26,9 @@ final class AdminController extends Controller
      * @param list<PluginStatus> $pluginStatuses computed once by the kernel at
      *        boot; the controller never reads installed.json itself.
      */
-    public function __construct(Connection $db, Auth $auth, private array $pluginStatuses = [], ?AdminPageRegistry $adminPages = null)
+    public function __construct(Connection $db, Auth $auth, Settings $settings, private array $pluginStatuses = [], ?AdminPageRegistry $adminPages = null)
     {
-        parent::__construct($db, $auth, $adminPages);
+        parent::__construct($db, $auth, $settings, $adminPages);
     }
 
     public function routes(Router $r): void

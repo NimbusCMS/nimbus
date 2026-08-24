@@ -29,7 +29,6 @@ use Nimbus\Media\MediaUploader;
 use Nimbus\Media\MediaUsageRepository;
 use Nimbus\Settings\Settings;
 use Nimbus\Settings\SettingsRegistry;
-use Nimbus\Settings\SettingsRepository;
 use Nimbus\Support\Config;
 use Nimbus\Support\EventDispatcher;
 
@@ -63,6 +62,7 @@ final class ApiController
         ApiAuthContext $authContext,
         EventDispatcher $events,
         RateLimitMiddleware $ipFlood,
+        Settings $settings,
     ) {
         $this->collections = new CollectionRepository($db);
         $this->types       = $types;
@@ -75,8 +75,8 @@ final class ApiController
         // the default is_uploaded_file/move_uploaded_file — the uploader still
         // sniffs + allow-lists the bytes.
         $uploader = new MediaUploader($mediaRepo, Config::uploadPath(), Config::uploadUrl(), Config::uploadMaxBytes(), static fn (string $from, string $to): bool => copy($from, $to));
+        // The composed-once settings store (SUP-10), shared with the web kernel.
         $settingsRegistry = new SettingsRegistry($this->collections);
-        $settings         = new Settings(new SettingsRepository($db), $settingsRegistry);
         $this->settings   = $settings;
         $this->mcpServer = new McpServer(
             new SchemaToolset($this->collections, new CollectionService($db, $this->collections), $types, $events),

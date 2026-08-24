@@ -6,6 +6,7 @@
  * @var string  $csrf
  * @var bool    $canEditSite
  * @var list<array{key:string,type:string,label:string,help:string,value:string}> $siteFields
+ * @var array<string,string> $siteErrors key => validator message (a failed save)
  * @var array<string,string> $collections handle => name
  * @var list<array{key:string,label:string,linked:bool,email:?string}> $oauthAccounts
  * @var array{kind:string,message:string}|null $oauthFlash
@@ -22,16 +23,18 @@ $e = static fn (?string $v): string => View::e($v);
     <div class="nb-alert nb-alert-ok">Theme changed. ✦</div>
 <?php elseif ($flash === 'site'): ?>
     <div class="nb-alert nb-alert-ok">Site settings saved. ✦</div>
-<?php elseif ($flash === 'site-error'): ?>
-    <div class="nb-alert nb-alert-error">Some settings couldn’t be saved — please check the values and try again.</div>
+<?php endif; ?>
+
+<?php if (!empty($siteErrors)): ?>
+    <div class="nb-alert nb-alert-error">Some settings couldn’t be saved — please check the highlighted fields.</div>
 <?php endif; ?>
 
 <?php if ($canEditSite): ?>
 <form class="nb-form-card" method="post" action="/admin/settings/site">
     <h2>Site</h2>
     <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
-    <?php foreach ($siteFields as $field): ?>
-        <div class="nb-field">
+    <?php foreach ($siteFields as $field): $fieldError = $siteErrors[$field['key']] ?? null; ?>
+        <div class="nb-field <?= $fieldError !== null ? 'has-error' : '' ?>">
             <label for="set-<?= $e($field['key']) ?>"><?= $e($field['label']) ?></label>
             <?php if ($field['type'] === 'collection'): ?>
                 <select id="set-<?= $e($field['key']) ?>" name="settings[<?= $e($field['key']) ?>]">
@@ -47,6 +50,7 @@ $e = static fn (?string $v): string => View::e($v);
             <?php else: ?>
                 <textarea id="set-<?= $e($field['key']) ?>" name="settings[<?= $e($field['key']) ?>]" rows="3"><?= $e($field['value']) ?></textarea>
             <?php endif; ?>
+            <?php if ($fieldError !== null): ?><span class="nb-field-error"><?= $e($fieldError) ?></span><?php endif; ?>
             <small class="nb-muted"><?= $e($field['help']) ?></small>
         </div>
     <?php endforeach; ?>

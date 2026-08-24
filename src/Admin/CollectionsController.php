@@ -17,6 +17,7 @@ use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\Url;
+use Nimbus\Settings\Settings;
 use Nimbus\Support\Str;
 
 /**
@@ -33,9 +34,9 @@ final class CollectionsController extends Controller
     private CollectionService $collectionService;
 
     /** $fieldTypes is the application's single registry — never a local one. */
-    public function __construct(Connection $db, Auth $auth, private FieldTypeRegistry $types, ?AdminPageRegistry $adminPages = null)
+    public function __construct(Connection $db, Auth $auth, Settings $settings, private FieldTypeRegistry $types, ?AdminPageRegistry $adminPages = null)
     {
-        parent::__construct($db, $auth, $adminPages);
+        parent::__construct($db, $auth, $settings, $adminPages);
         $this->collections       = new CollectionRepository($this->db);
         $this->collectionService = new CollectionService($this->db, $this->collections);
     }

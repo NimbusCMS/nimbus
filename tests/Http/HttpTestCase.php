@@ -55,6 +55,16 @@ abstract class HttpTestCase extends IntegrationTestCase
 
     // ------------------------------------------------------------- session
 
+    /** A composed Settings store for tests that construct an admin controller
+     *  directly (production composes one in Application — SUP-10). */
+    protected function settings(): \Nimbus\Settings\Settings
+    {
+        return new \Nimbus\Settings\Settings(
+            new \Nimbus\Settings\SettingsRepository($this->db),
+            new \Nimbus\Settings\SettingsRegistry(new \Nimbus\Content\CollectionRepository($this->db)),
+        );
+    }
+
     protected function resetSession(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
