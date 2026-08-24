@@ -278,6 +278,20 @@ flushed on every content write, and the TTL bounds staleness for time-based
 changes such as a scheduled entry becoming live. The on-disk cache format under
 `storage/` is internal and may change without notice.
 
+**Cache-key contract (HTTP-6).** A cached page's output must be a pure function
+of its **path and the `page` query parameter** — those are the only inputs the
+cache key varies on. This is deliberate: the key is *not* varied on the rest of
+the query string, so that an anonymous visitor cannot mint an unbounded number
+of cache files with `?anything=1,2,3,…` (the same disk-fill bound that caps
+`?page`). The core front end honors this — it reads no query input but `page`.
+If your theme or a plugin renders a **query-varying public page** (a `?tag=`,
+`?q=`, `?sort=`, or search result whose body changes with the query), that page
+must **not** be served from the cache, or a first visitor's result will be
+replayed for every later query on that path. There is no per-page opt-out today;
+run such a site with `PAGE_CACHE_TTL=0` (a store-side `no-store` opt-out will be
+added when a query-varying core feature needs it). `/foo` and `/foo/` are one
+route but two cache keys — a bounded (×2) duplication, not a correctness issue.
+
 ## SSO providers
 
 SSO ("Sign in with Google / GitHub", [ADR 0012](adr/0012-oauth-sso.md)) is a

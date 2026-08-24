@@ -67,6 +67,39 @@ final class CacheRoutesTest extends HttpTestCase
         );
     }
 
+    public function test_distinct_query_strings_do_not_mint_distinct_cache_files(): void
+    {
+        // HTTP-6: the cache key is path + ?page only, so distinct query strings
+        // on a path share ONE entry — the documented no-query-vary contract, and
+        // the guard that keeps SVM-1's disk-fill bound closed. If someone later
+        // "fixes" HTTP-6 by folding the query into the key, this fails: an
+        // anonymous client could then mint unbounded cache files with ?x=1,2,3…
+        $c = $this->makeCollection('posts');
+        $this->seedLive($c, 'Hello', 'hello');
+
+        $cache = new PageCache($this->dir, 300);
+        $app   = $this->appUsing($cache);
+
+        foreach (['a', 'b', 'c', 'd', 'e'] as $q) {
+            self::assertSame(200, $app->handle($this->request('GET', '/posts', ['tag' => $q]))->status);
+        }
+
+        self::assertCount(1, glob($this->dir . '/*') ?: [], 'distinct query strings must not each mint a cache file (SVM-1 bound)');
+        self::assertNotNull($cache->get('/posts'), 'the one entry is keyed on the bare path');
+    }
+
+    public function test_the_public_front_end_reads_no_query_input_but_page(): void
+    {
+        // HTTP-6 drift guard: keying the cache on path + ?page only is safe just
+        // while the front end's output varies only on those. A future
+        // query-varying public handler (?tag/?q/?sort) would silently serve stale
+        // content under the cache — it must fail loudly HERE first and honor the
+        // no-query-vary contract (or ship PAGE_CACHE_TTL=0 guidance).
+        $src = (string) file_get_contents(\dirname(__DIR__, 2) . '/src/Site/SiteController.php');
+        preg_match_all("/query\\(\\s*'([^']*)'/", $src, $m);
+        self::assertSame(['page'], array_values(array_unique($m[1])), 'SiteController must read no query key but "page" (HTTP-6 cache-key contract)');
+    }
+
     public function test_caching_disabled_reflects_changes_immediately(): void
     {
         $c = $this->makeCollection('posts');
