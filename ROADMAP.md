@@ -36,9 +36,15 @@ bus, or needless abstraction.
 A class existing in the repository is not enough for `[x]`. If nothing in CI
 would fail when the behaviour breaks, it is `[~]`.
 
-*Last audited against `main` after the headless + media slices (PRs #4–#27):
-295 core tests / 982 assertions plus 29 plugin tests, PHPStan level 6 in both
-repositories, install+CRUD and package-boundary tests — all green.*
+*Last audited against `main` after the **pre-release audit burn-down** (the
+`docs/backlog/audit-2026-08/` initiative, Slices A–Z, PRs #128–#169). Of 92 audit
+findings, all P1s and the substantive P2/P3 tail are resolved; the only
+deliberately-deferred items are ADMIN-13 (media-library overhaul → the gated
+admin-experience redesign) and a documented follow-up tail (FU deferrals), each
+recorded with a revisit trigger in the backlog. PHPStan level 6 + php-cs-fixer +
+`composer audit` + the full test suite, install+CRUD, and package-boundary tests
+are green in CI. Next: the distributable agent skill, then the versioned
+human-docs website.*
 
 ---
 
@@ -83,7 +89,7 @@ repositories, install+CRUD and package-boundary tests — all green.*
 - [x] Entry-list **pagination** — admin entry list pages at 25/entry (search-aware count, clamp-to-range), mobile pager
 - [x] Collection-index **N+1 count** query fix — grouped `fieldCounts()`/`entryCounts()` (2N+1 → 3 queries)
 - [x] Migration-upgrade tests · upload-security tests · permission-matrix tests — core-migration idempotency + core-tables-exist (`CoreMigrationTest`); upload SVG-rejection added to `MediaUploaderTest` (content-sniff/size/random-name/disguised-executable already covered); the permission matrix is `AuthorizerTest` (admin/exact/deny/write⇒read/management-exact/wildcard)
-- [ ] **Structured validation errors** (before freezing the public API error contract)
+- [x] **Structured validation errors** — `Validator::validate()` returns `array<handle,FieldError>`; `ApiResponse::invalid()` emits a `422` with per-field `{ code, message }`, mirrored on the MCP surface (COMPATIBILITY § error contract). Admin re-renders with inline per-field errors and preserved input · *`ValidatorTest`, `ApiController`/entry-route tests*
 - [x] **Consume named routes in controllers** — an `Http\Url` facade (bound to the kernel Router before dispatch) generates paths from route names; every admin controller redirect/abort now uses `Url::to('admin.…')` (incl. dynamic entry redirects with params) and the nav links too — route names are load-bearing. Route *registrations* stay literal (the source of the names); default-arg paths stay literal (must be constant)
 - [x] **Nonce-based CSP (script-src + style-src)** — per-request `Http\Csp` nonce; **both** `script-src` and `style-src` are `'self' 'nonce-…'` with `'unsafe-inline'` **removed**. Every admin inline `<script>`/`<style>` carries the nonce; inline `onsubmit` confirms became a delegated `data-confirm` handler and the 2 inline `style=` attributes became classes (swatch gradients live in `theme.css`). Theme authors' inline `<script>`/`<style>` use the `$cspNonce` global; inline `style=` attributes are disallowed
 - [x] **Password reset flow** — self-service reset via a one-time, hashed, expiring emailed token (no account enumeration, throttled, CSRF, atomic single-use, session-safe), on a small `Mailer` (log/native/api transports)
@@ -93,7 +99,7 @@ repositories, install+CRUD and package-boundary tests — all green.*
 - [ ] Separate field rendering from field domain behaviour (only when alt themes /
   non-HTML editors create real pressure)
 - [x] **Dependency vulnerability scanning** — `composer audit --locked --abandoned=report` runs in CI (fails on a known advisory in the committed lockfile) and is folded into `composer check`; dev tooling is in scope (it runs code in CI / on contributors' machines)
-- [ ] Automated release artifacts · semver + CHANGELOG
+- [~] Automated release artifacts · semver + CHANGELOG — SemVer + `CHANGELOG.md` (Keep-a-Changelog) adopted and versioned against the public plugin API (COMPATIBILITY § versioning); **automated** release-artifact generation (tag → build → publish) is the piece still pending, folded into the release-readiness sequence below
 
 ---
 
@@ -190,9 +196,7 @@ consumer rather than designed in isolation.
 - [x] **Provider ids bound by the loader** — a plugin cannot register under
       another provider's name (and so cannot get their types rolled back)
 - [x] **Compatibility policy** — [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)
-- [ ] **Read-only admin plugin screen** — installed / enabled / disabled /
-      failed, with the diagnostic. Read-only on purpose: no install, no remote
-      update, no upload.
+- [x] **Read-only admin plugin screen** — `/admin/plugins` (`AdminController::pluginsPage`) renders one `PluginStatus` per discovered package (healthy / disabled / failed / invalid / duplicate-id) plus the trusted-proxy misconfiguration diagnostic. Read-only on purpose: no install, no remote update, no upload · *`tests/Http/PluginsPageTest.php`*
 - [x] **Cross-repository integration test** — `tests/Integration/package-boundary.sh`
       in CI installs the Markdown package through real Composer resolution and
       drives its whole lifecycle across the package boundary
@@ -223,11 +227,8 @@ outside the project can `composer require nimbuscms/markdown` at all.
 
 Ordered, because each step depends on the one before:
 
-- [ ] Decide the **public API surface** — which namespaces a plugin may rely on
-      (`Nimbus\Plugin\*` and the `FieldType` contract today) and which are
-      internal and free to change without notice
-- [ ] Adopt **semantic versioning** + a `CHANGELOG.md`, and document which core
-      versions each plugin supports
+- [x] Decide the **public API surface** — [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) names the stable plugin surface (`Nimbus\Plugin\*`, the `FieldType` contract, the small `Request`/`Response` read/return seam, `/api/v1`) and marks everything else internal and free to change
+- [x] Adopt **semantic versioning** + a `CHANGELOG.md` — `CHANGELOG.md` (Keep-a-Changelog) live; SemVer is defined against the public plugin API with a per-change major/minor table in COMPATIBILITY § versioning
 - [ ] **Tag `0.1.0`** on core — the first point at which a plugin can pin `^0.1`
 - [ ] **Publish to Packagist**, so `composer require` works with no
       `repositories` block
@@ -632,9 +633,9 @@ replace-file-without-breaking-URLs · a `media` **field type** + reusable picker
 ## 📚 Docs & community
 
 - [~] README
-- [ ] `docs/` — install · first content · themes · plugins · API · config · deployment
-- [ ] `AGENTS.md`
-- [ ] CONTRIBUTING · SECURITY · CODE_OF_CONDUCT · issue/PR templates · CHANGELOG
+- [~] `docs/` — a substantial `docs/` tree exists (COMPATIBILITY, ROLES, CHARTER, ADRs, the audit backlog). The **human documentation suite** (install · first content · themes · plugins · API · config · deployment), versioned and seedable into the marketing+docs website, is the next initiative after the audit sweep
+- [ ] `AGENTS.md` / distributable **agent skill** — the "operate Nimbus over MCP" pro-user skill is the initiative immediately after this sweep (before the docs/website)
+- [x] CONTRIBUTING · SECURITY · CODE_OF_CONDUCT · issue/PR templates · CHANGELOG — all present (`.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}`)
 - [x] LICENSE (MIT)
 
 ---

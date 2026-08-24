@@ -135,6 +135,7 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Effort:** S
 
 ### ADMIN-13 · Media library scales badly: no pagination, no alt-text editing, and the entry form loads the whole library
+- **⏸ DEFERRED → admin-experience redesign** (deliberate; both the finding and the maintainer). The media-library overhaul (pagination, an editable alt field, a searchable/lazy media picker) is a UI-shaped change that belongs with the gated admin-experience redesign ([[nimbus-admin-experience-redesign]]) rather than a piecemeal patch. MCP `update_media` alt-edit rides the same slice. Not a security issue (product-gap). Revisit: when the admin-experience redesign is built. — This is the **only** substantive audit P3 not shipped in Slices A–Y.
 - **Priority:** P3
 - **Type:** product-gap
 - **Where:** `src/Admin/MediaController.php:58-69` (`media->all()`), `src/Admin/EntriesController.php:238-243` (media picker loads `all()`), no update route for alt (`routes()` lines 49-56); also `src/Admin/UsersController.php:68-71` (`rolesForUser` per user — N+1, harmless at admin-list scale but the only grouped-counts exception left)

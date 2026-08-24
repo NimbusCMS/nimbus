@@ -116,8 +116,13 @@ final class PluginLoader
             // collides migration names (pluginId:name), an empty id threads
             // everywhere, and an over-long id overflows nb_migrations.migration
             // (VARCHAR(191)) → a 500 at migrate. One gate closes all four.
-            if ($id === 'core' || strlen($id) > 64 || preg_match('/^[a-z0-9][a-z0-9._-]*$/', $id) !== 1) {
-                $this->reject($name, $id, $display, $version, $official, PluginStatus::INVALID, PluginDiagnostic::INVALID_MANIFEST, 'A plugin id must be lowercase letters, digits, dot/dash/underscore (≤64 chars), and cannot be "core".');
+            // `nb` (and `nb_`/`nb.`/`nb-` prefixes) is core's reserved namespace:
+            // a plugin id of `nb_stats` would name tables `nb_stats_*`, colliding
+            // with core's `nb_*` and tripping the migration lint (FU-11/FU-18).
+            if ($id === 'core' || strlen($id) > 64
+                || preg_match('/^[a-z0-9][a-z0-9._-]*$/', $id) !== 1
+                || preg_match('/^nb([._-]|$)/', $id) === 1) {
+                $this->reject($name, $id, $display, $version, $official, PluginStatus::INVALID, PluginDiagnostic::INVALID_MANIFEST, 'A plugin id must be lowercase letters, digits, dot/dash/underscore (≤64 chars); cannot be "core"; and cannot start with the reserved "nb" namespace.');
                 continue;
             }
 
