@@ -58,12 +58,38 @@ Lighthouse 12.8.2, default **mobile** emulation (4× CPU throttle, slow-4G) — 
 - The **JSON API** list path has a known N+1 for per-row media/relation expansion
   (backlog DATA-5); it does not affect the themed front end measured above.
 
-## Reproduce it
+## Tracked over time (CI)
+
+The [Performance workflow](../.github/workflows/performance.yml) runs on every
+**published release** (and on demand via *Run workflow*). It boots the app, seeds a
+**fixed preset of page types** so numbers are comparable release-to-release
+([`tests/perf/seed.php`](../tests/perf/seed.php)):
+
+- `/` — the site home (a collection index)
+- `/blog/sample-post-1` — a single entry (detail) page
+- `/blog?page=2` — a paginated deep index
+
+then runs Lighthouse (3 URLs × 3 runs) via [`.lighthouserc.json`](../.lighthouserc.json):
+
+- **Hard gate (fails the build):** the *deterministic* composition budgets — script
+  bytes ≈ 0, per-resource and total transfer ceilings, **zero third-party requests**.
+  These catch the real regressions (someone adds a JS framework, a huge stylesheet,
+  a CDN font) and don't depend on a noisy CI runner.
+- **Tracked (warn, never flakes the build):** the Lighthouse performance score and
+  Core Web Vitals (FCP/LCP/CLS/TBT). A public report is uploaded per run, and the
+  full results are kept as a workflow artifact for 90 days — so the trend is visible
+  release-to-release.
+
+For a persistent trend *dashboard* rather than per-run reports, point the upload at
+a self-hosted [LHCI server](https://github.com/GoogleChrome/lighthouse-ci) (a
+natural fit for an existing box) — deferred until there's a reason to run one.
+
+## Reproduce it locally
 
 ```bash
 docker compose up -d
 docker compose exec app php bin/nimbus install --email=you@example.com --password='a long unique passphrase'
-# seed a collection with some published entries and set it as site.home, then:
+docker compose exec app php tests/perf/seed.php    # the same fixed preset the CI uses
 npx lighthouse http://localhost:8080/ --only-categories=performance \
   --chrome-flags="--headless=new"
 ```
