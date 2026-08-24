@@ -180,4 +180,22 @@ final class McpSchemaToolsTest extends HttpTestCase
         self::assertFalse($done['result']['isError']);
         self::assertNull($this->collections->findByHandle('temp'), 'the collection is deleted');
     }
+
+    public function test_delete_collection_refuses_when_a_relation_field_targets_it(): void
+    {
+        // FU-14 parity: even with confirm, a collection targeted by a relation
+        // field elsewhere is refused with an `in_use` error carrying the usage.
+        $schema = $this->tokens->create('S', ['schema:write']);
+        $this->call('create_collection', ['handle' => 'authors', 'name' => 'Authors'], $schema);
+        $this->call('create_collection', ['handle' => 'books', 'name' => 'Books', 'fields' => [
+            ['label' => 'Author', 'type' => 'relation', 'options' => ['target' => 'authors']],
+        ]], $schema);
+
+        $resp = $this->call('delete_collection', ['handle' => 'authors', 'confirm' => true], $schema);
+
+        self::assertTrue($resp['result']['isError']);
+        self::assertSame('in_use', $resp['result']['structuredContent']['error']['code']);
+        self::assertNotEmpty($resp['result']['structuredContent']['error']['usage'] ?? [], 'the usage is surfaced');
+        self::assertNotNull($this->collections->findByHandle('authors'), 'not deleted');
+    }
 }

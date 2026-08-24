@@ -6,6 +6,7 @@ namespace Nimbus\Admin;
 
 use Nimbus\Auth\Auth;
 use Nimbus\Content\Collection;
+use Nimbus\Content\CollectionInUse;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\CollectionService;
 use Nimbus\Content\DuplicateHandle;
@@ -61,7 +62,9 @@ final class CollectionsController extends Controller
         });
     }
 
-    private function index(Request $req): Response
+    /** $error is a server-built failure message (escaped by the view, never from
+     *  the URL — ADMIN-10 discipline); null on a normal GET. */
+    private function index(Request $req, ?string $error = null): Response
     {
         // Counts for every collection in two grouped queries, not one pair per
         // collection (no N+1); a collection missing from a map has zero.
@@ -86,6 +89,7 @@ final class CollectionsController extends Controller
             'rows'    => $rows,
             'isAdmin' => $this->gate->can('schema', 'write'),
             'notice'  => $this->notice($req, self::OK_NOTICES, []),
+            'error'   => $error,
         ]);
     }
 
@@ -293,7 +297,13 @@ final class CollectionsController extends Controller
     {
         $this->requireCan('schema', 'write', Url::to('admin.collections.index'));
         $this->requireCsrf($req);
-        $this->collectionService->delete($id);
+        try {
+            $this->collectionService->delete($id);
+        } catch (CollectionInUse $e) {
+            // Server-render the detail (it names operator-authored field labels),
+            // escaped — never round-tripped through the URL (ADMIN-10).
+            return $this->index($req, $e->getMessage());
+        }
         return $this->redirect(Url::to('admin.collections.index') . '?msg=deleted');
     }
 

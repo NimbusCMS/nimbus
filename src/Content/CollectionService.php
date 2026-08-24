@@ -110,9 +110,25 @@ final class CollectionService
         });
     }
 
+    /**
+     * @throws CollectionInUse when a relation field in another collection still
+     *         targets this one — deleting it would leave that field dangling.
+     */
     public function delete(int $id): void
     {
-        // Field/entry/relation rows cascade via FKs.
-        $this->collections->delete($id);
+        // Check + delete in one transaction: a delete that a concurrent
+        // field-write races is an operator conflict (same as MediaInUse), and
+        // the guard runs post-authz on every surface (the shared chokepoint).
+        $this->db->transaction(function () use ($id): void {
+            $collection = $this->collections->find($id);
+            if ($collection !== null) {
+                $targeters = $this->collections->relationFieldsTargeting($collection->handle, $id);
+                if ($targeters !== []) {
+                    throw new CollectionInUse($collection->handle, $targeters);
+                }
+            }
+            // Field/entry/relation rows cascade via FKs.
+            $this->collections->delete($id);
+        });
     }
 }

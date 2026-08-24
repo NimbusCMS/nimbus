@@ -299,6 +299,38 @@ final class CollectionRoutesTest extends HttpTestCase
         self::assertNull($this->repo->find($collection->id));
     }
 
+    public function test_deleting_a_collection_targeted_by_a_relation_field_is_refused(): void
+    {
+        // FU-14: a relation field elsewhere still points at it — refuse (the
+        // reverse of the write-time target validation), rather than orphan it.
+        $this->actingAs('admin');
+        $authors = $this->makeCollection('authors');
+        $this->post('/admin/collections', ['name' => 'Books', 'handle' => 'books',
+            'fields' => [['label' => 'Author', 'handle' => 'author', 'type' => 'relation', 'target' => 'authors']]]);
+
+        $response = $this->post('/admin/collections/' . (int) $authors->id . '/delete');
+
+        self::assertSame(200, $response->status, 'refused → the index re-renders with the error');
+        self::assertStringContainsString('still target', $response->body);
+        self::assertStringContainsString('Author', $response->body, 'the blocking field is named');
+        self::assertNotNull($this->repo->find((int) $authors->id), 'the targeted collection is not deleted');
+    }
+
+    public function test_a_self_targeting_collection_deletes_successfully(): void
+    {
+        // The self-reference edge: a relation field targeting its own collection
+        // must not block that collection's deletion (it dies with it).
+        $this->actingAs('admin');
+        $c = $this->makeCollection('nodes');
+        $this->post('/admin/collections/' . (int) $c->id, ['name' => 'Nodes', 'handle' => 'nodes',
+            'fields' => [['label' => 'Parent', 'handle' => 'parent', 'type' => 'relation', 'target' => 'nodes']]]);
+
+        $response = $this->post('/admin/collections/' . (int) $c->id . '/delete');
+
+        $this->assertRedirects($response, '/admin/collections?msg=deleted');
+        self::assertNull($this->repo->find((int) $c->id));
+    }
+
     // --------------------------------------------------------- validation
 
     public function test_validation_failure_re_renders_with_the_submitted_values(): void
