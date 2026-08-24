@@ -17,6 +17,15 @@ When a finding **class** appears here twice, promote it into
 
 ---
 
+### 2026-08-24 · Slice Y — Plugin `nb_`-reference migration lint (FU-11)
+Reviewed via the Fable security burst before building. **No security finding (None/hygiene)** — the lint neither strengthens nor weakens the actual plugin boundary.
+
+- **This is an ACCIDENT GUARD, not a security control.** It must **not** be counted as a mitigation for a malicious plugin. Per ADR 0001 an installed plugin is trusted in-process code; it bypasses the lint trivially via runtime SQL (listeners/handlers/raw PDO), dynamic/concatenated SQL (`CONCAT('nb_','users')`, `PREPARE`/`EXECUTE`), stored routines, `SET FOREIGN_KEY_CHECKS=0`, or reads that copy core data (`CREATE TABLE x AS SELECT … FROM nb_*`). **Catalog #12's "hostile in-process plugin can DDL `nb_*`" Low (Slices D/M) stays OPEN and is not narrowed by this slice.** Full uncovered-surface list recorded as FU-19.
+- **Security value = availability/integrity hygiene only:** it catches a *typo'd or copy-pasted* `DROP/ALTER TABLE nb_*` (or a `nb_user_roles` INSERT that would dodge the Slice-A subset-only chokepoint) **before** MySQL's irreversible auto-commit DDL runs it — genuine value docs alone don't give (the accident is unrecoverable without backups).
+- **False-negative discipline (the failure mode that matters for a guard):** the regex normalizes away comments + string literals (keeping versioned-comment bodies MySQL executes), is verb-anchored, checks comma lists + both RENAME operands + `INDEX … ON`, and **fails closed** on a PCRE error. The evasion corpus (`MigrationLintTest`) — case/backtick/`IF EXISTS`/`/**/`-split/`--`-split/`/*!*/`/comma-list/no-`TABLE`-TRUNCATE — is the regression spec so a future "simplify the regex" can't silently open an evasion.
+
+Verdict: **security-green.** Framing recorded in code + docs (accident guard, not sandbox; ADR 0001 trust unchanged); catalog #12 untouched.
+
 ### 2026-08-24 · Slice X — Collection-delete integrity + settings-audit decision (FU-14 built / FU-13 accepted)
 Reviewed via the Fable security burst before building. Security-green, **no ADR** (both Low/correctness).
 
