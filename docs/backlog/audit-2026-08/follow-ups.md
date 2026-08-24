@@ -32,6 +32,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-4 · Collection handle can collide with a management capability name
+- **✅ RESOLVED** (Slice W) — a collection handle in `CollectionService::RESERVED_COLLECTION_HANDLES` (= `Authorizer::MANAGEMENT ∪ {admin}` + route prefixes `api`/`uploads`/`theme`, kept a superset by a drift test) is rejected at schema-create on **both** surfaces (admin `store` catches `ReservedHandle` → field error; MCP `create_collection` → `invalid`, error naming the set). Enforced in the shared `CollectionService::create` on the **normalized** handle (`Str::handle`), so `"Media"`/`" media "` can't bypass it, and a 3rd caller (seeder) inherits the guard. **Create-time only** — a grandfathered pre-existing `media` collection still edits (the handle is immutable anyway). Security review: **Medium** (one-way management-cap→content widening, incl. drafts; the sharp end is an admin *accidentally* naming a section "Media"), CLI-reach caps it below High; fixed in-slice, no ADR. Residual (grandfathered existing collision) = FU-17. Tests: `ReservedHandleTest` (drift), `CollectionRoutesTest` + `McpSchemaToolsTest` (reject each name incl. case-variant; grandfathering).
 - **Priority:** P3
 - **Type:** correctness / security (Low, pre-existing)
 - **Discovered:** Slice B reviews (A9).
@@ -50,6 +51,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-6 · A field handle can collide with a reserved error-map key
+- **✅ RESOLVED** (Slice W) — a field handle in `RESERVED_FIELD_HANDLES` (`title`/`slug`/`published_at`) is rejected as a **new** field at schema-create on both surfaces. Correctness-only (security review confirmed the native title/slug validations run AFTER the field validator and win the key, so they can't be masked — the bug was a silently-dropped *custom-field* error). **New-only** on update so a grandfathered `title` field is never renamed out from under its stored values (syncFields matches by handle → a rename is a data-lossy DELETE+INSERT). Kept a distinct set from FU-4 (a field named `media` is harmless; reserving it would ban a natural field name). Tests: `CollectionRoutesTest` + `McpSchemaToolsTest`.
 - **Priority:** P3
 - **Type:** correctness
 - **Discovered:** Slice F platform review (relates to FU-4 / ADMIN-14 reserve-names family).
@@ -145,4 +147,12 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Discovered:** 2026-08-24 (Slice V reviews).
 - **What:** FU-1's guard skips any user with ≥1 `nb_user_roles` row, treating **zero** roles as "never seeded". So a legacy admin (`nb_users.role='admin'`) whom an operator deliberately stripped to **zero** roles (a non-last admin can be) re-acquires the `admin` system role on the next `roles:seed`. Narrow (legacy-admin + demoted-to-exactly-zero + a reseed), CLI-only, but re-grants admin specifically.
 - **Fix (the platform review's companion, deferred here to keep Slice V tight):** when the admin UI (`UsersController::update`) or MCP `set_role` edits a user's roles on a seeded install, normalize `nb_users.role` to the `'author'` placeholder (the legacy column is non-authoritative once `nb_user_roles` drives authority), so a later reseed of a zero-role user can only grant the least-privilege role. Small; touches the two role-edit paths.
+- **Effort:** S
+
+### FU-17 · A grandfathered collection whose handle collides with a management name stays management-judged
+- **Priority:** P3
+- **Type:** security (Low residual of FU-4)
+- **Discovered:** 2026-08-24 (Slice W security review).
+- **What:** FU-4's guard is create-time only. A collection named `media`/`users`/etc. that **already exists** on an install upgraded to Slice W is still judged by `Authorizer` under management rules (a `media:read` holder reads its content, a `*:read` role is denied it). Reject-at-create can't reach it, and renaming it at migration would orphan its scopes/API paths/entries (the handle is deliberately immutable).
+- **Fix:** a `nimbus`-doctor / startup diagnostic that flags any existing `nb_collections.handle IN (RESERVED_COLLECTION_HANDLES)` and tells the operator to rename it (an operator decision, not a silent migration). Docs note now; build the check only if a real upgrade hits it.
 - **Effort:** S

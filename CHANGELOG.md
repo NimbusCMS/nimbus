@@ -60,6 +60,15 @@ by a pre-release security & correctness audit (Slices A–P).
 - **Password floor** raised to 12 characters, enforced consistently everywhere a
   password is set (affects newly-set passwords only).
 - Public pagination past the last page is a `404` (not a cacheable empty `200`).
+- **Reserved schema handles** — a collection handle can no longer be a
+  management-capability name (`schema`/`media`/`users`/`tokens`/`settings`/
+  `roles`/`admin`) or a core route prefix (`api`/`uploads`/`theme`), and a field
+  handle can no longer be a built-in entry attribute (`title`/`slug`/
+  `published_at`). Rejected at create on the admin form and over MCP; existing
+  collections/fields with such names are grandfathered.
+- The `blocks` fragment store and single-kind collections are no longer served as
+  standalone public pages (`/blocks`, `/{single-handle}` → `404`); the sitemap
+  already excluded them, and the headless API is unchanged.
 
 ### Security
 

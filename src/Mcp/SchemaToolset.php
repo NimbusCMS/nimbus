@@ -12,6 +12,7 @@ use Nimbus\Content\CollectionService;
 use Nimbus\Content\DuplicateHandle;
 use Nimbus\Content\Field;
 use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Content\ReservedHandle;
 use Nimbus\Support\CoreEvents;
 use Nimbus\Support\EventDispatcher;
 use Nimbus\Support\Str;
@@ -133,6 +134,8 @@ final class SchemaToolset implements Toolset
             $id = $this->service->create($handle, $name, $this->icon($args), trim($this->str($args, 'description')), $this->defaultOptions(), $fields);
         } catch (DuplicateHandle) {
             return ToolResult::error("A collection with handle \"{$handle}\" already exists.", 'invalid');
+        } catch (ReservedHandle $e) {
+            return $this->reservedError($e);
         }
 
         $this->announce($principal, $ctx, 'create_collection', $handle);
@@ -189,7 +192,11 @@ final class SchemaToolset implements Toolset
         }
         $defs[] = $new;
 
-        $this->service->update($collection->id, $collection->name, $collection->icon, $collection->description, $collection->options, $defs);
+        try {
+            $this->service->update($collection->id, $collection->name, $collection->icon, $collection->description, $collection->options, $defs);
+        } catch (ReservedHandle $e) {
+            return $this->reservedError($e);
+        }
         $this->announce($principal, $ctx, 'add_field', "{$collection->handle}.{$new['handle']}");
         return $this->collectionResult($collection->id, 'updated');
     }
@@ -236,9 +243,33 @@ final class SchemaToolset implements Toolset
 
         // Deliberate full replace — fields not present here are removed, dropping
         // their stored values.
-        $this->service->update($collection->id, $collection->name, $collection->icon, $collection->description, $collection->options, $fields);
+        try {
+            $this->service->update($collection->id, $collection->name, $collection->icon, $collection->description, $collection->options, $fields);
+        } catch (ReservedHandle $e) {
+            return $this->reservedError($e);
+        }
         $this->announce($principal, $ctx, 'set_fields', $collection->handle);
         return $this->collectionResult($collection->id, 'updated');
+    }
+
+    /**
+     * A friendly, self-correcting error for a reserved handle — it names the
+     * reserved set so an agent fixes the handle in one round-trip.
+     *
+     * @return array<string,mixed>
+     */
+    private function reservedError(ReservedHandle $e): array
+    {
+        return $e->kind === 'collection'
+            ? ToolResult::error(
+                "Collection handle \"{$e->handle}\" is reserved (it collides with a permission or route name). Reserved: "
+                . implode(', ', CollectionService::RESERVED_COLLECTION_HANDLES) . '.',
+                'invalid',
+            )
+            : ToolResult::error(
+                "Field handle \"{$e->handle}\" is reserved (title, slug and published_at are built-in entry attributes). Rename the field.",
+                'invalid',
+            );
     }
 
     /**

@@ -17,6 +17,15 @@ When a finding **class** appears here twice, promote it into
 
 ---
 
+### 2026-08-24 · Slice W — Reserve names at schema-create (FU-4/FU-6)
+Reviewed via the Fable security burst before building. Security-green, **no ADR** (FU-4 is a Medium fixed in-slice).
+
+- **FU-4 — Medium (one-way management-cap → content widening), FIXED.** A collection whose handle IS a management name (`media`, …) is judged by `Authorizer` under management rules: a `media:read` holder gains content-read (**incl. drafts**) of it, `media:write` gains content-write; the reverse (content wildcard → management) is impossible (management-deny runs before the wildcard). Two abuse paths: self-escalation (a `schema:write`+`media:write` actor crafts a `media` collection — bounded, `schema:write` is already top privilege, the collection is freshly-empty) and the realistic **accidental-admin-grant** (an admin names a section "Media" → standing `media:*` principals silently gain draft reach, no attacker needed). CLI/`schema:write`-gated creation caps it below High. Fix = reject `MANAGEMENT ∪ {admin}` (+ route prefixes) at schema-create on both surfaces, **on the normalized handle** (the one bypass — checking raw input — is guarded by a normalization test). Guarding tests: `CollectionRoutesTest` + `McpSchemaToolsTest` (each name incl. `Media`); `ReservedHandleTest` drift guard. **Standing check:** the reserved set must stay ⊇ `Authorizer::MANAGEMENT ∪ {admin}` (drift test) — a new management capability that isn't reserved re-opens this.
+- **A3 residual — Low.** A *grandfathered* colliding collection (created before the guard, on an upgraded install) stays management-judged; reject-at-create can't reach it and a silent rename would orphan its scopes/paths (handle immutable). Documented; detect-and-warn tracked as **FU-17**.
+- **FU-6 — no security angle (correctness).** A field named `title`/`slug`/`published_at` cannot mask the security-relevant native title/slug/published_at validations (those run *after* the field validator and win the flat-map key); the bug is a silently-dropped *custom-field* error. Reserved as new-field handles anyway (data-integrity), grandfathered on update.
+
+Verdict: **security-green.** Hardens: closes the standing catalog-#2 handle/management-namespace confusion for all new collections across admin + MCP + API via one shared allow-list at the create chokepoint. Leaves open: the grandfathered-collision residual (FU-17, Low, operator-owned).
+
 ### 2026-08-24 · Slice V — Auth/account hardening (FU-1/FU-9/FU-10)
 Reviewed via the Fable security burst before building. Security-green, **no ADR** (highest severity is Medium, fixed in-slice).
 
