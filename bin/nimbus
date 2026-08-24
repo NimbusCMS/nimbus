@@ -259,6 +259,7 @@ try {
                 $app->events(),
                 $app->settings(),
                 $ops,
+                $app->agentSkills(),
                 Nimbus\Application::VERSION,
                 Config::basePath(),
             );

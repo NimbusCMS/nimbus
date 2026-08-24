@@ -35,6 +35,7 @@ use Nimbus\Http\SecurityHeaders;
 use Nimbus\Http\Url;
 use Nimbus\Mail\Mailer;
 use Nimbus\Mail\MailerFactory;
+use Nimbus\Mcp\Guide\SkillRegistry;
 use Nimbus\Plugin\PluginCapabilities;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
@@ -81,6 +82,7 @@ final class Application
     private MigrationRegistry $migrations;
     private AdminPageRegistry $adminPages;
     private MaintenanceRegistry $maintenance;
+    private SkillRegistry $skills;
     private EventDispatcher $events;
 
     /** Request-scoped carrier for the authenticated API principal (ADR 0006). */
@@ -138,6 +140,7 @@ final class Application
         $this->migrations       = new MigrationRegistry();
         $this->adminPages       = new AdminPageRegistry();
         $this->maintenance      = new MaintenanceRegistry();
+        $this->skills           = new SkillRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
         // Composed after the env/db block above so the registry captures loaded
@@ -192,6 +195,7 @@ final class Application
             migrations: $this->migrations,
             adminPages: $this->adminPages,
             maintenance: $this->maintenance,
+            skills: $this->skills,
             db: $this->db,
         ));
         $this->pluginStatuses    = $loader->statuses();
@@ -219,6 +223,12 @@ final class Application
     public function maintenanceRegistry(): MaintenanceRegistry
     {
         return $this->maintenance;
+    }
+
+    /** The agent-guidance fragments enabled plugins declared (ADR 0013) — served as MCP guide resources. */
+    public function agentSkills(): SkillRegistry
+    {
+        return $this->skills;
     }
 
     /** The field-type registry (core + plugin types) — used by the OpenAPI CLI dump. */
@@ -388,7 +398,7 @@ final class Application
         // Plugin admin pages, after the core admin controllers so a plugin slug
         // can never shadow a core /admin route.
         (new PluginPagesController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
-        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth, $this->events, $this->apiFlood, $this->settings))->routes($router);
+        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth, $this->events, $this->apiFlood, $this->settings, $this->skills))->routes($router);
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.
