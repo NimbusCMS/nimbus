@@ -87,6 +87,7 @@ Counts: **P0 0 · P1 3 · P2 2 · P3 3.**
 - **Effort:** S
 
 ### API-6 · MCP HTTP transport silently drops JSON-RPC batch requests
+- **✅ RESOLVED** (Slice T) — the first statement of `McpServer::handle` rejects any list-shaped message (`array_is_list`) with a single JSON-RPC `Invalid Request` (`-32600`, `id: null`) instead of the misleading empty 202. Because the transport collapses an empty/malformed body to `[]` too, that silent-202 wart is repaired as well. Batching is deliberately **not** implemented: MCP protocol 2025-06-18 removed it, and fanning out one HTTP request into N tool calls would bypass the per-request rate limit (one ipFlood + one tokenQuota hit executing N calls) — a security-load-bearing reason, not just interop. The guard lives in the shared protocol layer, so the **stdio** transport inherits it; the controller is unchanged. Documented in `docs/MCP.md`. Test: `McpTest::test_a_json_rpc_batch_is_rejected_not_silently_dropped`.
 - **Priority:** P3
 - **Type:** correctness / interop
 - **Where:** `src/Api/ApiController.php:129-140` (`mcp`) → `src/Mcp/McpServer.php:53-84` (`handle` takes one decoded message).

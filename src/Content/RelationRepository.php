@@ -54,25 +54,54 @@ final class RelationRepository
      */
     public function liveTargets(int $fromEntryId, int $fieldId, string $targetHandle): array
     {
+        return $this->liveTargetsFor([$fromEntryId], $fieldId, $targetHandle)[$fromEntryId] ?? [];
+    }
+
+    /**
+     * The live targets for **many** entries' one relation field, in a single
+     * query (DATA-5) — the batched form of {@see liveTargets}. It carries the
+     * exact same DATA-1 guards, structurally: the declared-target-collection
+     * JOIN (`c.handle = :target`) and the published/live filter, so a page of N
+     * entries expands with **one** query per relation field, not one per row.
+     * Results are grouped by `from_entry_id`, each group in `sort, id` order;
+     * only entries with at least one live target appear.
+     *
+     * @param int[] $fromEntryIds
+     * @return array<int,list<array{id:int,slug:string,title:string}>>
+     */
+    public function liveTargetsFor(array $fromEntryIds, int $fieldId, string $targetHandle): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $fromEntryIds), static fn (int $i): bool => $i > 0)));
+        if ($ids === []) {
+            return [];
+        }
+        // Named placeholders per the house pattern (Connection binds by name).
+        $params = ['fl' => $fieldId, 'target' => $targetHandle];
+        foreach ($ids as $i => $id) {
+            $params["f{$i}"] = $id;
+        }
+        $in = implode(',', array_map(static fn (int $i): string => ":f{$i}", array_keys($ids)));
+
         $rows = $this->db->select(
-            "SELECT e.id, e.slug, e.title
+            "SELECT r.from_entry_id, e.id, e.slug, e.title
              FROM nb_relations r
              JOIN nb_entries e ON e.id = r.to_entry_id
              JOIN nb_collections c ON c.id = e.collection_id
-             WHERE r.from_entry_id = :f AND r.field_id = :fl AND c.handle = :target
+             WHERE r.from_entry_id IN ({$in}) AND r.field_id = :fl AND c.handle = :target
                AND e.status = 'published' AND e.published_at IS NOT NULL AND e.published_at <= NOW()
-             ORDER BY r.sort, r.id",
-            ['f' => $fromEntryId, 'fl' => $fieldId, 'target' => $targetHandle],
+             ORDER BY r.from_entry_id, r.sort, r.id",
+            $params,
         );
 
-        return array_values(array_map(
-            static fn (array $r): array => [
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(int) $r['from_entry_id']][] = [
                 'id'    => (int) $r['id'],
                 'slug'  => (string) $r['slug'],
                 'title' => (string) $r['title'],
-            ],
-            $rows,
-        ));
+            ];
+        }
+        return $out;
     }
 
     /**
