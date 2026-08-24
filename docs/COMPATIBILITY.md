@@ -252,6 +252,15 @@ fragments — the live entries are passed to the view-model as `$blocks`, keyed 
 slug. A theme renders one by slug (the starter renders an `announcement` block as
 a site-wide bar). Defined once, rendered anywhere; only live blocks appear.
 
+The `blocks` collection and any **single-kind** collection are **not publicly
+routable** (SVM-4): `/blocks`, `/blocks/{slug}`, and `/{single-handle}` (plus its
+one entry) return `404` — a fragment is embedded, not a standalone page, and a
+single's one entry is the site home at `/`. They are also omitted from the
+sitemap (the two rules share one predicate, so they cannot disagree). Headless
+access is unaffected — the token-scoped `/api/v1/collections/blocks/entries` still
+serves them. An operator with genuine inbound links to a former URL can add an
+exact-path redirect in `config/redirects.php`.
+
 **Navigation menus.** `config/menus.php` defines named menus, each a list of
 `{label, url}` items; the view-model carries them as `$menus`, and the starter
 header renders `$menus['main']`. Malformed entries are dropped before a template

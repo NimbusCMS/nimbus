@@ -17,6 +17,9 @@ When a finding **class** appears here twice, promote it into
 
 ---
 
+### 2026-08-24 · Slice U — Public fragment/single-kind routing (SVM-4)
+Reviewed via the Fable security burst before building. **No findings (None/hygiene only)** — a public, anonymous, read-only surface *reduction*: `/blocks`, `/blocks/{slug}`, `/{single-handle}`(+entry) now 404, all already-public content. Confirmed: (a) the 404 reuses `notFound()` verbatim, so "exists-but-hidden" is byte-identical to "absent" (no enumeration oracle); (b) 404s are never cached (`respond()` stores 200s only), so the fix *shrinks* the cacheable surface (SVM-1-adjacent win) — the only transient is a TTL-bounded stale-200 from a pre-deploy cache entry (flush-on-write/TTL bound it; noted "flush on deploy" in ops); (c) chose plain 404 over the 301→`/` option, avoiding the only way to introduce a defect (a request-derived redirect target). Media/API/MCP paths untouched. Guard tests in `SiteRoutesTest` (absent-parity) + `CacheRoutesTest` (no cache file). Security-green.
+
 ### 2026-08-24 · Slice T — API read-path: batch interop & the N+1 (API-6/DATA-5)
 Reviewed via the Fable security burst before building. Security-green — both changes are net hardening; the security-relevant decisions were the **fix choices**, and DATA-5 is a refactor of the authz-critical DATA-1 read path.
 

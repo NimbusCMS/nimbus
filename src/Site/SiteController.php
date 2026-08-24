@@ -41,6 +41,11 @@ final class SiteController
     /** Most reusable blocks loaded for a page — blocks are a handful, not a feed. */
     private const MAX_BLOCKS = 100;
 
+    /** The reserved handle for the shared-fragment collection (a convention, not
+     *  a kind — 2026-08-15 ledger). Its entries are embedded by slug on every
+     *  page, never served as standalone public pages (SVM-4). */
+    private const BLOCKS_HANDLE = 'blocks';
+
     /** Per-collection cap on sitemap URLs; keeps a single sitemap bounded. */
     private const SITEMAP_MAX = 5000;
 
@@ -173,7 +178,7 @@ final class SiteController
         $urls = ['<url><loc>' . $this->xml($base . '/') . '</loc></url>'];
 
         foreach ($this->collections->all() as $collection) {
-            if ($collection->handle === 'blocks' || $collection->isSingle()) {
+            if (!$this->isPubliclyBrowsable($collection)) {
                 continue;
             }
             $urls[] = '<url><loc>' . $this->xml($base . '/' . $collection->handle) . '</loc></url>';
@@ -250,11 +255,26 @@ final class SiteController
         return $this->renderCollection($request, $collection, 1);
     }
 
+    /**
+     * Is this collection served as its own public pages (an index + entry
+     * pages), or not? The `blocks` fragment store (embedded by slug on other
+     * pages) and any `single`-kind collection (its one entry is the site home,
+     * served at `/`) are **not** browsable: serving them at `/{handle}` would
+     * orphan fragments as standalone pages and duplicate the home's canonical
+     * (SVM-4). This is the one source of that rule — {@see index()}, {@see show()}
+     * and {@see sitemap()} all consult it, so the served surface and the crawled
+     * surface can never disagree.
+     */
+    private function isPubliclyBrowsable(Collection $collection): bool
+    {
+        return $collection->handle !== self::BLOCKS_HANDLE && !$collection->isSingle();
+    }
+
     /** A collection's live entries, newest first. */
     private function index(Request $request, string $handle): Response
     {
         $collection = $this->collections->findByHandle($handle);
-        if ($collection === null) {
+        if ($collection === null || !$this->isPubliclyBrowsable($collection)) {
             return $this->notFound();
         }
 
@@ -265,7 +285,7 @@ final class SiteController
     private function show(Request $request, string $handle, string $slug): Response
     {
         $collection = $this->collections->findByHandle($handle);
-        if ($collection === null) {
+        if ($collection === null || !$this->isPubliclyBrowsable($collection)) {
             return $this->notFound();
         }
 
@@ -413,7 +433,7 @@ final class SiteController
         }
 
         $this->blocks = [];
-        $collection = $this->collections->findByHandle('blocks');
+        $collection = $this->collections->findByHandle(self::BLOCKS_HANDLE);
         if ($collection !== null) {
             foreach ($this->entries->liveForCollection($collection->id, self::MAX_BLOCKS, 0) as $row) {
                 $this->blocks[(string) $row['slug']] = $this->view->one($collection, $row);
