@@ -2,8 +2,8 @@
 /**
  * @var \Nimbus\Media\MediaItem[] $items
  * @var string                    $maxLabel
- * @var ?string                   $flash
- * @var ?string                   $error
+ * @var array{kind:string,message:string}|null $notice resolved redirect notice (ADMIN-10)
+ * @var ?string                   $error server-built inline error (escaped here), or null
  * @var string                    $csrf
  */
 use Nimbus\View\View;
@@ -20,10 +20,8 @@ $human = static function (int $bytes): string {
 
 <?php if ($error !== null): ?>
     <div class="nb-alert nb-alert-error"><?= $e($error) ?></div>
-<?php elseif ($flash === 'uploaded'): ?>
-    <div class="nb-alert nb-alert-ok">File uploaded.</div>
-<?php elseif ($flash === 'deleted'): ?>
-    <div class="nb-alert nb-alert-ok">File deleted.</div>
+<?php elseif ($notice !== null): ?>
+    <div class="nb-alert nb-alert-<?= $notice['kind'] === 'ok' ? 'ok' : 'error' ?>"><?= $e($notice['message']) ?></div>
 <?php endif; ?>
 
 <form class="nb-media-upload" method="post" action="/admin/media" enctype="multipart/form-data">

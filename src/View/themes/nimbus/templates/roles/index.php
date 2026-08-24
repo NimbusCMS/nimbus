@@ -5,15 +5,12 @@
  * @var array<string,string>          $management capability => label
  * @var ?\Nimbus\Auth\Role            $editing role being edited, or null (create)
  * @var array<int,int>                $counts role id => assigned user count
- * @var ?string                       $flash
- * @var ?string                       $error
+ * @var array{kind:string,message:string}|null $notice resolved admin notice (ADMIN-10)
  * @var string                        $csrf
  */
 use Nimbus\View\View;
 
 $e = static fn (?string $v): string => View::e($v);
-
-$flashLabel = ['created' => 'Role created.', 'updated' => 'Role updated.', 'deleted' => 'Role deleted.'];
 
 $held = $editing !== null ? $editing->capabilities : [];
 $has  = static fn (string $cap): string => in_array($cap, $held, true) ? ' checked' : '';
@@ -31,10 +28,8 @@ $summary = static function (array $caps) use ($e): string {
 ?>
 <div class="nb-page-head"><h1>Roles</h1></div>
 
-<?php if ($error !== null): ?>
-    <div class="nb-alert nb-alert-error"><?= $e($error) ?></div>
-<?php elseif ($flash !== null && isset($flashLabel[$flash])): ?>
-    <div class="nb-alert nb-alert-ok"><?= $e($flashLabel[$flash]) ?></div>
+<?php if ($notice !== null): ?>
+    <div class="nb-alert nb-alert-<?= $notice['kind'] === 'ok' ? 'ok' : 'error' ?>"><?= $e($notice['message']) ?></div>
 <?php endif; ?>
 
 <form class="nb-token-new" method="post" action="<?= $editing !== null ? '/admin/roles/' . (int) $editing->id : '/admin/roles' ?>">

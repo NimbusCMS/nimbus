@@ -43,6 +43,19 @@ final class EntriesController extends Controller
     /** Entries per admin list page. Admins scan/manage in bulk, so a touch larger than the site's reader page. */
     private const PER_PAGE = 25;
 
+    /** ADMIN-10: post-redirect notices are fixed CODE→string maps (never URL text). */
+    private const OK_NOTICES = [
+        'created'     => 'Entry created.',
+        'updated'     => 'Entry updated.',
+        'saved'       => 'Saved.',
+        'deleted'     => 'Entry deleted.',
+        'published'   => 'Entry published.',
+        'unpublished' => 'Entry unpublished.',
+    ];
+    private const ERR_NOTICES = [
+        'save-failed' => 'That change couldn’t be saved.',
+    ];
+
     private CollectionRepository $collections;
     private EntryRepository $entries;
     private RelationRepository $relations;
@@ -92,7 +105,7 @@ final class EntriesController extends Controller
         if ($collection->isSingle()) {
             $this->requireManage($collection);
             $entry = $this->entries->firstForCollection($collection->id);
-            return $this->renderForm($collection, $this->modelFromEntry($collection, $entry), [], $req->query('msg'));
+            return $this->renderForm($collection, $this->modelFromEntry($collection, $entry), [], $this->notice($req, self::OK_NOTICES, self::ERR_NOTICES));
         }
 
         // Paginate: count first (search-aware), derive total pages, then clamp
@@ -110,7 +123,7 @@ final class EntriesController extends Controller
             'types'       => $this->types,
             'canManage'   => $this->gate->manages($collection),
             'canSchema'   => $this->gate->can('schema', 'write'),
-            'flash'       => $req->query('msg'),
+            'notice'      => $this->notice($req, self::OK_NOTICES, self::ERR_NOTICES),
             'page'        => $page,
             'total_pages' => $totalPages,
             'total'       => $total,
@@ -197,7 +210,10 @@ final class EntriesController extends Controller
         $input  = new EntryInput((string) $entry['title'], (string) $entry['slug'], $status, $values);
         $result = $this->entryService->save($collection, $input, $id, $this->auth->user()?->id);
 
-        $msg = $result->successful ? ($status === Publication::PUBLISHED ? 'published' : 'unpublished') : 'error';
+        if (!$result->successful) {
+            return $this->redirect(Url::to('admin.entries.index', ['handle' => $handle]) . '?err=save-failed');
+        }
+        $msg = $status === Publication::PUBLISHED ? 'published' : 'unpublished';
         return $this->redirect(Url::to('admin.entries.index', ['handle' => $handle]) . '?msg=' . $msg);
     }
 
@@ -222,9 +238,10 @@ final class EntriesController extends Controller
     /**
      * @param array<string,mixed>  $model
      * @param array<string,string> $errors   per-field human messages, keyed by input name
+     * @param array{kind:string,message:string}|null $notice a resolved code notice (ADMIN-10), or null
      * @param string               $topError a non-field failure (e.g. missing provider), or ''
      */
-    private function renderForm(Collection $collection, array $model, array $errors, ?string $flash = null, string $topError = ''): Response
+    private function renderForm(Collection $collection, array $model, array $errors, ?array $notice = null, string $topError = ''): Response
     {
         // Relation pickers need their target collection's entries (id => title).
         $relationOptions = [];
@@ -253,7 +270,7 @@ final class EntriesController extends Controller
             'model'           => $model,
             'errors'          => $errors,
             'topError'        => $topError,
-            'flash'           => $flash,
+            'notice'          => $notice,
             'types'           => $this->types,
             'relationOptions' => $relationOptions,
             'mediaOptions'    => $mediaOptions,

@@ -5,30 +5,19 @@
  * @var ?\Nimbus\Auth\User   $editing user being edited, or null (create)
  * @var list<int>            $editingRoles role ids assigned to the edited user
  * @var list<int>            $pending user ids with an unused invite (can be re-invited)
- * @var ?string              $flash
- * @var ?string              $error
+ * @var array{kind:string,message:string}|null $notice resolved admin notice (ADMIN-10)
  * @var string               $csrf
  */
 use Nimbus\View\View;
 
 $e = static fn (?string $v): string => View::e($v);
 
-$flashLabel = [
-    'created'        => 'User created.',
-    'updated'        => 'User updated.',
-    'invited'        => 'Invitation sent — they’ll set their own password.',
-    'invited-nomail' => 'User created, but the invitation email could not be sent. Fix your mail settings (try `nimbus mail:test`), then use “Resend invite”.',
-    'invite-sent'    => 'Invitation re-sent — they’ll set their own password.',
-    'invite-nomail'  => 'The invitation email could not be sent. Fix your mail settings (try `nimbus mail:test`), then resend.',
-];
-$checked    = static fn (int $roleId): string => in_array($roleId, $editingRoles, true) ? ' checked' : '';
+$checked = static fn (int $roleId): string => in_array($roleId, $editingRoles, true) ? ' checked' : '';
 ?>
 <div class="nb-page-head"><h1>Users</h1></div>
 
-<?php if ($error !== null): ?>
-    <div class="nb-alert nb-alert-error"><?= $e($error) ?></div>
-<?php elseif ($flash !== null && isset($flashLabel[$flash])): ?>
-    <div class="nb-alert nb-alert-ok"><?= $e($flashLabel[$flash]) ?></div>
+<?php if ($notice !== null): ?>
+    <div class="nb-alert nb-alert-<?= $notice['kind'] === 'ok' ? 'ok' : 'error' ?>"><?= $e($notice['message']) ?></div>
 <?php endif; ?>
 
 <form class="nb-token-new" method="post" action="<?= $editing !== null ? '/admin/users/' . (int) $editing->id : '/admin/users' ?>">

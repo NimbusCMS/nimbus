@@ -104,6 +104,7 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Effort:** S (record) / L (build)
 
 ### ADMIN-10 · Free-text `?err=`/`?msg=` reflection lets a crafted link paint arbitrary text into admin notices
+- **✅ RESOLVED** (Slice R) — post-redirect notices are now fixed CODE→string maps, never URL text. A shared `Controller::notice(Request, $ok, $err): ?array` resolver (mirroring `oauthFlash`) maps `?msg=`/`?err=` codes to fixed strings; an **unknown code renders nothing**. All 6 controllers (media, users, roles, tokens, collections, entries — incl. the singleton `entries/form.php:27` the finding missed) emit codes; the template-side `$flashLabel` maps and `ucfirst($flash)` reflections are retired. Dynamic messages genericized; the media **error** paths server-render inline (only for a `media:read` actor — A4; entry titles escaped — A3), so only `?msg=uploaded|deleted` survive a redirect. entries `?msg=error` (a green "Error." bug) became `?err=save-failed` (error-kind). Tests: `AdminNoticeTest` (all 7 surfaces reflect nothing + 2 static drift guards), `MediaRoutesTest` (in-use escape + A4 no-listing), plus updated per-controller assertions.
 - **Priority:** P3
 - **Type:** security
 - **Severity (if security):** Low
@@ -143,6 +144,7 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Effort:** M
 
 ### ADMIN-14 · Small correctness paper-cuts: relation target unvalidated server-side; token lifecycle reports success for nonexistent ids
+- **✅ RESOLVED** (Slice R). (a) `CollectionsController::validateDraft` now validates a relation field's `target` against existing collection handles (non-empty + real), erroring the row and re-rendering; MCP parity in `SchemaToolset::fieldDef`. A bogus/blank/deleted target is rejected instead of stored (dead relation); a self-target on *create* is rejected (the collection doesn't exist yet — matches the dropdown). (b) Token lifecycle now checks existence first (new `ApiTokenRepository::exists()`) on all three surfaces — admin `TokensController::lifecycle` (`?err=not-found`), MCP `TokensToolset` (which also stops emitting a **false audit event** for a revoke that never happened), and `bin/nimbus token:*`. Existence-first (not affected-rows) keeps an idempotent re-revoke of a real token a success — `rowCount 0` can't tell "missing" from "already in that state". Tests: `CollectionRoutesTest` (bogus/blank/valid target), `TokenAdminTest` (missing-id error + idempotent re-revoke).
 - **Priority:** P3
 - **Type:** correctness
 - **Where:** `src/Admin/CollectionsController.php:253-256` (`$options['target']` stored as submitted), `src/Admin/TokensController.php:198-210` (`lifecycle()` never checks the id exists)

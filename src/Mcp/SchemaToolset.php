@@ -333,13 +333,25 @@ final class SchemaToolset implements Toolset
             $errors[$key] = 'A field handle must be ' . CollectionService::HANDLE_MAX . ' characters or fewer (it derives from the label).';
             return null;
         }
+        $options = is_array($row['options'] ?? null) ? $row['options'] : [];
+        // ADMIN-14a (MCP parity): a relation field's target must be an existing
+        // collection handle, not stored raw — a bogus target yields dead relations.
+        if ($type === 'relation') {
+            $target = is_string($options['target'] ?? null) ? $options['target'] : '';
+            if ($target === '' || $this->collections->findByHandle($target) === null) {
+                $errors[$key] = $target === ''
+                    ? 'A relation field needs a "target" collection handle in its options.'
+                    : "No collection has the handle \"{$target}\" — a relation field's target must be an existing collection.";
+                return null;
+            }
+        }
 
         return [
             'handle'   => $handle,
             'label'    => $label,
             'type'     => $type,
             'required' => (bool) ($row['required'] ?? false),
-            'options'  => is_array($row['options'] ?? null) ? $row['options'] : [],
+            'options'  => $options,
         ];
     }
 

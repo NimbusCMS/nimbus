@@ -173,6 +173,13 @@ final class TokensToolset implements Toolset
         if ($id <= 0) {
             return ToolResult::error('A token id is required.', 'invalid');
         }
+        // ADMIN-14b: a nonexistent id must fail, not report a phantom success —
+        // and must NOT emit an audit event announcing a revoke that never
+        // happened. Existence is checked first (not affected-rows), so an
+        // idempotent re-revoke/pause/resume of a real token stays a success.
+        if (!$this->tokens->exists($id)) {
+            return ToolResult::error("No token with id {$id}.", 'not_found');
+        }
         match ($action) {
             'revoke' => $this->tokens->revoke($id),
             'pause'  => $this->tokens->pause($id),

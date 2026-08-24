@@ -8,6 +8,7 @@
  * @var int                              $total_pages
  * @var int                              $total
  * @var ?string                          $q
+ * @var array{kind:string,message:string}|null $notice resolved admin notice (ADMIN-10)
  */
 use Nimbus\Content\Publication;
 use Nimbus\Http\Csrf;
@@ -28,7 +29,7 @@ $h          = $e($collection->handle);
     </div>
 </div>
 
-<?php if (!empty($flash)): ?><div class="nb-alert nb-alert-ok"><?= $e(ucfirst($flash)) ?>.</div><?php endif; ?>
+<?php if ($notice !== null): ?><div class="nb-alert nb-alert-<?= $notice['kind'] === 'ok' ? 'ok' : 'error' ?>"><?= $e($notice['message']) ?></div><?php endif; ?>
 
 <?php if ($rows === []): ?>
     <div class="nb-empty-panel">

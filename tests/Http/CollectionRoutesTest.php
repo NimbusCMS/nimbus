@@ -137,6 +137,52 @@ final class CollectionRoutesTest extends HttpTestCase
         self::assertSame(['body', 'qty'], array_map(static fn ($f) => $f->handle, $collection->fields));
     }
 
+    public function test_a_relation_field_with_a_bogus_target_is_rejected(): void
+    {
+        // ADMIN-14a: the target was stored raw — a nonexistent handle yielded a
+        // dead relation + empty picker. Now the whole create is rejected.
+        $this->actingAs('admin');
+
+        $response = $this->post('/admin/collections', [
+            'name' => 'Books', 'handle' => 'books', 'kind' => 'collection',
+            'fields' => [['label' => 'Author', 'handle' => 'author', 'type' => 'relation', 'target' => 'ghosts']],
+        ]);
+
+        self::assertSame(200, $response->status, 're-renders with the row error, no redirect');
+        self::assertStringContainsString('does not exist', $response->body);
+        self::assertNull($this->repo->findByHandle('books'), 'a bogus relation target blocks the whole create');
+    }
+
+    public function test_a_relation_field_with_a_real_target_saves(): void
+    {
+        $this->actingAs('admin');
+        $this->makeCollection('authors');
+
+        $response = $this->post('/admin/collections', [
+            'name' => 'Books', 'handle' => 'books', 'kind' => 'collection',
+            'fields' => [['label' => 'Author', 'handle' => 'author', 'type' => 'relation', 'target' => 'authors']],
+        ]);
+
+        $this->assertRedirects($response, '/admin/collections?msg=created');
+        $books = $this->repo->findByHandle('books');
+        self::assertNotNull($books);
+        self::assertSame('authors', $books->fields[0]->option('target', ''));
+    }
+
+    public function test_a_relation_field_with_a_blank_target_is_rejected(): void
+    {
+        $this->actingAs('admin');
+
+        $response = $this->post('/admin/collections', [
+            'name' => 'Books', 'handle' => 'books', 'kind' => 'collection',
+            'fields' => [['label' => 'Author', 'handle' => 'author', 'type' => 'relation']],
+        ]);
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('Choose a target collection', $response->body);
+        self::assertNull($this->repo->findByHandle('books'));
+    }
+
     public function test_an_over_long_field_label_is_caught_before_the_write(): void
     {
         $this->actingAs('admin');

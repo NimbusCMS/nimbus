@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace Nimbus\Tests\Http;
 
+use Nimbus\Content\EntryInput;
+use Nimbus\Content\EntryRepository;
+use Nimbus\Content\EntryService;
+use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Content\RelationRepository;
 use Nimbus\Media\MediaRepository;
+use Nimbus\Support\EventDispatcher;
 
 /**
  * The media admin routes through the real kernel.
@@ -71,7 +77,10 @@ final class MediaRoutesTest extends HttpTestCase
 
         $response = $this->post('/admin/media'); // no file part
 
-        $this->assertRedirectsTo($response, '/admin/media?err=');
+        // ADMIN-10: the error is server-rendered inline (200), not round-tripped
+        // through a reflected ?err= redirect.
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('No file was selected.', $response->body);
     }
 
     public function test_uploading_requires_csrf(): void
@@ -80,6 +89,42 @@ final class MediaRoutesTest extends HttpTestCase
 
         // requireCsrf aborts to /admin/media on a missing token.
         $this->assertRedirects($this->postWithoutCsrf('/admin/media'), '/admin/media');
+    }
+
+    public function test_a_write_without_read_actor_is_not_handed_the_library_on_error(): void
+    {
+        // A4: index() needs media:read but the write is only media:write — so a
+        // write-without-read actor who hits an error gets a generic redirect,
+        // never the re-rendered library listing.
+        $this->actingWithCapabilities(['media:write']);
+        $this->seed('secret-kitten.png');
+
+        $response = $this->post('/admin/media'); // no file → error path
+        $this->assertRedirects($response, '/admin/media?err=denied');
+    }
+
+    public function test_deleting_an_in_use_file_renders_the_usage_detail_escaped(): void
+    {
+        // A3: the in-use detail names the referencing entry (author-controlled
+        // title) — it must be escaped and never round-tripped through the URL,
+        // and an in-use file must not be deleted.
+        $this->actingAs('admin');
+
+        $collection = $this->makeCollection('gallery', [
+            ['handle' => 'photo', 'label' => 'Photo', 'type' => 'media', 'required' => false, 'options' => []],
+        ], ['kind' => 'collection', 'permissions' => ['manage' => ['admin']]]);
+        $mediaId = $this->seed('used.png');
+
+        $service = new EntryService($this->db, new EntryRepository($this->db), new RelationRepository($this->db), new FieldTypeRegistry(), new EventDispatcher());
+        $service->save($collection, new EntryInput('"><script>alert(1)</script>', 'evil', 'published', ['photo' => $mediaId]), null, null);
+
+        $response = $this->post("/admin/media/{$mediaId}/delete");
+
+        self::assertSame(200, $response->status, 'an in-use delete re-renders, no redirect');
+        self::assertStringContainsString('In use by', $response->body);
+        self::assertStringNotContainsString('<script>alert(1)', $response->body, 'the entry title must be escaped');
+        self::assertStringContainsString('&lt;script&gt;', $response->body);
+        self::assertNotNull($this->media->find($mediaId), 'an in-use file is not deleted');
     }
 
     // ------------------------------------------------------------- deletion
@@ -170,9 +215,12 @@ final class MediaRoutesTest extends HttpTestCase
             $id = $this->seed();
 
             self::assertSame(200, $this->get('/admin/media')->status, "{$role} lists media");
-            // The write gate passes: an empty upload reaches the no-file handler
-            // (redirects to /admin/media?err=), not the authz abort to /admin.
-            $this->assertRedirectsTo($this->post('/admin/media'), '/admin/media?err=');
+            // The write gate passes: an empty upload reaches the no-file handler,
+            // which (for a read-capable actor) re-renders the library with the
+            // error inline — not the authz abort to /admin.
+            $noFile = $this->post('/admin/media');
+            self::assertSame(200, $noFile->status, "{$role} reaches the no-file handler");
+            self::assertStringContainsString('No file was selected.', $noFile->body);
             $this->assertRedirects($this->post("/admin/media/{$id}/delete"), '/admin/media?msg=deleted', "{$role} may delete");
             self::assertNull($this->media->find($id), "{$role}'s delete removed the row");
         }

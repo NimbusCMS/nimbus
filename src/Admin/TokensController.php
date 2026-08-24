@@ -41,6 +41,23 @@ final class TokensController extends Controller
         '1y'    => '+1 year',
     ];
 
+    /** ADMIN-10: post-redirect notices are fixed CODE→string maps (never URL text). */
+    private const OK_NOTICES = [
+        'resubmit' => 'That form was already submitted — nothing was created.',
+        'revoked'  => 'Token revoked.',
+        'paused'   => 'Token paused.',
+        'resumed'  => 'Token resumed.',
+    ];
+    private const ERR_NOTICES = [
+        'name-required'     => 'A token needs a name.',
+        'name-too-long'     => 'Token name must be 120 characters or fewer.',
+        'role-not-found'    => 'No such role.',
+        'role-ungrantable'  => 'You can’t mint a token as that role — it grants access you don’t hold.',
+        'scope-required'    => 'Choose “All collections”, at least one collection, or a role.',
+        'scope-ungrantable' => 'You can’t grant access you don’t hold.',
+        'not-found'         => 'That token no longer exists.',
+    ];
+
     private ApiTokenRepository $tokens;
     private CollectionRepository $collections;
     private RoleRepository $roles;
@@ -85,8 +102,7 @@ final class TokensController extends Controller
             'roles'       => $grantable,
             'roleNames'   => $roleNames,
             'justCreated' => $justCreated,
-            'flash'       => $req->query('msg'),
-            'error'       => $req->query('err'),
+            'notice'      => $this->notice($req, self::OK_NOTICES, self::ERR_NOTICES),
             'csrf'        => Csrf::token(),
             'nonce'       => FormNonce::issue(),
         ]);
@@ -99,10 +115,10 @@ final class TokensController extends Controller
 
         $name = trim((string) $req->input('name'));
         if ($name === '') {
-            return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode('A token needs a name.'));
+            return $this->redirect(Url::to('admin.tokens.index') . '?err=name-required');
         }
         if ($this->tooLong($name, 120)) { // nb_api_tokens.name VARCHAR(120)
-            return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode('Token name must be 120 characters or fewer.'));
+            return $this->redirect(Url::to('admin.tokens.index') . '?err=name-too-long');
         }
 
         $scopes = $this->scopesFrom($req);
@@ -117,18 +133,18 @@ final class TokensController extends Controller
         if ($roleRaw !== '') {
             $role = ctype_digit($roleRaw) ? $this->roles->find((int) $roleRaw) : null;
             if ($role === null) {
-                return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode('No such role.'));
+                return $this->redirect(Url::to('admin.tokens.index') . '?err=role-not-found');
             }
             $ungrantableRole = $this->firstUngrantable($role->capabilities);
             if ($ungrantableRole !== null) {
-                return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode("You cannot mint a token as \"{$role->name}\" — it grants access you do not hold: \"{$ungrantableRole}\"."));
+                return $this->redirect(Url::to('admin.tokens.index') . '?err=role-ungrantable');
             }
             $roleId = $role->id;
         }
 
         // Deny-by-default: a token needs read scopes, a bound role, or both.
         if ($scopes === [] && $roleId === null) {
-            return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode('Choose "All collections", at least one collection, or a role.'));
+            return $this->redirect(Url::to('admin.tokens.index') . '?err=scope-required');
         }
 
         // Subset-only over the explicit scopes too (you can only grant access you
@@ -138,7 +154,7 @@ final class TokensController extends Controller
         // than the actor holds. CLI + MCP already enforce this.
         $ungrantable = $this->firstUngrantable($scopes);
         if ($ungrantable !== null) {
-            return $this->redirect(Url::to('admin.tokens.index') . '?err=' . rawurlencode("You cannot grant access you do not hold: \"{$ungrantable}\"."));
+            return $this->redirect(Url::to('admin.tokens.index') . '?err=scope-ungrantable');
         }
 
         // Single-use nonce, checked only once the input is otherwise valid: a
@@ -204,13 +220,21 @@ final class TokensController extends Controller
         $this->requireCan('tokens', 'write');
         $this->requireCsrf($req, Url::to('admin.tokens.index'));
 
+        // ADMIN-14b: report a real failure for a nonexistent id instead of a
+        // false "revoked". Existence is checked first (not affected-rows), so an
+        // idempotent re-revoke/pause/resume of a real token stays a success —
+        // the verbs are conditional UPDATEs and rowCount 0 can't tell "missing"
+        // from "already in that state".
+        if (!$this->tokens->exists($id)) {
+            return $this->redirect(Url::to('admin.tokens.index') . '?err=not-found');
+        }
         match ($action) {
             'revoke' => $this->tokens->revoke($id),
             'pause'  => $this->tokens->pause($id),
             default  => $this->tokens->resume($id),
         };
 
-        return $this->redirect("/admin/tokens?msg={$action}d");
+        return $this->redirect(Url::to('admin.tokens.index') . "?msg={$action}d");
     }
 
     /** Turn an expiry preset into an absolute timestamp, or null for "never". */

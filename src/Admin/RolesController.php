@@ -35,6 +35,23 @@ final class RolesController extends Controller
         'settings:write' => 'Change settings',
     ];
 
+    /** ADMIN-10: post-redirect notices are fixed CODE→string maps (never URL text). */
+    private const OK_NOTICES = [
+        'created' => 'Role created.',
+        'updated' => 'Role updated.',
+        'deleted' => 'Role deleted.',
+    ];
+    private const ERR_NOTICES = [
+        'name-required' => 'A role needs a name.',
+        'name-too-long' => 'Role name must be 80 characters or fewer.',
+        'name-exists'   => 'A role with that name already exists.',
+        'cap-unheld'    => 'You can’t grant a capability you don’t hold.',
+        'not-found'     => 'No such role.',
+        'admin-locked'  => 'The admin role can’t be edited.',
+        'system-locked' => 'The built-in roles can’t be deleted.',
+        'role-superior' => 'You can’t modify a role that grants a capability beyond your own.',
+    ];
+
     private RoleRepository $roles;
     private CollectionRepository $collections;
 
@@ -68,8 +85,7 @@ final class RolesController extends Controller
             'management'  => self::MANAGEMENT,
             'editing'     => $editing,
             'counts'      => $this->assignedCounts(),
-            'flash'       => $req->query('msg'),
-            'error'       => $req->query('err'),
+            'notice'      => $this->notice($req, self::OK_NOTICES, self::ERR_NOTICES),
             'csrf'        => Csrf::token(),
         ]);
     }
@@ -81,19 +97,19 @@ final class RolesController extends Controller
 
         $name = trim((string) $req->input('name'));
         if ($name === '') {
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('A role needs a name.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=name-required');
         }
         if ($this->tooLong($name, 80)) { // nb_roles.name VARCHAR(80)
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('Role name must be 80 characters or fewer.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=name-too-long');
         }
         if ($this->roles->findByName($name) !== null) {
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("A role named \"{$name}\" already exists."));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=name-exists');
         }
 
         $caps      = $this->capabilitiesFrom($req);
         $ungranted = $this->firstUnheld($caps);
         if ($ungranted !== null) {
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("You cannot grant a capability you do not hold: {$ungranted}."));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=cap-unheld');
         }
 
         $this->roles->create($name, $caps, false);
@@ -107,24 +123,24 @@ final class RolesController extends Controller
 
         $role = $this->roles->find($id);
         if ($role === null) {
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('No such role.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=not-found');
         }
         // The admin role is the built-in super-grant; keep it intact so an install
         // can never edit away its own administrator.
         if ($role->name === 'admin') {
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('The admin role cannot be edited.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=admin-locked');
         }
         // Subset-only, both ways: you cannot edit a role that already grants more
         // than you hold (no nerf-by-edit / no touching a superior role), and you
         // cannot grant a capability you do not hold.
         $existing = $this->firstUnheld($role->capabilities);
         if ($existing !== null) {
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("You cannot edit a role that grants a capability beyond your own: {$existing}."));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=role-superior');
         }
         $caps      = $this->capabilitiesFrom($req);
         $ungranted = $this->firstUnheld($caps);
         if ($ungranted !== null) {
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("You cannot grant a capability you do not hold: {$ungranted}."));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=cap-unheld');
         }
 
         $this->roles->setCapabilities($id, $caps);
@@ -153,10 +169,10 @@ final class RolesController extends Controller
 
         $role = $this->roles->find($id);
         if ($role === null) {
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('No such role.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=not-found');
         }
         if ($role->isSystem) {
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode('The built-in roles cannot be deleted.'));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=system-locked');
         }
         // Subset-only, same as update(): you cannot DELETE a role that grants a
         // capability beyond your own — deleting it would strip a superior user's
@@ -164,7 +180,7 @@ final class RolesController extends Controller
         // manager could destroy any custom role regardless of what it grants.
         $superior = $this->firstUnheld($role->capabilities);
         if ($superior !== null) {
-            return $this->redirect(Url::to('admin.roles.index') . '?err=' . rawurlencode("You cannot delete a role that grants a capability beyond your own: {$superior}."));
+            return $this->redirect(Url::to('admin.roles.index') . '?err=role-superior');
         }
 
         $this->roles->delete($id); // assignments cascade away

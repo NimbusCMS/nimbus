@@ -17,6 +17,17 @@ When a finding **class** appears here twice, promote it into
 
 ---
 
+### 2026-08-24 · Slice R — Admin notice hardening & correctness paper-cuts (ADMIN-10/ADMIN-14)
+Reviewed via the Fable security burst before building; security-green, no Critical/High/Medium. ADMIN-10 is a confirmed **Low** (escaped, social-engineering aid only); ADMIN-14 has no security impact (both angles traced and cleared).
+
+- **Reflection channel closed (Low, ADMIN-10 class) — 8 controller sites / 7 render sites.** Post-redirect notices resolve fixed CODES → strings via `Controller::notice()` (unknown code → renders nothing); the query owns only the key, the map owns the text. All raw `$e($error)`/`ucfirst($flash)` renders and template `$flashLabel` maps retired — including `entries/form.php:27` (the singleton path the finding omitted). Guarding tests: `AdminNoticeTest::test_no_admin_notice_surface_reflects_query_text` (all 7 surfaces) + two **drift guards** (no admin controller reads `query('msg'|'err')` outside the resolver; no admin template reflects a raw flash) — the permanence mechanism, stronger than a catalog paragraph.
+- **A3 · Media in-use detail imports author-controlled entry titles — Low, closed.** The "In use by: {entry_title}…" detail is server-rendered (not URL round-tripped) and escaped by the view. Guarding test: `MediaRoutesTest::test_deleting_an_in_use_file_renders_the_usage_detail_escaped` (a `"><script>` title renders inert; the in-use file is not deleted).
+- **A4 · Media read/write gate divergence — Low, closed.** `index()` is `media:read` but the write actions are only `media:write` (deliberately independent). The error re-render only fires for a `media:read` actor; a write-without-read actor gets a generic `?err=denied` redirect, never the library listing. Guarding test: `MediaRoutesTest::test_a_write_without_read_actor_is_not_handed_the_library_on_error`.
+- **ADMIN-14a/b — no security finding (traced).** 14a: a crafted relation `target` was already fail-closed at every read/write path (empty picker, `canRead` gates, `idsInCollection` filter); validating it is a correctness fix, and the handle-existence oracle sits inside the already-accepted management-cap disclosure class. 14b: the success-vs-not-found distinction leaks nothing — a `tokens:write` actor already sees every token id on the page; the MCP **false-audit** removal is a net integrity gain.
+- **Watch item (Slice Q → resolved-not-recurred): do NOT promote to the threat catalog.** Slice R is the **fix of the 1st ADMIN-10 sighting**, not a 3rd independent appearance, so the ledger's "once more → promote" bar is unmet. Updated the watch note with the canonical resolutions so a genuine 3rd sighting promotes with the fix pre-written: **error text crosses a redirect only as a code (the string lives server-side); validator text uses the re-render pattern; a computed detail is server-rendered + escaped.**
+
+Verdict: **security-green.** Hardens: the audit's last reflected-text channel into admin notices; a uniform code-keyed notice surface with a drift guard; two correctness paper-cuts with their fail-closed properties intact + one false audit event removed.
+
 ### 2026-08-24 · Slice Q — Settings write integrity & operator feedback (SUP-4/SUP-7/SUP-10)
 Reviewed via the Fable security burst **before** building; green-to-build with five must-ships, all honoured (or superseded by a safer design). No Critical/High/Medium in the shipped slice.
 
