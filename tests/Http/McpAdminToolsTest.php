@@ -94,7 +94,7 @@ final class McpAdminToolsTest extends HttpTestCase
 
         // Given password: the user gets the editor ROLE (real capabilities), and
         // the legacy column is a neutral placeholder, never the granted role.
-        $this->call('create_user', ['email' => 'ed@site.test', 'password' => 's3cretpass', 'role' => 'editor'], $token);
+        $this->call('create_user', ['email' => 'ed@site.test', 'password' => 's3cret-passphrase', 'role' => 'editor'], $token);
         $ed = $this->users->findByEmail('ed@site.test');
         self::assertNotNull($ed);
         self::assertSame(['editor'], $this->roleNames($ed->id), 'assigned the editor role');
@@ -113,9 +113,9 @@ final class McpAdminToolsTest extends HttpTestCase
     {
         $this->seedRoles();
         $token = $this->tokens->create('A', ['admin']);
-        $this->call('create_user', ['email' => 'dup@site.test', 'password' => 'goodpass1'], $token);
+        $this->call('create_user', ['email' => 'dup@site.test', 'password' => 'good-passphrase-1'], $token);
 
-        self::assertSame('invalid', $this->structured($this->call('create_user', ['email' => 'dup@site.test', 'password' => 'goodpass1'], $token))['error']['code'], 'duplicate email');
+        self::assertSame('invalid', $this->structured($this->call('create_user', ['email' => 'dup@site.test', 'password' => 'good-passphrase-1'], $token))['error']['code'], 'duplicate email');
         self::assertSame('invalid', $this->structured($this->call('create_user', ['email' => 'bad@site.test', 'role' => 'wizard'], $token))['error']['code'], 'unknown role');
         self::assertSame('invalid', $this->structured($this->call('create_user', ['email' => 'weak@site.test', 'password' => 'short'], $token))['error']['code'], 'weak password');
     }
@@ -147,7 +147,7 @@ final class McpAdminToolsTest extends HttpTestCase
     {
         $this->seedRoles();
         $token = $this->tokens->create('A', ['admin']);
-        $this->call('create_user', ['email' => 'p@site.test', 'password' => 'goodpass1', 'role' => 'editor'], $token);
+        $this->call('create_user', ['email' => 'p@site.test', 'password' => 'good-passphrase-1', 'role' => 'editor'], $token);
         $id = $this->users->findByEmail('p@site.test')->id;
 
         self::assertFalse($this->call('set_role', ['email' => 'p@site.test', 'role' => 'author'], $token)['result']['isError']);
@@ -199,7 +199,7 @@ final class McpAdminToolsTest extends HttpTestCase
     {
         $this->seedRoles();
         $token = $this->tokens->create('A', ['admin']);
-        $this->call('create_user', ['email' => 'r@site.test', 'password' => 'goodpass1', 'role' => 'editor'], $token);
+        $this->call('create_user', ['email' => 'r@site.test', 'password' => 'good-passphrase-1', 'role' => 'editor'], $token);
 
         $rows = $this->structured($this->call('list_users', [], $token))['data'];
         $row  = array_values(array_filter($rows, static fn ($u): bool => $u['email'] === 'r@site.test'))[0];

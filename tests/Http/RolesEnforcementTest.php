@@ -95,7 +95,7 @@ final class RolesEnforcementTest extends HttpTestCase
         // Holds users:write but not admin.
         $this->actingWithCapabilities(['users:write']);
 
-        $this->post('/admin/users', ['email' => 'victim@site.test', 'password' => 'goodpass1', 'roles' => [$adminRole]]);
+        $this->post('/admin/users', ['email' => 'victim@site.test', 'password' => 'good-passphrase-1', 'roles' => [$adminRole]]);
 
         // Whether the create is refused or lands without the role, the victim must
         // never carry admin — no escalation via assignment.

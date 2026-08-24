@@ -28,7 +28,7 @@ final class UsersAdminTest extends HttpTestCase
         $this->actingAs('admin');
         $editor = $this->roles->create('Editor', ['*:read'], true);
 
-        $response = $this->post('/admin/users', ['email' => 'new@site.test', 'name' => 'New', 'password' => 'goodpass1', 'roles' => [$editor]]);
+        $response = $this->post('/admin/users', ['email' => 'new@site.test', 'name' => 'New', 'password' => 'good-passphrase-1', 'roles' => [$editor]]);
         self::assertSame(302, $response->status);
 
         $user = $this->users->findByEmail('new@site.test');
@@ -45,8 +45,8 @@ final class UsersAdminTest extends HttpTestCase
         $this->post('/admin/users', ['email' => 'weak@site.test', 'password' => 'short']);
         self::assertNull($this->users->findByEmail('weak@site.test'), 'weak password rejected');
 
-        $this->post('/admin/users', ['email' => 'dup@site.test', 'password' => 'goodpass1']);
-        $this->post('/admin/users', ['email' => 'dup@site.test', 'password' => 'goodpass1']);
+        $this->post('/admin/users', ['email' => 'dup@site.test', 'password' => 'good-passphrase-1']);
+        $this->post('/admin/users', ['email' => 'dup@site.test', 'password' => 'good-passphrase-1']);
         self::assertCount(1, array_filter($this->users->all(), static fn ($u): bool => $u->email === 'dup@site.test'));
     }
 
