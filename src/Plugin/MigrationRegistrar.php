@@ -26,6 +26,34 @@ use Nimbus\Database\MigrationRegistry;
  */
 final class MigrationRegistrar
 {
+    /**
+     * Statement patterns that touch a core `nb_*` table — an **honest-accident
+     * guard, not a sandbox** (FU-11). ADR 0001 makes an installed plugin trusted
+     * in-process code with full app privilege; a plugin can still hit `nb_*` from
+     * its runtime, dynamic/concatenated SQL, or a raw PDO — this only catches a
+     * *typo'd or copy-pasted* migration statement before `nimbus migrate` hands
+     * it to MySQL's irreversible auto-commit DDL. Each is verb-anchored on the
+     * **target** identifier (so a legit `REFERENCES nb_users(id)` FK in the
+     * plugin's own table is not flagged) and runs over a comment/literal-stripped
+     * statement. See `docs/adr/0005-plugin-owned-storage.md`.
+     *
+     * @var list<string>
+     */
+    private const CORE_TABLE_DDL = [
+        // The single target of a CREATE/ALTER/DROP/TRUNCATE TABLE.
+        '/\b(?:CREATE|ALTER|DROP|TRUNCATE)\s+(?:TEMPORARY\s+)?(?:TABLE\s+)?(?:IF\s+(?:NOT\s+)?EXISTS\s+)?(?<![\w.])`?(?P<tbl>nb_\w+)/i',
+        // Any table in a DROP TABLE list (`DROP TABLE a, nb_users`).
+        '/\bDROP\s+TABLE\b[^;]*?(?<![\w.])`?(?P<tbl>nb_\w+)/i',
+        // Either operand of a RENAME TABLE (`… TO nb_x` squats the namespace too).
+        '/\bRENAME\s+TABLE\b[^;]*?(?<![\w.])`?(?P<tbl>nb_\w+)/i',
+        '/\bRENAME\s+TO\s+(?<![\w.])`?(?P<tbl>nb_\w+)/i',      // the ALTER TABLE … RENAME TO form
+        '/\b(?:CREATE|DROP)\s+(?:UNIQUE\s+|FULLTEXT\s+|SPATIAL\s+)?INDEX\b[^;]*?\bON\s+(?<![\w.])`?(?P<tbl>nb_\w+)/i',
+        // Target-keyed DML (a read via …SELECT FROM nb_* is a source, not matched).
+        '/\b(?:INSERT|REPLACE)\s+INTO\s+(?<![\w.])`?(?P<tbl>nb_\w+)/i',
+        '/\bUPDATE\s+(?<![\w.])`?(?P<tbl>nb_\w+)/i',
+        '/\bDELETE\s+FROM\s+(?<![\w.])`?(?P<tbl>nb_\w+)/i',
+    ];
+
     public function __construct(
         private MigrationRegistry $registry,
         private string $pluginId,
@@ -58,6 +86,68 @@ final class MigrationRegistrar
         if ($name === '' || strlen($name) > 120) {
             throw new \InvalidArgumentException("A migration name must be 1–120 characters: \"{$name}\".");
         }
+        foreach ($statements as $i => $statement) {
+            $table = self::coreTableTouched((string) $statement);
+            if ($table !== null) {
+                // Rejected here → the loader records REGISTER_FAILED and skips the
+                // plugin (its migrations roll back; core + other plugins are
+                // unaffected). Teach, don't just refuse.
+                throw new \InvalidArgumentException(
+                    "Migration \"{$name}\" statement #" . ((int) $i + 1) . " touches the core table \"{$table}\". "
+                    . '`nb_*` tables are reserved for Nimbus core; a plugin creates and alters only its own tables, '
+                    . 'prefixed with its slug (e.g. "analytics_hits") — see ADR 0005. (This is an accident guard, '
+                    . 'not a sandbox: an installed plugin is trusted in-process code.)',
+                );
+            }
+        }
         $this->registry->add($this->pluginId . ':' . $name, $statements, $this->pluginId);
+    }
+
+    /**
+     * The core `nb_*` table a statement mutates (create/alter/drop/rename/index/
+     * DML), or null. Comments and string literals are stripped first so
+     * DDL-looking text inside a value or a block comment never false-flags —
+     * while the executable body of a MySQL versioned comment is kept. Fails
+     * **closed**: a PCRE error (a pathological statement) is treated as a hit —
+     * safe here, since the input is trusted-author migration SQL and the
+     * rejection lands in the loader's containment path.
+     */
+    private static function coreTableTouched(string $sql): ?string
+    {
+        $normalized = self::stripNoise($sql);
+        if ($normalized === null) {
+            return 'nb_* (unparseable statement — rejected to be safe)';
+        }
+        foreach (self::CORE_TABLE_DDL as $pattern) {
+            $matched = preg_match($pattern, $normalized, $m);
+            if ($matched === false) {
+                return 'nb_* (unmatchable statement — rejected to be safe)';
+            }
+            if ($matched === 1) {
+                return $m['tbl'];
+            }
+        }
+        return null;
+    }
+
+    /** Strip comments + string literals (keeping the body of a MySQL versioned
+     *  comment, which executes) and collapse whitespace. Null on a PCRE error. */
+    private static function stripNoise(string $sql): ?string
+    {
+        $steps = [
+            ['#/\*!(?:\d+)?(.*?)\*/#s', ' $1 '],                 // versioned comment: keep the body
+            ['#/\*.*?\*/#s', ' '],                              // ordinary block comment
+            ['/(?:--|\#)[^\r\n]*/', ' '],                       // -- and # line comments
+            ['/\'(?:[^\'\\\\]|\\\\.)*\'/s', ' '],               // single-quoted literals
+            ['/"(?:[^"\\\\]|\\\\.)*"/s', ' '],                  // double-quoted literals
+        ];
+        foreach ($steps as [$pat, $repl]) {
+            $sql = preg_replace($pat, $repl, $sql);
+            if ($sql === null) {
+                return null;
+            }
+        }
+        $collapsed = preg_replace('/\s+/', ' ', $sql);
+        return $collapsed ?? null;
     }
 }

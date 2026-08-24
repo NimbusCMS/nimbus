@@ -99,6 +99,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-11 · Optional `nb_`-reference lint on plugin migrations (accident guard)
+- **✅ RESOLVED** (Slice Y) — `MigrationRegistrar::register` now rejects (→ `REGISTER_FAILED`, plugin skipped) any migration statement that mutates a core `nb_*` table: CREATE/ALTER/DROP/TRUNCATE TABLE, RENAME (either operand), CREATE/DROP INDEX … ON, and **target-keyed DML** (INSERT/REPLACE/UPDATE/DELETE — a direct `nb_user_roles` INSERT would dodge the Slice-A subset-only chokepoint; a read via `…SELECT FROM nb_*` is a source, not matched). **Verb-anchored on the target** (so a legit `REFERENCES nb_users(id)` FK is allowed) over a comment/literal-stripped statement (versioned-comment bodies kept), with a `(?<![\w.])` guard so a plugin table named `analytics_nb_x` isn't false-flagged, and **fail-closed** on a PCRE error. The evasion corpus (case/backtick/`IF EXISTS`/comment-split/`/*!*/`/comma-list/RENAME-target/no-`TABLE` TRUNCATE) IS the test spec; a drift test flags every core migration statement. **Framing:** an accident guard, not a sandbox (ADR 0001 — a plugin bypasses it with dynamic SQL / raw PDO); the diagnostic teaches (names the table + cites ADR 0005). Completes PLUG-9 (docs half, Slice P). Residuals → FU-18/19. Tests: `MigrationLintTest`.
 - **Priority:** P3
 - **Type:** architecture (defense-in-depth, accident-only)
 - **Discovered:** Slice P (PLUG-9 — the docs half shipped; the lint deferred).
@@ -158,3 +159,19 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **What:** FU-4's guard is create-time only. A collection named `media`/`users`/etc. that **already exists** on an install upgraded to Slice W is still judged by `Authorizer` under management rules (a `media:read` holder reads its content, a `*:read` role is denied it). Reject-at-create can't reach it, and renaming it at migration would orphan its scopes/API paths/entries (the handle is deliberately immutable).
 - **Fix:** a `nimbus`-doctor / startup diagnostic that flags any existing `nb_collections.handle IN (RESERVED_COLLECTION_HANDLES)` and tells the operator to rename it (an operator decision, not a silent migration). Docs note now; build the check only if a real upgrade hits it.
 - **Effort:** S
+
+### FU-18 · Reserve `nb`-prefixed plugin ids (namespace symmetry)
+- **Priority:** P4
+- **Type:** hygiene
+- **Discovered:** 2026-08-24 (Slice Y platform review).
+- **What:** the loader id gate accepts `[a-z0-9][a-z0-9._-]*`, so a plugin id like `nb_stats` is valid — and would name tables `nb_stats_hits`, correctly tripping the FU-11 lint (a policy true positive, but confusing). Reserving `^nb[._-]` ids in the loader would make the `nb_*` namespace reservation symmetric (a plugin can't even claim an id in core's namespace).
+- **Fix:** one regex tweak in `PluginLoader`'s id validation + a REJECT test. Severable from FU-11.
+- **Effort:** S
+
+### FU-19 · FU-11 lint's uncovered surface (recorded residual, not a gap to fix)
+- **Priority:** P4 (documentation of scope)
+- **Type:** security (accepted, framing)
+- **Discovered:** 2026-08-24 (Slice Y security review).
+- **What:** the FU-11 lint is an **honest-accident guard, not a security control** (ADR 0001: plugins are trusted in-process code). It deliberately does NOT catch: `nb_*` DDL/DML from plugin **runtime** code (event listeners, admin handlers, a raw `new PDO`), **dynamic/concatenated** SQL (`CONCAT('nb_','users')`, `PREPARE`/`EXECUTE`), stored routines/triggers/views bodies (beyond a literal match), `SET FOREIGN_KEY_CHECKS=0`, and **reads** that copy core data (`CREATE TABLE x AS SELECT … FROM nb_*`). These are the hostile-plugin surface, unchanged by the lint — catalog #12's "hostile in-process plugin can DDL `nb_*`" Low stays open and is NOT mitigated by this lint.
+- **Fix:** none — recorded so no future review counts the lint toward the plugin threat model. Revisit only if evidence of a specific accident class arrives.
+- **Effort:** —
