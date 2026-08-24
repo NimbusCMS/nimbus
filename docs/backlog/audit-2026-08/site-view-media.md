@@ -73,7 +73,8 @@ not double-counted.
 
 ---
 
-### SVM-5 · Test gaps: asset-path hardening and the nonce×cache theme contract are unguarded
+### SVM-5 · Test gaps: asset-path hardening and the nonce×cache theme contract are unguarded ✅ RESOLVED (cross-reference)
+- **Resolved:** already covered — (a) a `%00`/malformed asset path → 404 is guarded by Slice K's `SiteRoutesTest::test_a_null_byte_asset_path_is_404_not_500`; (b) the cache-hit body nonce == `script-src` nonce is guarded by Slice H's `CacheRoutesTest::test_a_cache_hit_reemits_the_stored_nonce`. No new tests needed (Slice P confirmation).
 - **Priority:** P3
 - **Type:** test-gap
 - **Where:** `tests/Http/SiteRoutesTest.php` (asset tests), `tests/Http/CacheRoutesTest.php`.

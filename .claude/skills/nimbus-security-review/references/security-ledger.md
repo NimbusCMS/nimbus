@@ -19,6 +19,23 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-24 · Slice P — trivial P3 cleanup (SUP-5 + PLUG-9/11 + API-7/SVM-5 cross-ref)
+- **Status:** fixed. Trivial batch; the Opus review burst 529'd (incident on Opus too), lenses applied
+  directly per the triviality exception. No new security exposure introduced.
+- **SUP-5 (correctness, sec-adjacent):** `Env` now strips an inline `# comment` from **unquoted**
+  values only — a quoted secret containing `#` is preserved (mandatory carve-out); an operator's
+  `KEY=secret # note` no longer stores the comment as part of the (often secret) API key. No new
+  foot-gun; reduces one. Guard: `EnvTest`.
+- **PLUG-9 (accident guard, docs half):** documented "prefix your tables; never touch `nb_*`" —
+  the `nb_`-reference lint deferred to FU-11 (accident-only, never a sandbox; needs a real burst to
+  vet false positives).
+- **PLUG-11 (no vuln):** plugin-health-over-MCP recorded as a deferral (a missing read surface, not
+  an exposure); if `list_plugins` is later built, confirm diagnostics don't serialize FS paths.
+- **Cross-reference (already guarded):** API-7 MCP authz matrix (Slice A), SVM-5 asset-`%00`/nonce
+  (Slices K + H) — the security-relevant regression tests already exist.
+- **Deferred (unreviewed-during-incident):** ADMIN-14 relation-target validation + token-lifecycle
+  false-success (confirm no authz impact under a real burst).
+
 ### 2026-08-24 · Slice O — defense-in-depth P3 sweep (SVM-3/HTTP-7/SUP-8/PLUG-12/PLUG-13)
 - **Status:** fixed. Five Low P3s (no live exploit in any). The Fable burst was cut off by a session
   limit; the security lens was applied directly given each is Low + finding-prescribed. ADMIN-10 (the

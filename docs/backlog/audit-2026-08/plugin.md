@@ -94,7 +94,8 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Fix:** Extend the `HalfBrokenPlugin` fixture to register one of *each* capability before throwing; assert every registry in `PluginCapabilities` is empty afterwards (iterate the bundle's public properties so a new capability fails the test until rollback handles it).
 - **Effort:** S
 
-### PLUG-9 · ADR 0005's "per-plugin table prefix" was never implemented, documented, or linted
+### PLUG-9 · ADR 0005's "per-plugin table prefix" was never implemented, documented, or linted ✅ RESOLVED (docs)
+- **Resolved:** Slice P — **documented** the prefix convention (prefix your tables with your plugin slug; never touch `nb_*`) in `MigrationRegistrar`'s docblock + the COMPATIBILITY MigrationRegistrar row, framed as a convention not a sandbox (contract-not-sandbox unchanged). The optional `nb_`-reference lint is **deferred** to a reviewed slice (a false-positive-prone regex deserves the full burst, unavailable during the 2026-08-24 model incident) — filed as FU-11.
 - **Priority:** P3
 - **Type:** architecture
 - **Where:** `src/Plugin/MigrationRegistrar.php` (raw statements pass through), `src/Plugin/PluginStorage.php`; `docs/adr/0005-plugin-owned-storage.md` Decision §1 ("tables in its own namespace (a per-plugin prefix)")
@@ -113,7 +114,8 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Fix:** Compare sets, not counts: pending = any known name (core files + registry) not in `applied()`.
 - **Effort:** S
 
-### PLUG-11 · Plugin health is invisible to the MCP operator (standing surface check)
+### PLUG-11 · Plugin health is invisible to the MCP operator (standing surface check) ✅ RESOLVED (recorded deferral)
+- **Resolved:** Slice P — **recorded the deferral** (mirrors ADMIN-9): a read-only `list_plugins` MCP tool (statuses are data-only, safe to serialize) is deferred until an agent workflow concretely needs plugin health; the standing check is met by the recorded decision. Revisit trigger: an MCP operator needing to diagnose a failed plugin, or the pre-1.0 "entire control surface over MCP" pass. The omission being *undecided* was the defect; it is now decided.
 - **Priority:** P3
 - **Type:** product-gap
 - **Where:** `src/Mcp/*` (no plugin toolset); `src/Admin/AdminController.php:53` (the only status surface); no deferral recorded in the ledgers

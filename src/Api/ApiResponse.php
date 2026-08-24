@@ -15,10 +15,13 @@ use Nimbus\Http\Response;
  *   error:   { "error": { "status": 404, "code": "not_found", "message": "..." } }
  *
  * Every error carries a stable, machine-readable `code` alongside the human
- * `message`: a client branches on the code, never on the prose. The codes are
- * part of the public API contract (see docs/COMPATIBILITY.md):
+ * `message`: a client branches on the code, never on the prose. The full stable
+ * set is defined in docs/COMPATIBILITY.md (the single source) — keep this list in
+ * step with it:
  *
- *   unauthorized (401) · forbidden (403) · not_found (404) · rate_limited (429)
+ *   unauthorized (401) · forbidden (403) · not_found (404) · invalid (422) ·
+ *   missing_provider (422) · precondition_required (428) ·
+ *   precondition_failed (412) · rate_limited (429)
  */
 final class ApiResponse
 {

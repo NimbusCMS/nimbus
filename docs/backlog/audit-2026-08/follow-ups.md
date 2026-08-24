@@ -92,3 +92,12 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **What:** a spray against random emails/IPs mints one row per key that lingers past its decay window forever, growing the table unboundedly.
 - **Fix:** prune rows older than the decay window in `nimbus prune` (a `MaintenanceRegistry`-style task or a direct DELETE `WHERE updated_at < NOW() - INTERVAL <decay>`). Low-risk, opportunistic.
 - **Effort:** S
+
+### FU-11 · Optional `nb_`-reference lint on plugin migrations (accident guard)
+- **Priority:** P3
+- **Type:** architecture (defense-in-depth, accident-only)
+- **Discovered:** Slice P (PLUG-9 — the docs half shipped; the lint deferred).
+- **Where:** `src/Plugin/MigrationRegistrar::register()`.
+- **What:** PLUG-9's convention (prefix your tables; don't touch `nb_*`) is now documented, but nothing *flags* a plugin migration that references a core `nb_`-prefixed table. A cheap regex lint would catch the honest accident (a plugin CREATE/ALTER/DROP against `nb_*`) at registration → REGISTER_FAILED. Explicitly NOT a sandbox (a determined plugin using dynamic SQL bypasses it).
+- **Fix:** add the lint in `register()`; ensure no false positives (a plugin never legitimately DDLs `nb_*`; its own tables are prefixed). Deferred from Slice P because a false-positive-prone regex deserves the full two-skill burst, which was unavailable during the 2026-08-24 model incident.
+- **Effort:** S

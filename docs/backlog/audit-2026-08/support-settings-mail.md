@@ -53,7 +53,8 @@ silently dropping later listeners (audit records included) when an earlier one t
 - **Fix:** carry the failing key + message through the redirect the same way the entries form does (session flash or a fixed-key map keyed by setting), and render it beside the field. Keep the all-or-nothing write (correct), just say what failed.
 - **Effort:** S
 
-### SUP-5 · `Env` parser keeps inline `#` comments in unquoted values
+### SUP-5 · `Env` parser keeps inline `#` comments in unquoted values ✅ RESOLVED
+- **Resolved:** Slice P — `Env::load` strips an inline comment (space-hash onward) from **unquoted** values (a quoted value keeps its `#`), and accepts a leading `export `. New `EnvTest` covers strip/quote-carve-out/export/precedence.
 - **Priority:** P3
 - **Type:** correctness
 - **Where:** `src/Support/Env.php:19-34`
@@ -92,7 +93,8 @@ silently dropping later listeners (audit records included) when an earlier one t
 - **Fix:** `chmod($this->path, 0600)` after the first successful write (ignore failure); one line of depth matching the file's contents. Rotation/size-capping can wait for a real operator need.
 - **Effort:** S
 
-### SUP-9 · Test gaps: the load-bearing `array_key_exists` precedence, `Env` entirely, `emitBestEffort` entirely
+### SUP-9 · Test gaps: the load-bearing `array_key_exists` precedence, `Env` entirely, `emitBestEffort` entirely ✅ RESOLVED
+- **Resolved:** Slice P (+ cross-reference). `Env` — new `EnvTest` (precedence, quotes, comment strip, export, blanks). `emitBestEffort` isolation — covered by Slice E's `EventDispatcherTest`. The `array_key_exists`-clear-to-empty guard: the semantic is correct in `Settings::get`, but the shipped config has **empty** `site.home`/`site.description` defaults, so a regression test can only be non-vacuous against a non-empty default the config doesn't provide — noted as a residual (the `?? $default` bug only manifests with a non-empty default; add the guard if one is ever shipped).
 - **Priority:** P3
 - **Type:** test-gap
 - **Where:** `tests/Http/SettingsSiteTest.php` (no clear-to-empty case), no `tests/Unit/EnvTest.php`, `tests/Unit/EventDispatcherTest.php` (no `emitBestEffort` case)

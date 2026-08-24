@@ -34,6 +34,20 @@ final class AdminListingTest extends HttpTestCase
             : 0;
     }
 
+    public function test_the_fields_button_shows_only_to_schema_writers(): void
+    {
+        // ADMIN-11 (no dead links): the "Fields" button routes to a schema:write
+        // page, so a non-schema viewer must not see it.
+        $c = $this->makeCollection('posts');
+        $fields = 'href="/admin/collections/' . (int) $c->id . '/edit">Fields</a>'; // the button routes by id
+
+        $this->actingWithCapabilities(['posts:read', 'posts:write']); // no schema:write
+        self::assertStringNotContainsString($fields, $this->get('/admin/collections/posts/entries')->body, 'a non-schema viewer sees no Fields button');
+
+        $this->actingAs('admin');
+        self::assertStringContainsString($fields, $this->get('/admin/collections/posts/entries')->body, 'an admin still sees Fields');
+    }
+
     public function test_the_entry_list_pages_at_25_per_page(): void
     {
         $c = $this->makeCollection('posts');

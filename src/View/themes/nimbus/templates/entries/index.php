@@ -23,7 +23,7 @@ $h          = $e($collection->handle);
         <?php if ($collection->description !== ''): ?><p class="nb-muted"><?= $e($collection->description) ?></p><?php endif; ?>
     </div>
     <div class="nb-head-actions">
-        <a class="nb-btn" href="/admin/collections/<?= (int) $collection->id ?>/edit">Fields</a>
+        <?php if (!empty($canSchema)): ?><a class="nb-btn" href="/admin/collections/<?= (int) $collection->id ?>/edit">Fields</a><?php endif; ?>
         <?php if ($canManage): ?><a class="nb-btn nb-btn-primary" href="/admin/collections/<?= $h ?>/entries/new">+ New entry</a><?php endif; ?>
     </div>
 </div>

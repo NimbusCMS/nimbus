@@ -95,7 +95,8 @@ Counts: **P0 0 · P1 3 · P2 2 · P3 3.**
 - **Fix:** either detect a list-shaped body and reject it with an explicit JSON-RPC error (batches unsupported), or implement batch handling. At minimum stop returning a misleading 202. (Note: silently ignoring batches is incidentally rate-limit-safe — one HTTP hit can't fan out — so document non-support rather than adding a bypass.)
 - **Effort:** S
 
-### API-7 · Test gap: no authorization matrix for the MCP management edges
+### API-7 · Test gap: no authorization matrix for the MCP management edges ✅ RESOLVED (cross-reference)
+- **Resolved:** already covered — Slice A's `McpAdminToolsTest` asserts (a) a non-admin `users:write` token cannot `create_user`/`set_role` to admin (`test_create_user_cannot_grant_authority_the_caller_lacks`, `test_set_role_cannot_strip_a_role_the_caller_could_not_grant`) and (b) an MCP-created user gets effective capabilities (`test_create_user_assigns_a_real_role_not_the_legacy_column`); the concurrency 200/412 row is covered by Slice L's `EntryConcurrencyTest` (the MCP `version` precondition rides the same `EntryOperations` CAS). No new tests needed (Slice P confirmation).
 - **Priority:** P3
 - **Type:** test-gap
 - **Where:** `tests/Http/McpAdminToolsTest.php` (tokens covered; users under-covered), no matrix covering user-tool escalation or the concurrency race.
@@ -104,7 +105,8 @@ Counts: **P0 0 · P1 3 · P2 2 · P3 3.**
 - **Fix:** extend the authorization matrix (actor × scope × object × action) with MCP `create_user`/`set_role` rows (deny for non-admin granting admin; created user's resolved capabilities match the assigned role); add a concurrency test that two same-version updates yield one 200 and one 412 after API-4 lands.
 - **Effort:** S
 
-### API-8 · `ApiResponse` docblock lists a stale subset of error codes
+### API-8 · `ApiResponse` docblock lists a stale subset of error codes ✅ RESOLVED
+- **Resolved:** Slice P — the `ApiResponse` docblock now lists the full stable code set (adds invalid/missing_provider/precondition_required/precondition_failed) and points at COMPATIBILITY as the single source.
 - **Priority:** P3
 - **Type:** product-gap (doc drift)
 - **Where:** `src/Api/ApiResponse.php:19-22`

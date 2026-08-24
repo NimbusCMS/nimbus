@@ -107,6 +107,7 @@ final class EntriesController extends Controller
             'rows'        => $rows,
             'types'       => $this->types,
             'canManage'   => $this->gate->manages($collection),
+            'canSchema'   => $this->gate->can('schema', 'write'),
             'flash'       => $req->query('msg'),
             'page'        => $page,
             'total_pages' => $totalPages,
