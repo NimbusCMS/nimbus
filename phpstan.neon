@@ -4,6 +4,7 @@ parameters:
         - src
         - tests
         - bin
+        - bin/nimbus
         - bootstrap.php
     excludePaths:
         analyse:

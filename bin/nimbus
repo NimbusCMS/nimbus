@@ -169,15 +169,17 @@ try {
             $expiresAt = null;
             $expiresIn = $opt($argv, 'expires');
             if ($expiresIn !== null) {
-                if (preg_match('/^(\d+)([dh])$/', $expiresIn, $m) === 1) {
-                    $unit      = $m[2] === 'h' ? 'hours' : 'days';
-                    $expiresAt = date('Y-m-d H:i:s', strtotime("+{$m[1]} {$unit}"));
-                } elseif (($ts = strtotime($expiresIn)) !== false) {
-                    $expiresAt = date('Y-m-d H:i:s', $ts);
-                } else {
+                // `90d`/`12h` become a relative expression; anything else is
+                // parsed as-is. One strtotime + one false-guard for both.
+                $relative = preg_match('/^(\d+)([dh])$/', $expiresIn, $m) === 1
+                    ? "+{$m[1]} " . ($m[2] === 'h' ? 'hours' : 'days')
+                    : $expiresIn;
+                $ts = strtotime($relative);
+                if ($ts === false) {
                     fwrite(STDERR, "Could not read --expires=\"{$expiresIn}\" (use e.g. 90d, 12h, or 2026-12-31).\n");
                     exit(1);
                 }
+                $expiresAt = date('Y-m-d H:i:s', $ts);
             }
             $scopes    = [];
             $scopesOpt = $opt($argv, 'scopes');
@@ -258,7 +260,7 @@ try {
             $server = new Nimbus\Mcp\McpServer(
                 new Nimbus\Mcp\SchemaToolset($collections, new Nimbus\Content\CollectionService($db, $collections), $app->fieldTypeRegistry(), $app->events()),
                 new Nimbus\Mcp\MediaToolset($mediaRepo, $uploader, new Nimbus\Media\MediaService($mediaRepo, $mediaUsage, Config::basePath()), $mediaUsage, $app->events()),
-                new Nimbus\Mcp\UsersToolset(new Nimbus\Auth\UserRepository($db), $app->events()),
+                new Nimbus\Mcp\UsersToolset(new Nimbus\Auth\UserRepository($db), new Nimbus\Auth\RoleRepository($db), $db, $app->events()),
                 new Nimbus\Mcp\TokensToolset(new Nimbus\Api\ApiTokenRepository($db), new Nimbus\Auth\RoleRepository($db), $app->events()),
                 new Nimbus\Mcp\SettingsToolset($settings, $settingsRegistry, $app->events()),
                 new Nimbus\Mcp\ContentToolset($collections, $app->fieldTypeRegistry(), $ops),
