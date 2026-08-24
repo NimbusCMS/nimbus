@@ -53,5 +53,11 @@ final class LogMailer implements Mailer
         if (@file_put_contents($this->path, $block, FILE_APPEND | LOCK_EX) === false) {
             throw new MailerException("Cannot write to mail log: {$this->path}");
         }
+
+        // The log holds live single-use reset/invite links: restrict it to the
+        // owner (depth-in-depth for a host whose storage/ dir pre-exists loose;
+        // the 0770 dir above is the primary control). Best-effort — a filesystem
+        // that can't chmod must not break mail (SUP-8).
+        @chmod($this->path, 0600);
     }
 }

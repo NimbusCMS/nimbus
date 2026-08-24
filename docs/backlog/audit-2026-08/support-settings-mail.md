@@ -81,7 +81,8 @@ silently dropping later listeners (audit records included) when an earlier one t
 - **Fix:** wrap the write loop in a transaction (`Connection` already has the primitives the services use); the per-key audit emits can stay post-commit by collecting keys first.
 - **Effort:** S
 
-### SUP-8 · `LogMailer` writes account-takeover links with default (umask) file permissions
+### SUP-8 · `LogMailer` writes account-takeover links with default (umask) file permissions ✅ RESOLVED
+- **Resolved:** Slice O — `LogMailer::send` now `@chmod($this->path, 0600)` after a successful write (best-effort; a filesystem that can't chmod must not break mail). Depth matching the file's contents (live reset/invite links); the 0770 dir stays the primary control. Test: `MailerTest` asserts the log file is 0600 (skipped on Windows).
 - **Priority:** P3
 - **Type:** security
 - **Severity (if security):** Low

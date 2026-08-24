@@ -43,8 +43,9 @@ $badgeClass = static fn (PluginStatus $p): string => match ($p->state) {
     <div class="nb-empty-panel">
         <span class="nb-empty-ic">⚡</span>
         <h2>No plugins installed</h2>
-        <p>Install one with <code>composer require vendor/plugin</code>. Official
-           plugins live under the <code>nimbuscms</code> organization.</p>
+        <p>Install one with <code>composer require vendor/plugin</code>. Packages in
+           the <code>nimbuscms</code> namespace are labelled as such (a namespace is
+           not itself a guarantee — review any package before installing).</p>
     </div>
 <?php else: ?>
     <div class="nb-table-wrap">

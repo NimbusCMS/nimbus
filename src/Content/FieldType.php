@@ -13,6 +13,14 @@ namespace Nimbus\Content;
  *   raw request  --normalize()-->  stored (entry JSON)  --toApi()-->  API output
  *                                        |
  *                                    validate()  (storage value -> error|null)
+ *
+ * SECURITY — `renderInput()` and `renderCell()` return HTML embedded RAW in the
+ * admin, and `$value` is UNTRUSTED: it originates from a low-privilege author or a
+ * write-scoped API token. You MUST escape it — `View::e()` for a text/attribute
+ * sink, never string-interpolate `$value` into markup. The core types
+ * ({@see \Nimbus\Content\FieldTypes\BaseType} and its subclasses) are the
+ * reference. (The nonce-only CSP blocks injected inline script, but attribute and
+ * markup injection are not stopped by CSP — escape anyway.)
  */
 interface FieldType
 {

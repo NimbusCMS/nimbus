@@ -26,7 +26,7 @@ in any release, including patch releases.
 | `Nimbus\Site\HeadContributor` | the head-contribution contract (ADR 0004) |
 | `Nimbus\Site\PageContext` | the page data a head contributor receives |
 | `Nimbus\Support\CoreEvents` | event-name constants a plugin may listen for |
-| `Nimbus\Content\FieldType` | the field-type contract |
+| `Nimbus\Content\FieldType` | the field-type contract. **`renderInput`/`renderCell` MUST escape the untrusted `$value` (`View::e()`)** — it comes from authors/write-scoped tokens and is embedded raw in the admin |
 | `Nimbus\Content\FieldTypes\BaseType` | the base class field types extend |
 | `Nimbus\Content\Field` | the field value object passed to a field type |
 | `Nimbus\Content\UnknownFieldType`, `DuplicateFieldType` | exceptions a plugin may catch |
@@ -311,6 +311,29 @@ peers listed in `TRUSTED_PROXIES`, and only to determine the client IP
 is intentionally no forwarded-*host* accessor. When a request arrives through a
 trusted proxy but `APP_URL` still looks like localhost (or `http://` while the
 request is HTTPS), the admin **Plugins** page shows a misconfiguration warning.
+
+**Serving uploaded media.** Uploads live under the public docroot
+(`public/uploads/`) and are served by your front webserver, so Nimbus's response
+headers (`nosniff`, CSP) never reach them. The upload allow-list (no HTML/SVG,
+random names, MIME-sniffed) is the primary control; as defence-in-depth, set
+`X-Content-Type-Options: nosniff` (and a `Content-Disposition: inline`) on
+`/uploads/*` at the webserver:
+
+```nginx
+# nginx
+location ^~ /uploads/ { add_header X-Content-Type-Options "nosniff" always; }
+```
+```apache
+# Apache
+<LocationMatch "^/uploads/">
+    Header always set X-Content-Type-Options "nosniff"
+</LocationMatch>
+```
+```caddy
+# Caddy
+@uploads path /uploads/*
+header @uploads X-Content-Type-Options "nosniff"
+```
 
 ## Versioning
 

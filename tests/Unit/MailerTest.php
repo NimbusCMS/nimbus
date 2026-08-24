@@ -64,6 +64,23 @@ final class MailerTest extends TestCase
         @rmdir(dirname($path));
     }
 
+    public function test_log_mailer_restricts_the_log_file_to_the_owner(): void
+    {
+        // The log holds live reset/invite links — it must not be world/group
+        // readable (SUP-8). Skip where chmod is a no-op (Windows).
+        if (DIRECTORY_SEPARATOR === '\\') {
+            self::markTestSkipped('chmod is a no-op on Windows');
+        }
+        $dir  = sys_get_temp_dir() . '/nimbus-mail-' . bin2hex(random_bytes(4));
+        $path = $dir . '/mail.log';
+        (new LogMailer($path))->send('to@site.test', 'Subject', 'body with a reset link');
+
+        self::assertSame(0o600, fileperms($path) & 0o777, 'the mail log is owner-only');
+
+        @unlink($path);
+        @rmdir($dir);
+    }
+
     // -------------------------------------------------- SUP-1: loud fallback
 
     public function test_log_mailer_warns_on_send_when_it_is_an_unknown_transport_fallback(): void

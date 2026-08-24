@@ -13,6 +13,13 @@ declined (keep it — it stops the idea returning without new evidence).
 
 ---
 
+### 2026-08-24 · Slice O — security-hardening P3s [Core/docs] · resolves SVM-3 + HTTP-7 + SUP-8 + PLUG-12 + PLUG-13
+- **Status:** accepted + built. **Fable burst was killed mid-run by a session limit** — so for these five *trivial, finding-prescribed* Low P3s I applied the two review lenses directly (the skill's "skip the loop for trivial, obviously-correct changes" exception). ADMIN-10 (the one item with a real design decision) was **split out** to its own slice for a proper burst.
+- **Fixed:** uploads served without `nosniff` (SVM-3, docs); latent open-redirect in `Response::redirect` (HTTP-7, documented); LogMailer file perms (SUP-8, chmod 0600); FieldType render-escape warning (PLUG-12, docblock); "Official" badge trusts vendor prefix (PLUG-13, relabel).
+- **Decisions (lenses applied):** HTTP-7 → **document, not a speculative `Url::safeInternal` helper** (principle: refuse extension APIs with no consumer; not reachable today — a SECURITY docblock on `redirect` warns the next `next`-param author to guard). SVM-3 → **docs snippet only** (the upload allow-list is the primary control; PHP media-serving fallback deferred). PLUG-13 → **relabel to "nimbuscms namespace"** (keep the flag, honest wording).
+- **DoD met:** `@chmod(...,0600)` best-effort; `redirect` SECURITY docblock; `FieldType` SECURITY docblock + COMPATIBILITY row; `providerLabel()` neutral + plugins-page copy; COMPATIBILITY "Serving uploaded media" (nginx/Apache/Caddy). Tests: `MailerTest` (log 0600), `PluginsPageTest` (new badge label). PHPStan L6 + audit + cs-fixer clean. Mobile: N/A (copy/docblock only). MCP: N/A.
+- **Lesson:** when the burst is unavailable, split the slice by decision-weight — ship the trivial finding-prescribed fixes directly (they meet the skill's own triviality exception) and reserve the one item with a genuine design fork for a real burst, rather than either blocking everything or making the hard call unreviewed.
+
 ### 2026-08-23 · Slice N — login hardening [Core] · resolves AUTH-1 + AUTH-2 + AUTH-3 + AUTH-5 + AUTH-6 (the last two P2s)
 - **Status:** accepted + built. Fable two-skill burst — platform **ship (revise)**, security **green (no Crit/High)**. Closes the audit's final two P2s (both Medium security) + the related auth P3s.
 - **Fixed:** login timing/enumeration oracle (AUTH-1); IP-only throttle → distributed spray (AUTH-2); password floor 8-vs-UI-12 mismatch across surfaces (AUTH-3); OAuth `start` CSRF-on-GET (AUTH-5, Low); the guarding tests (AUTH-6).

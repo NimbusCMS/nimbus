@@ -39,6 +39,16 @@ final class Response
         return new self($status, $body, ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
+    /**
+     * SECURITY: `$to` is validated only for header safety (the constructor rejects
+     * CR/LF/NUL) — NOT for destination. Every current caller passes a trusted
+     * internal path (`Url::to`, a hardcoded route, or operator-owned
+     * `config/redirects.php`), so there is no open redirect today. Do NOT pass a
+     * user-influenced target (a `next`/`return_to` query param) here without first
+     * forcing it relative — reject `//host`, any `scheme://`, and `scheme:` URIs —
+     * or it becomes an open redirect (HTTP-7). Add that guard alongside the feature
+     * that needs it.
+     */
     public static function redirect(string $to, int $status = 302): self
     {
         if (!in_array($status, self::REDIRECT_STATUSES, true)) {
