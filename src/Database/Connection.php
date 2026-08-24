@@ -114,6 +114,20 @@ final class Connection
         return (int) ($e->errorInfo[1] ?? 0) === 1062;
     }
 
+    /**
+     * Whether a PDOException reports a **schema object that already exists** —
+     * a table (1050), column (1060), key/index name (1061), or foreign-key name
+     * (1826). Used by the Migrator to treat a statement already applied by a
+     * prior partial run as a no-op, so a forward-only migration self-heals on
+     * re-run (DATA-4). Deliberately excludes 1062 (a row-level duplicate — a
+     * genuine data error that must stay fatal). Read `errorInfo[1]` on the
+     * ORIGINAL exception; a re-wrapped PDOException has no errorInfo.
+     */
+    public static function isDuplicateObject(\PDOException $e): bool
+    {
+        return in_array((int) ($e->errorInfo[1] ?? 0), [1050, 1060, 1061, 1826], true);
+    }
+
     public function tableExists(string $table): bool
     {
         $row = $this->selectOne(

@@ -7,6 +7,7 @@ namespace Nimbus\Api;
 use Closure;
 use Nimbus\Content\Collection;
 use Nimbus\Content\CollectionRepository;
+use Nimbus\Content\EntryConcurrencyConflict;
 use Nimbus\Content\EntryInput;
 use Nimbus\Content\EntryRepository;
 use Nimbus\Content\EntryService;
@@ -50,16 +51,19 @@ final class EntryOperations
     private EntryView $view;
     private EntryService $entryService;
 
+    /** @param ?EntryService $entryService test seam: inject a wrapper to exercise
+     *  the read→write concurrency window; defaults to the real service. */
     public function __construct(
         Connection $db,
         private FieldTypeRegistry $types,
         private EventDispatcher $events,
+        ?EntryService $entryService = null,
     ) {
         $this->collections  = new CollectionRepository($db);
         $this->entries      = new EntryRepository($db);
         $this->relations    = new RelationRepository($db);
         $this->view         = new EntryView($types, $this->relations, new MediaRepository($db));
-        $this->entryService = new EntryService($db, $this->entries, $this->relations, $types, $events);
+        $this->entryService = $entryService ?? new EntryService($db, $this->entries, $this->relations, $types, $events);
     }
 
     /** A page of a collection's live entries, newest first. Requires `{handle}:read`. */
@@ -163,7 +167,14 @@ final class EntryOperations
             return $failed;
         }
 
-        $result = $this->entryService->save($collection, $this->inputFrom($payload, $collection, $row), (int) $row['id'], null);
+        // Atomic compare-and-swap: pass the version we just read so the UPDATE
+        // only applies if nothing wrote in the read→write window (else a 412),
+        // closing the check-then-act lost-update race (ADR 0007).
+        try {
+            $result = $this->entryService->save($collection, $this->inputFrom($payload, $collection, $row), (int) $row['id'], null, (int) $row['version']);
+        } catch (EntryConcurrencyConflict) {
+            return EntryOpResult::preconditionFailed($precondition->failedMessage());
+        }
         if (!$result->successful) {
             return EntryOpResult::invalid($result->errors, $result->code, $result->message);
         }
@@ -193,7 +204,13 @@ final class EntryOperations
             return $failed;
         }
 
-        $this->entryService->delete($collection, (int) $row['id']);
+        // CAS delete: only remove the row if it is still the version we read, so
+        // a stale delete (the destructive half of the lost-update race) is a 412.
+        try {
+            $this->entryService->delete($collection, (int) $row['id'], (int) $row['version']);
+        } catch (EntryConcurrencyConflict) {
+            return EntryOpResult::preconditionFailed($precondition->failedMessage());
+        }
         $this->announceWrite($ctx, $principal, $collection, 'delete', $row);
         return EntryOpResult::ok(null);
     }
