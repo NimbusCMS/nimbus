@@ -14,6 +14,15 @@ use Nimbus\Database\MigrationRegistry;
  * The name is prefixed with the plugin id here (bound by the loader), so it is
  * globally unique in `nb_migrations` and a failed load rolls its migrations back
  * with the rest of its registrations. Mirrors the other registrars.
+ *
+ * **Table names are yours to keep unique.** ADR 0005 asks each plugin to keep its
+ * tables in its own namespace: **prefix every table you create with your plugin
+ * slug** (e.g. `analytics_hits`, not `hits`), so two plugins can't collide on a
+ * generic name and wedge `nimbus migrate`. Nimbus namespaces the migration *name*
+ * for you, but not the SQL — the table names are whatever your statements say.
+ * (This is a convention, not a sandbox: nothing stops a determined plugin from
+ * naming a table anything — see the contract-not-sandbox note in ADR 0005 — but
+ * following it keeps honest plugins from colliding by accident.)
  */
 final class MigrationRegistrar
 {

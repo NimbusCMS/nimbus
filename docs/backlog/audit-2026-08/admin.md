@@ -113,7 +113,8 @@ legacy `users.role` column (a revocation that silently doesn't revoke), and role
 - **Fix:** finish the migration the newer pages started: pass error *codes* and map them to fixed strings in the template (the media/users/roles/tokens error paths each have a small finite message set); for the one genuinely dynamic message (media "In use by: …"), keep it server-rendered rather than round-tripped through the URL (render the error state directly instead of redirecting, or stash it in the session flash).
 - **Effort:** S
 
-### ADMIN-11 · Entries index shows a "Fields" button to users without `schema:write` — dead link
+### ADMIN-11 · Entries index shows a "Fields" button to users without `schema:write` — dead link ✅ RESOLVED
+- **Resolved:** Slice P — `EntriesController::index` passes `canSchema = gate->can('schema','write')` and the template wraps the Fields button in it (mirrors the collections-index `$isAdmin` gating; the ADR 0011 no-dead-links rule). Test: `AdminListingTest` (non-schema viewer sees no Fields button; admin does).
 - **Priority:** P3
 - **Type:** product-gap
 - **Where:** `src/View/themes/nimbus/templates/entries/index.php:26` (unconditional), `src/Admin/CollectionsController.php:78` (route requires `schema:write`)
