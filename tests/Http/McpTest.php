@@ -99,6 +99,28 @@ final class McpTest extends HttpTestCase
         self::assertSame('', $response->body);
     }
 
+    public function test_a_json_rpc_batch_is_rejected_not_silently_dropped(): void
+    {
+        // API-6: a batch (top-level array) has no top-level `id`, so it used to
+        // be treated as a notification → 202 empty. It must now get a single
+        // Invalid Request error, and fan-out is deliberately never implemented
+        // (it would execute N tool calls behind one per-request rate-limit hit).
+        $token = $this->tokens->create('R', ['posts:read']);
+        $batch = [
+            ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list', 'params' => []],
+            ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'ping', 'params' => []],
+        ];
+        $server  = ['REMOTE_ADDR' => '127.0.0.1', 'HTTP_AUTHORIZATION' => 'Bearer ' . $token];
+        $request = new Request('POST', '/api/v1/mcp', [], [], $server, [], null, json_encode($batch, JSON_THROW_ON_ERROR));
+        $response = $this->throughKernel($request);
+
+        self::assertSame(200, $response->status, 'a batch gets a JSON-RPC error envelope, not the misleading 202');
+        $decoded = json_decode($response->body, true);
+        self::assertSame(-32600, $decoded['error']['code']);
+        self::assertNull($decoded['id']);
+        self::assertArrayNotHasKey('result', $decoded, 'no tool in the batch ran');
+    }
+
     public function test_an_unknown_method_is_method_not_found(): void
     {
         $token    = $this->tokens->create('R', ['posts:read']);

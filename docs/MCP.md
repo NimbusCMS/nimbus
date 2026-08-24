@@ -25,6 +25,13 @@ diverge:
 
 Implemented methods: `initialize`, `tools/list`, `tools/call`, `ping`.
 
+**One request per call.** JSON-RPC batches (a top-level array of messages) are
+**not supported** — a batch is answered with a single `Invalid Request`
+(`-32600`) error, never silently dropped. MCP protocol `2025-06-18` removed
+batching, so a compliant client never sends one; the rejection also keeps the
+per-request rate limit meaningful (one HTTP request cannot fan out into many
+tool calls).
+
 ## Authorization — scoped tokens
 
 Every session is a **standalone token principal** (ADR 0006): its authority is

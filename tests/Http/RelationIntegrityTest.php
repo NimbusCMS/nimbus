@@ -196,6 +196,57 @@ final class RelationIntegrityTest extends HttpTestCase
         self::assertSame(['News'], array_column($out['fields']['rel'], 'title'), 'a legitimate same-collection relation is unaffected');
     }
 
+    public function test_many_maps_each_entry_to_its_own_targets_no_cross_row_graft(): void
+    {
+        // DATA-5: many() resolves every host entry's relations in ONE batched
+        // query — the result must map back per from_entry_id, never graft one
+        // entry's targets onto another's row.
+        $cats = $this->makeCollection('categories');
+        $this->actingAs('admin');
+        $newsId = $this->liveEntry($cats->id, 'News');
+        $techId = $this->liveEntry($cats->id, 'Tech');
+
+        $posts   = $this->postsWithRelationTo('categories');
+        $fieldId = (int) $this->db->selectOne('SELECT id FROM nb_fields WHERE collection_id = :c AND handle = :h', ['c' => $posts->id, 'h' => 'rel'])['id'];
+        $hostA   = $this->liveEntry($posts->id, 'Host A');
+        $hostB   = $this->liveEntry($posts->id, 'Host B');
+        (new RelationRepository($this->db))->sync($hostA, $fieldId, [$newsId]);
+        (new RelationRepository($this->db))->sync($hostB, $fieldId, [$techId]);
+
+        $rows = $this->db->select('SELECT * FROM nb_entries WHERE collection_id = :c ORDER BY id', ['c' => $posts->id]);
+        $out  = $this->view()->many($posts, $rows, null);
+
+        self::assertSame(['News'], array_column($out[0]['fields']['rel'], 'title'), 'host A keeps only its own target');
+        self::assertSame(['Tech'], array_column($out[1]['fields']['rel'], 'title'), 'host B keeps only its own target — no cross-row graft');
+    }
+
+    public function test_many_applies_the_scope_gate_to_every_row_on_the_page(): void
+    {
+        // DATA-5: a relation field whose target the reader cannot read must
+        // contribute [] for EVERY row (not just the first), and its ids are
+        // never fetched into the batch.
+        $secret = $this->makeCollection('secret');
+        $this->actingAs('admin');
+        $secretId = $this->liveEntry($secret->id, 'TopSecretTitle');
+
+        $posts   = $this->postsWithRelationTo('secret');
+        $fieldId = (int) $this->db->selectOne('SELECT id FROM nb_fields WHERE collection_id = :c AND handle = :h', ['c' => $posts->id, 'h' => 'rel'])['id'];
+        $hostA   = $this->liveEntry($posts->id, 'Host A');
+        $hostB   = $this->liveEntry($posts->id, 'Host B');
+        (new RelationRepository($this->db))->sync($hostA, $fieldId, [$secretId]);
+        (new RelationRepository($this->db))->sync($hostB, $fieldId, [$secretId]);
+
+        $rows   = $this->db->select('SELECT * FROM nb_entries WHERE collection_id = :c ORDER BY id', ['c' => $posts->id]);
+        $denied = $this->view()->many($posts, $rows, static fn (string $h): bool => $h !== 'secret');
+        self::assertSame([], $denied[0]['fields']['rel']);
+        self::assertSame([], $denied[1]['fields']['rel'], 'the scope gate applies page-wide, not just to the first row');
+
+        // A reader who can, still sees it on every row (the gate, not emptiness).
+        $allowed = $this->view()->many($posts, $rows, static fn (string $h): bool => true);
+        self::assertSame(['TopSecretTitle'], array_column($allowed[0]['fields']['rel'], 'title'));
+        self::assertSame(['TopSecretTitle'], array_column($allowed[1]['fields']['rel'], 'title'));
+    }
+
     public function test_a_scoped_api_token_never_sees_a_cross_collection_target(): void
     {
         // End-to-end: a posts:read+posts:write token, no secret:read; a smuggled
