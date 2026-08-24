@@ -32,6 +32,17 @@ use Nimbus\Auth\Authorizer;
  */
 final class AdminPageRegistrar
 {
+    /**
+     * Core admin route first-segments a plugin page may not shadow — a colliding
+     * slug would register an unreachable route behind a live nav entry that opens
+     * the core page (PLUG-4). Kept in sync with the real routes by a drift-guard
+     * test that derives the segments from `Router::routes()`.
+     */
+    private const RESERVED_SLUGS = [
+        'login', 'logout', 'dashboard', 'plugins', 'collections', 'media',
+        'users', 'roles', 'tokens', 'settings', 'oauth', 'forgot', 'reset', 'accept',
+    ];
+
     public function __construct(
         private AdminPageRegistry $registry,
         private string $pluginId,
@@ -48,6 +59,9 @@ final class AdminPageRegistrar
     {
         if (preg_match('/^[a-z0-9-]+$/', $slug) !== 1) {
             throw new InvalidArgumentException("An admin page slug must be lowercase letters, digits or hyphens: \"{$slug}\".");
+        }
+        if (in_array($slug, self::RESERVED_SLUGS, true)) {
+            throw new InvalidArgumentException("The admin page slug \"{$slug}\" is reserved by a core section. Prefix it with your plugin name (e.g. \"myplugin-{$slug}\").");
         }
         if ($capability !== null && !self::isGateableCapability($capability)) {
             throw new InvalidArgumentException("An admin page capability must be \"admin\" or a management capability (e.g. \"settings:read\"), not \"{$capability}\".");

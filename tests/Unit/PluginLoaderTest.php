@@ -13,6 +13,8 @@ use Nimbus\Plugin\PluginContext;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
 use Nimbus\Plugin\PluginStatus;
+use Nimbus\Site\HeadContributor;
+use Nimbus\Site\PageContext;
 use PHPUnit\Framework\TestCase;
 
 // ---------------------------------------------------------------- fixtures
@@ -78,6 +80,38 @@ final class HalfBrokenPlugin implements Plugin
             public function type(): string
             {
                 return 'text'; // core already owns this — throws
+            }
+
+            public function renderInput(Field $field, mixed $value): string
+            {
+                return '';
+            }
+        });
+    }
+}
+
+/** Registers one of EVERY capability, then throws — to prove all six roll back. */
+final class AllCapabilitiesBrokenPlugin implements Plugin
+{
+    public function register(PluginContext $context): void
+    {
+        $context->fieldTypes()->register(new FixtureFieldType());
+        $context->head()->register(new class () implements HeadContributor {
+            public function head(PageContext $page): string
+            {
+                return '<meta name="allcaps">';
+            }
+        });
+        $context->events()->listen('allcaps.event', static fn (): null => null);
+        $context->migrations()->register('allcaps', ['CREATE TABLE nb_allcaps_x (id INT)']);
+        $context->adminPages()->register('allcaps-page', 'AllCaps', '★', static fn (): string => 'x');
+        $context->maintenance()->register('allcaps-task', static fn (): int => 0);
+        // Now fail: 'text' is a core type — DuplicateFieldType, which the loader
+        // turns into REGISTER_FAILED + full rollback of everything above.
+        $context->fieldTypes()->register(new class () extends BaseType {
+            public function type(): string
+            {
+                return 'text';
             }
 
             public function renderInput(Field $field, mixed $value): string
@@ -343,6 +377,84 @@ final class PluginLoaderTest extends TestCase
         self::assertFalse($this->registry->has('fixture'), 'partial registration must be rolled back');
         self::assertSame([], $loader->registered());
         self::assertStringContainsString('Rolled back: fixture', $diagnostics[0]->message);
+    }
+
+    public function test_a_failed_registration_rolls_back_every_capability(): void
+    {
+        // A full bundle whose registries we can inspect after the failed load.
+        $caps   = new PluginCapabilities();
+        $path   = $this->installed($this->package('nimbuscms/allcaps', [
+            'id' => 'nimbuscms.allcaps', 'plugin' => AllCapabilitiesBrokenPlugin::class,
+        ]));
+        $loader = new PluginLoader($path, []);
+        $diagnostics = $loader->load($caps);
+
+        self::assertSame(PluginDiagnostic::REGISTER_FAILED, $diagnostics[0]->reason);
+
+        // Every registry must be empty for the failed provider — not just field types.
+        $page = new PageContext('home', 'https://example.test/', 'X', 'S', 'AAAAAAAAAAAAAAAAAAAAAA==');
+        $covered = [
+            'fieldTypes'  => fn (): bool => !$caps->fieldTypes->has('fixture'),
+            'head'        => fn (): bool => $caps->head->render($page) === '',
+            'events'      => fn (): bool => !$caps->events->hasListeners('allcaps.event'),
+            'migrations'  => fn (): bool => $caps->migrations->all() === [],
+            'adminPages'  => fn (): bool => $caps->adminPages->all() === [],
+            'maintenance' => fn (): bool => $caps->maintenance->all() === [],
+        ];
+        foreach ($covered as $name => $isClean) {
+            self::assertTrue($isClean(), "the {$name} registry was not rolled back on a failed load");
+        }
+
+        // Completeness tripwire: every public registry prop on the bundle must be
+        // covered above — a NEW capability fails this until its rollback is added
+        // to the loader's catch AND asserted here (the bundle-refactor lesson).
+        $skip = ['db']; // a Connection, not a registry
+        foreach ((new \ReflectionObject($caps))->getProperties(\ReflectionProperty::IS_PUBLIC) as $prop) {
+            $n = $prop->getName();
+            self::assertTrue(
+                isset($covered[$n]) || in_array($n, $skip, true),
+                "PluginCapabilities::\${$n} is not covered by the rollback test — add its rollback to PluginLoader's catch and an assertion here.",
+            );
+        }
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('malformedIds')]
+    public function test_a_reserved_or_malformed_plugin_id_is_rejected(string $badId): void
+    {
+        $path = $this->installed($this->package('nimbuscms/x', ['id' => $badId, 'plugin' => FixturePlugin::class]));
+        [$diagnostics, $loader] = $this->load($path);
+
+        self::assertNotEmpty($diagnostics);
+        self::assertSame(PluginDiagnostic::INVALID_MANIFEST, $diagnostics[0]->reason, "id \"{$badId}\" must be INVALID_MANIFEST");
+        self::assertSame([], $loader->registered(), "id \"{$badId}\" must not register anything");
+    }
+
+    /** @return array<string,array{string}> */
+    public static function malformedIds(): array
+    {
+        return [
+            'reserved core' => ['core'],
+            'empty'         => [''],
+            'colon'         => ['a:b'],
+            'uppercase'     => ['Bad'],
+            'leading dot'   => ['.hidden'],
+            'over 64 chars' => [str_repeat('x', 65)],
+        ];
+    }
+
+    public function test_a_plugin_claiming_id_core_cannot_defeat_field_type_rollback(): void
+    {
+        // id=core is rejected at validation, so the plugin never registers — core's
+        // own types are untouched and the plugin's type never lands (the containment
+        // invariant FieldTypeRegistry::forgetProvider('core') alone could not hold).
+        $path = $this->installed($this->package('nimbuscms/evil', [
+            'id' => 'core', 'plugin' => HalfBrokenPlugin::class,
+        ]));
+        [$diagnostics] = $this->load($path);
+
+        self::assertSame(PluginDiagnostic::INVALID_MANIFEST, $diagnostics[0]->reason);
+        self::assertSame('core', $this->registry->providerOf('text'), 'core types are untouched');
+        self::assertFalse($this->registry->has('fixture'), 'the rejected plugin registered nothing');
     }
 
     public function test_rollback_never_touches_core_types(): void

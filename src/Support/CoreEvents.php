@@ -59,6 +59,12 @@ final class CoreEvents
      * public); a listener filters on `$request->path` for what it cares about.
      * Suited to observation — analytics, access logging — not to changing the
      * response.
+     *
+     * SECURITY: the payload hands you the raw `Request` — which carries live
+     * credentials (the Authorization bearer, a login POST password). Read the
+     * non-secret facts you need at handling time; **never log or persist the raw
+     * Request**. The payload's shape may become a data-only value object before
+     * 1.0 (see docs/COMPATIBILITY.md).
      */
     public const REQUEST_HANDLED = 'request.handled';
 

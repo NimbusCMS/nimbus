@@ -43,6 +43,12 @@ final class MigrationRegistrar
      */
     public function register(string $name, array $statements): void
     {
+        // The stored name is `pluginId:name` in nb_migrations.migration (VARCHAR
+        // 191); the id is already bounded to ≤64 by the loader, so bound the name
+        // too rather than let an over-long one 1406 → 500 at `nimbus migrate`.
+        if ($name === '' || strlen($name) > 120) {
+            throw new \InvalidArgumentException("A migration name must be 1–120 characters: \"{$name}\".");
+        }
         $this->registry->add($this->pluginId . ':' . $name, $statements, $this->pluginId);
     }
 }

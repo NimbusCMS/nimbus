@@ -111,6 +111,16 @@ final class PluginLoader
             $class   = $meta['plugin'];
             $display = $this->displayName($name, $meta);
 
+            // A well-formed id is a loader invariant: `core` defeats field-type
+            // rollback (FieldTypeRegistry::forgetProvider('core') no-ops), a colon
+            // collides migration names (pluginId:name), an empty id threads
+            // everywhere, and an over-long id overflows nb_migrations.migration
+            // (VARCHAR(191)) → a 500 at migrate. One gate closes all four.
+            if ($id === 'core' || strlen($id) > 64 || preg_match('/^[a-z0-9][a-z0-9._-]*$/', $id) !== 1) {
+                $this->reject($name, $id, $display, $version, $official, PluginStatus::INVALID, PluginDiagnostic::INVALID_MANIFEST, 'A plugin id must be lowercase letters, digits, dot/dash/underscore (≤64 chars), and cannot be "core".');
+                continue;
+            }
+
             if (isset($claimedBy[$id])) {
                 // Both packages are rejected on the *second* claim only; the
                 // first keeps the id. Two packages fighting over an id is a
