@@ -50,6 +50,32 @@ final class PluginAdminPageTest extends HttpTestCase
         }
     }
 
+    public function test_every_core_admin_section_is_a_reserved_plugin_slug(): void
+    {
+        // Drift guard (PLUG-4): a plugin must not be able to register a page whose
+        // slug shadows a real core admin section. Derive the core first-segments
+        // from the actual route table so a new core section fails this test until
+        // it's added to AdminPageRegistrar::RESERVED_SLUGS (the reserved list can't
+        // be computed at registration — routes are built lazily per request).
+        $segments = [];
+        foreach ($this->router->routes() as $route) {
+            if (preg_match('#^/admin/([a-z0-9-]+)(/|$)#', $route->pattern, $m) === 1) {
+                $segments[$m[1]] = true;
+            }
+        }
+        self::assertNotEmpty($segments, 'the admin route table should have literal sections');
+
+        $registrar = new \Nimbus\Plugin\AdminPageRegistrar(new AdminPageRegistry(), 'p');
+        foreach (array_keys($segments) as $seg) {
+            try {
+                $registrar->register($seg, 'X', '★', static fn (): string => 'x');
+                self::fail("core admin section \"{$seg}\" is not a reserved plugin slug — add it to AdminPageRegistrar::RESERVED_SLUGS");
+            } catch (\InvalidArgumentException) {
+                // reserved (or otherwise refused) — good
+            }
+        }
+    }
+
     public function test_a_plugin_admin_page_requires_login(): void
     {
         $router   = $this->pluginRouter($this->registry(static fn (): string => '<h1>Charts</h1>'));

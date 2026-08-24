@@ -19,6 +19,15 @@ final class AdminPageRegistry
 
     public function add(string $slug, string $label, string $icon, callable $handler, string $provider, ?string $capability = null): void
     {
+        // First-wins-loudly (like DuplicateFieldType): a second page claiming a
+        // slug already taken throws, and the loader turns that into REGISTER_FAILED
+        // + full rollback — rather than silently registering an unreachable route
+        // with a live nav entry (PLUG-4).
+        foreach ($this->pages as $existing) {
+            if ($existing['slug'] === $slug) {
+                throw new \InvalidArgumentException("An admin page slug \"{$slug}\" is already registered by \"{$existing['provider']}\".");
+            }
+        }
         $this->pages[] = [
             'slug'       => $slug,
             'label'      => $label,

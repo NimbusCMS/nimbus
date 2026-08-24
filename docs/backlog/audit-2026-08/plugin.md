@@ -22,7 +22,8 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Fix:** In the plugin loop, wrap each provider's migrations in try/catch: on failure report the provider + migration name (diagnostic/stderr), skip that provider's remaining migrations, continue with other providers and return the failure in the result. Document that plugin DDL statements should be individually idempotent (`IF NOT EXISTS`) since MySQL cannot roll DDL back. Add the failing-migration integration test.
 - **Effort:** M
 
-### PLUG-2 · Plugin ids are unvalidated — `"id": "core"` defeats field-type rollback; colons collide namespaces
+### PLUG-2 · Plugin ids are unvalidated — `"id": "core"` defeats field-type rollback; colons collide namespaces ✅ RESOLVED
+- **Resolved:** Slice M (branch `slice-m-plugin-contract`). `PluginLoader::validate()` now rejects an id that is `core`, `> 64` chars, or fails `/^[a-z0-9][a-z0-9._-]*$/` (before `claimedBy`) → `INVALID_MANIFEST`. Closes all four holes in one gate: `core` (defeats `forgetProvider` rollback), colon (migration-name collision), empty, and — the length bound both reviews added — an over-long id overflowing `nb_migrations.migration` VARCHAR(191) → 1406/500 at migrate (the derived-value-column-width family). The migration **name** half is also bounded (`MigrationRegistrar::register` rejects `>120`), so `pluginId:name` always fits. No other reserved id needed (`official` keys on the package name, not the id). Tests: `PluginLoaderTest` (core/empty/colon/uppercase/leading-dot/over-64 → INVALID_MANIFEST + registers nothing; id=core can't defeat field-type rollback — core `text` untouched, plugin type absent).
 - **Priority:** P2
 - **Type:** security
 - **Severity (if security):** Low (semi-trusted author; but it breaks the loader's stated containment invariant)
@@ -43,7 +44,8 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Fix:** Add a best-effort flag or a `dispatchIsolated()` path that puts try/catch *inside* the listener loop (log per listener, continue). Keep the loud post-commit entry events propagating as designed. Unit test: two listeners, first throws, second still fires.
 - **Effort:** S
 
-### PLUG-4 · Duplicate or core-colliding admin-page slugs are silently accepted
+### PLUG-4 · Duplicate or core-colliding admin-page slugs are silently accepted ✅ RESOLVED
+- **Resolved:** Slice M. `AdminPageRegistry::add()` throws (naming the holding provider) on a slug already registered — the loader converts it to REGISTER_FAILED + full rollback, matching the `DuplicateFieldType` first-wins-loudly contract. `AdminPageRegistrar::register()` rejects a **core-reserved** slug (`RESERVED_SLUGS`) beside the format check. The list (`login, logout, dashboard, plugins, collections, media, users, roles, tokens, settings, oauth, forgot, reset, accept`) **includes `dashboard`** (security review caught the design's omission). Because the reserved list can't be computed at registration (routes build lazily per request), a **drift-guard test** derives the core `/admin/{seg}` first-segments from `Router::routes()` and asserts each is refused at registration — so a new core section fails the test until reserved. No authz bypass (a colliding slug resolves to the core route, whose capability gate still applies) — correctness/anti-spoofing. Tests: `AdminPageRegistryTest` (duplicate throws naming holder; reserved slugs rejected) + `PluginAdminPageTest` (route-derived drift guard).
 - **Priority:** P2
 - **Type:** correctness
 - **Where:** `src/Admin/AdminPageRegistry.php:20-31` (`add()` — no uniqueness check); `src/Admin/PluginPagesController.php:36-48`; nav in `src/Admin/Controller.php:76-82`
@@ -62,7 +64,8 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Fix:** Add `public readonly string $cspNonce` to `PageContext` (additive, data-only — consistent with its contract) and pass the nonce to admin-page handlers (e.g. a documented request attribute or second callable arg); document both in COMPATIBILITY beside the theme's `$cspNonce`.
 - **Effort:** S
 
-### PLUG-6 · The public plugin surface depends on classes COMPATIBILITY declares internal (`Request`, `Response`)
+### PLUG-6 · The public plugin surface depends on classes COMPATIBILITY declares internal (`Request`, `Response`) ✅ RESOLVED (doc-bless)
+- **Resolved:** Slice M — **doc-bless a narrow read surface, not VOs** (both lenses: no concrete consumer needs a VO; the array/object carrier hasn't "proven awkward" — the recorded trigger; what arrived is a doc contradiction, which docs fix; and it matches the house style — the theme blesses `$cspNonce` not `View`, `CoreEvents` blesses names not payloads). COMPATIBILITY now carves `Request`/`Response` out of blanket-internal with an explicit **stable-for-plugins subset** verified against the two shipped consumers (analytics, api-advanced): `Request::$method/$path/query()/input()/header()`; return `Response::html()/redirect()/json()/download()` and read `$status/$body/header()`. Everything else (`fromGlobals`, `ip()`, `bearerToken()`, raw-body `json()`, `all()`, `file()`, `send()`, header mutation) stays internal. The `request.handled` full-Request payload is **accepted as-documented** (in-process plugins already read superglobals; contract-not-sandbox) but with a **mandatory never-log/persist-the-raw-Request warning** (Authorization/login body) in both `CoreEvents::REQUEST_HANDLED` and COMPATIBILITY, and the carrier is hedged (may become a data-only VO before 1.0 — revisit recorded in the ledger, superseding the 2026-08-15 payload-VO line).
 - **Priority:** P2
 - **Type:** architecture
 - **Where:** `src/Plugin/AdminPageRegistrar.php:47-52` (handler typed `callable(Nimbus\Http\Request):(string|Nimbus\Http\Response)`); `src/Support/CoreEvents.php` `REQUEST_HANDLED` payload (`['request' => Request, 'response' => Response]`); `docs/COMPATIBILITY.md:33-36`
@@ -71,7 +74,8 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Fix:** Decide explicitly, in COMPATIBILITY: either bless a narrow documented read surface of `Request`/`Response` for plugin handlers (smallest change — a "stable for plugins" subsection), or introduce data-only values (a request-facts array/VO for `request.handled`; a thin request wrapper for admin pages). Either way the doc and the shipped surface must agree before the API is called frozen.
 - **Effort:** S (docs decision) / M (value objects)
 
-### PLUG-7 · COMPATIBILITY has drifted from the shipped plugin API (maintenance missing; stale "events are not a capability")
+### PLUG-7 · COMPATIBILITY has drifted from the shipped plugin API (maintenance missing; stale "events are not a capability") ✅ RESOLVED
+- **Resolved:** Slice M. Added `Nimbus\Plugin\MaintenanceRegistrar` to the public-API table; rewrote the stale "events are not a plugin capability at all yet" line to the truth (event subscription IS a capability via `EventRegistrar`; `CoreEvents` names are stable, payload arrays are not frozen). Swept the table against `PluginContext`'s accessors (fieldTypes, head, events, migrations, adminPages, maintenance, storage — all now present). No capability-evidence.md change (no consumer gained/lost).
 - **Priority:** P2
 - **Type:** product-gap
 - **Where:** `docs/COMPATIBILITY.md:15-31` (public API table), `:288-289` ("What is not covered"); `src/Plugin/MaintenanceRegistrar.php`; `src/Plugin/PluginContext.php` docblock ("Seven capabilities today")
@@ -80,7 +84,8 @@ classes are quietly load-bearing for plugins while the docs say they don't exist
 - **Fix:** Add `Nimbus\Plugin\MaintenanceRegistrar` to the table; rewrite the stale sentence to what is true now ("`CoreEvents` names are stable; payload arrays are not frozen"). Sweep the file once against `PluginContext`'s capability list.
 - **Effort:** S
 
-### PLUG-8 · Rollback coverage is asserted for field types only — the other five registries are unguarded by tests
+### PLUG-8 · Rollback coverage is asserted for field types only — the other five registries are unguarded by tests ✅ RESOLVED
+- **Resolved:** Slice M. New `AllCapabilitiesBrokenPlugin` fixture registers one of **each** capability (field type, head contributor, event listener, migration, admin page, maintenance task) then throws; `test_a_failed_registration_rolls_back_every_capability` asserts every registry is empty for the provider after the failed load — plus a **reflection completeness tripwire** iterating `PluginCapabilities`'s public props (explicit `db` skip-list by name) so a 7th capability fails the test until its rollback + assertion are added. Verified red: dropping `events->forgetProvider($id)` from the loader's catch now fails the test (previously the suite stayed green).
 - **Priority:** P2
 - **Type:** test-gap
 - **Where:** `tests/Unit/PluginLoaderTest.php:331-347` (`test_a_failed_registration_leaves_nothing_behind`); `src/Plugin/PluginLoader.php:168-175` (the hand-maintained six-call rollback list)

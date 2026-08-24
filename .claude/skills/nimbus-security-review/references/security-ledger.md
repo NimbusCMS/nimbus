@@ -19,6 +19,37 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice M — plugin-boundary containment + contract honesty (PLUG-2/4/6/8)
+- **Status:** fixed. Fable two-skill burst — **security-green, no Critical/High/Medium** (all Low or
+  informational). Catalog: #12 plugin-boundary-abuse / containment.
+- **Surface:** `src/Plugin/PluginLoader.php`, `src/Plugin/MigrationRegistrar.php`,
+  `src/Admin/AdminPageRegistry.php`, `src/Plugin/AdminPageRegistrar.php`, `src/Support/CoreEvents.php`.
+- **PLUG-2 (Low, fixed) — degenerate manifest id defeats containment.** `"id":"core"` → a failed
+  plugin's field type survives rollback (`forgetProvider('core')` no-ops) = silent partial activation;
+  a colon id collides `nb_migrations` names so a plugin's table is silently never created. Author-
+  controlled but semi-trusted (ADR 0001 contract-not-sandbox), and it defeats a *stated* invariant.
+  Fix: id gate `/^[a-z0-9][a-z0-9._-]*$/` + reject `core` + ≤64 in `validate()` before `claimedBy` —
+  closes core/colon/empty/over-long. `core` is the only special id in code; `official` keys on the
+  package name so `nimbuscms` needs no reservation. Guard: `PluginLoaderTest` (malformed ids →
+  INVALID_MANIFEST; core-can't-defeat-rollback).
+- **PLUG-4 (Low, fixed) — slug collision, no authz bypass.** A plugin slug shadowing a core section
+  resolves to the **core** route (whose capability gate still applies — no privilege bypass); the harm
+  is a mislabeled nav entry / unreachable page. Fix: duplicate-throw + RESERVED_SLUGS (incl.
+  `dashboard`) + a route-derived drift-guard test. Confusion/anti-spoofing, not a boundary break.
+- **PLUG-6 (Low/informational, doc-bless) — Request/Response exposure.** Doc-blessing a read subset
+  grants **no new capability** — an in-process plugin already reads `$_POST`/`$_SERVER`/`php://input`
+  directly. The real risk is a well-meaning-plugin footgun: a `request.handled` listener that
+  serializes the full Request would persist the Authorization bearer / login password (the accidental-
+  secret-capture class the `api.*` events redact against). Accepted as-documented (redaction now =
+  theater, in-process) **with a mandatory never-log/persist warning** in `CoreEvents` + COMPATIBILITY,
+  and the carrier hedged (VO revisit recorded). No test (docs) beyond a grep that the old wording is gone.
+- **PLUG-8 (test-gap, fixed):** the reflection tripwire catches the security-relevant regression class
+  — drop `events->forgetProvider` from the catch and a FAILED plugin's listeners (storage writes) keep
+  firing; the test now fails.
+- **Left open (recorded):** plugin migrations run on the core PDO (ADR 0005 contract, not a wall);
+  request.handled VO/redaction revisit; PLUG-9 (table-prefix), PLUG-12 (FieldType render escaping) out
+  of scope.
+
 ### 2026-08-23 · Slice L — write-concurrency lost-update closed + migration self-heal (API-4/DATA-4)
 - **Status:** fixed. Fable two-skill burst — **security-green, no Critical/High.** API-4 Medium
   (data-integrity), DATA-4 Low (availability/ops). Catalog: TOCTOU / lost-update (data-integrity).

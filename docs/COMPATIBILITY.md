@@ -21,7 +21,8 @@ in any release, including patch releases.
 | `Nimbus\Plugin\EventRegistrar` | subscribing to events (`PluginContext::events()`) |
 | `Nimbus\Plugin\MigrationRegistrar` | declaring migrations for the plugin's own tables (ADR 0005). **Each statement must be individually idempotent** (`… IF NOT EXISTS`): MySQL can't roll DDL back, a failed migration is isolated + retried, and your runtime must not assume a table/constraint exists until the migration is recorded |
 | `Nimbus\Plugin\PluginStorage` | reading/writing the plugin's own tables (`PluginContext::storage()`, ADR 0005) |
-| `Nimbus\Plugin\AdminPageRegistrar` | registering admin pages (`PluginContext::adminPages()`) |
+| `Nimbus\Plugin\AdminPageRegistrar` | registering admin pages (`PluginContext::adminPages()`). A slug must be unique and not shadow a core section (both throw at registration → the plugin fails to load) |
+| `Nimbus\Plugin\MaintenanceRegistrar` | registering maintenance/retention tasks (`PluginContext::maintenance()`), run by `nimbus prune` |
 | `Nimbus\Site\HeadContributor` | the head-contribution contract (ADR 0004) |
 | `Nimbus\Site\PageContext` | the page data a head contributor receives |
 | `Nimbus\Support\CoreEvents` | event-name constants a plugin may listen for |
@@ -31,9 +32,24 @@ in any release, including patch releases.
 | `Nimbus\Content\UnknownFieldType`, `DuplicateFieldType` | exceptions a plugin may catch |
 
 Explicitly **internal**, whatever their visibility: `Application`, controllers,
-repositories, `Connection`, `EntryService`, `CollectionService`, `Router`,
-`Request`, `Response`, `Auth`, `EventDispatcher`, `PluginLoader`. A plugin
-depending on any of them will break, and that is not a bug in Nimbus.
+repositories, `Connection`, `EntryService`, `CollectionService`, `Router`, `Auth`,
+`EventDispatcher`, `PluginLoader`. A plugin depending on any of them will break,
+and that is not a bug in Nimbus.
+
+`Request` and `Response` are internal **except** for a small read/return surface a
+plugin legitimately touches — an admin-page handler receives a `Request` and
+returns a `Response`, and a `request.handled` listener is handed both. Stable for
+plugins: `Request::$method`, `$path`, `query()`, `input()`, `header()`; returning
+`Response::html()`/`redirect()`/`json()`/`download()` and reading `Response::$status`,
+`$body`, `header()`. Everything else on both classes (construction from globals,
+`ip()`, `bearerToken()`, raw-body `json()`, `all()`, `file()`, `send()`, header
+mutation) is internal and may change.
+
+> **Never log or persist the raw `Request`** (or its Authorization header / login
+> POST body) from a `request.handled` listener — it carries live credentials. The
+> event payload hands you the object today for convenience; its shape may become a
+> data-only value object before `1.0`, so read what you need at handling time and
+> keep only non-secret facts.
 
 `PluginContext` grows one capability at a time, each alongside a plugin that
 needs it. New capabilities are additive and never break existing plugins.
@@ -350,7 +366,8 @@ reason.
 - **Database schema.** Table and column names are internal. Read content
   through services, never `nb_*` tables directly.
 - **Admin HTML and CSS.** Class names and markup change freely.
-- **Event payload shapes.** `CoreEvents` names are stable; payload arrays are
-  not frozen yet, and events are not a plugin capability at all yet.
+- **Event payload shapes.** Event subscription **is** a plugin capability
+  (`EventRegistrar`, `PluginContext::events()`), and the `CoreEvents` names are
+  stable — but the **payload arrays** each event carries are not frozen yet.
 - **Anything reached by reflection.** Making a private thing accessible does
   not make it supported.

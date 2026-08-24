@@ -56,6 +56,39 @@ final class AdminPageRegistryTest extends TestCase
         $registrar->register('Not A Slug!', 'x', 'x', $this->handler());
     }
 
+    public function test_a_duplicate_slug_throws_naming_the_holder(): void
+    {
+        $registry = new AdminPageRegistry();
+        $registry->add('reports', 'Reports', '★', $this->handler(), 'nimbuscms.analytics');
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('nimbuscms.analytics');
+        $registry->add('reports', 'Other', '☆', $this->handler(), 'other.plugin');
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('reservedSlugs')]
+    public function test_the_registrar_rejects_a_core_reserved_slug(string $slug): void
+    {
+        $registrar = new AdminPageRegistrar(new AdminPageRegistry(), 'p');
+
+        $this->expectException(InvalidArgumentException::class);
+        $registrar->register($slug, 'X', '★', $this->handler());
+    }
+
+    /** @return array<string,array{string}> */
+    public static function reservedSlugs(): array
+    {
+        return [
+            'collections' => ['collections'],
+            'users'       => ['users'],
+            'settings'    => ['settings'],
+            'plugins'     => ['plugins'],
+            'dashboard'   => ['dashboard'],
+            'login'       => ['login'],
+            'oauth'       => ['oauth'],
+        ];
+    }
+
     public function test_a_page_defaults_to_no_capability(): void
     {
         $registry = new AdminPageRegistry();
