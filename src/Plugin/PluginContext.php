@@ -9,15 +9,16 @@ use Nimbus\Database\Connection;
 /**
  * Everything a plugin is allowed to touch.
  *
- * Seven capabilities today: field types, head contributions (ADR 0004), event
+ * Eight capabilities today: field types, head contributions (ADR 0004), event
  * subscription, migrations for the plugin's own tables, storage of its own data
- * (ADR 0005), admin pages, and maintenance tasks. Each was added alongside a
- * plugin that concretely needed it — field types by the built-in types and
- * Markdown, head contributions by plugin-seo, events/migrations/storage/admin
- * pages by plugin-analytics, maintenance by both analytics and api-advanced
- * (retention of their own tables). Public routes and permissions get added the
- * same way, one at a time, because a capability published without a consumer is
- * a guess that becomes a commitment.
+ * (ADR 0005), admin pages, maintenance tasks, and an agent-guidance skill
+ * (ADR 0013). Each was added alongside a plugin that concretely needed it — field
+ * types by the built-in types and Markdown, head contributions by plugin-seo,
+ * events/migrations/storage/admin pages by plugin-analytics, maintenance by both
+ * analytics and api-advanced (retention of their own tables), the skill by
+ * Markdown (teaching agents its field type). Public routes and permissions get
+ * added the same way, one at a time, because a capability published without a
+ * consumer is a guess that becomes a commitment.
  *
  * A context is built per plugin, so the plugin's id is bound to whatever it
  * registers and cannot be spoofed.
@@ -45,6 +46,7 @@ final class PluginContext
     private MigrationRegistrar $migrations;
     private AdminPageRegistrar $adminPages;
     private MaintenanceRegistrar $maintenance;
+    private SkillRegistrar $skills;
     private ?Connection $db;
     private ?PluginStorage $storage = null;
 
@@ -56,6 +58,7 @@ final class PluginContext
         $this->migrations  = new MigrationRegistrar($capabilities->migrations, $pluginId);
         $this->adminPages  = new AdminPageRegistrar($capabilities->adminPages, $pluginId);
         $this->maintenance = new MaintenanceRegistrar($capabilities->maintenance, $pluginId);
+        $this->skills      = new SkillRegistrar($capabilities->skills, $pluginId);
         $this->db          = $capabilities->db;
     }
 
@@ -93,6 +96,12 @@ final class PluginContext
     public function maintenance(): MaintenanceRegistrar
     {
         return $this->maintenance;
+    }
+
+    /** Publish this plugin's agent guide (ADR 0013), served as `nimbus://guide/plugin/{id}`. Stamped with its id. */
+    public function skills(): SkillRegistrar
+    {
+        return $this->skills;
     }
 
     /**

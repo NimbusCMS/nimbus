@@ -106,6 +106,7 @@ final class AllCapabilitiesBrokenPlugin implements Plugin
         $context->migrations()->register('allcaps', ['CREATE TABLE allcaps_x (id INT)']); // plugin-owned (not nb_*, or the FU-11 lint would throw here first)
         $context->adminPages()->register('allcaps-page', 'AllCaps', '★', static fn (): string => 'x');
         $context->maintenance()->register('allcaps-task', static fn (): int => 0);
+        $context->skills()->register('AllCaps guide', 'How to drive the allcaps plugin.');
         // Now fail: 'text' is a core type — DuplicateFieldType, which the loader
         // turns into REGISTER_FAILED + full rollback of everything above.
         $context->fieldTypes()->register(new class () extends BaseType {
@@ -418,6 +419,7 @@ final class PluginLoaderTest extends TestCase
             'migrations'  => fn (): bool => $caps->migrations->all() === [],
             'adminPages'  => fn (): bool => $caps->adminPages->all() === [],
             'maintenance' => fn (): bool => $caps->maintenance->all() === [],
+            'skills'      => fn (): bool => $caps->skills->documents() === [],
         ];
         foreach ($covered as $name => $isClean) {
             self::assertTrue($isClean(), "the {$name} registry was not rolled back on a failed load");

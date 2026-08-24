@@ -32,11 +32,12 @@ final class GuideLibrary
         GuideDocument ...$documents,
     ) {
         foreach ($documents as $document) {
-            // Last registration wins on a duplicate URI; core is added first, so a
-            // plugin cannot displace `nimbus://guide/core`. (The factory also keys
-            // plugin URIs on the loader-validated plugin id, so they can't collide
-            // with core.)
-            $this->documents[$document->uri] = $document;
+            // First registration wins on a duplicate URI, and the factory adds the
+            // core document first — so even if a plugin document ever claimed
+            // `nimbus://guide/core`, core keeps it. (Today a collision is already
+            // impossible: the factory keys plugin URIs on the loader-validated
+            // plugin id, which can never be `core` or the reserved `nb` namespace.)
+            $this->documents[$document->uri] ??= $document;
         }
     }
 

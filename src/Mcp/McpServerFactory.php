@@ -14,6 +14,7 @@ use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Mcp\Guide\CoreGuide;
 use Nimbus\Mcp\Guide\GuideLibrary;
+use Nimbus\Mcp\Guide\SkillRegistry;
 use Nimbus\Media\MediaRepository;
 use Nimbus\Media\MediaService;
 use Nimbus\Media\MediaUploader;
@@ -51,6 +52,7 @@ final class McpServerFactory
         EventDispatcher $events,
         Settings $settings,
         EntryOperations $ops,
+        SkillRegistry $skills,
         string $version,
         string $basePath,
     ): McpServer {
@@ -62,9 +64,13 @@ final class McpServerFactory
         // sniffs + allow-lists the bytes.
         $uploader = new MediaUploader($mediaRepo, Config::uploadPath(), Config::uploadUrl(), Config::uploadMaxBytes(), static fn (string $from, string $to): bool => copy($from, $to));
 
+        // Core guide first — so a plugin can neither displace `nimbus://guide/core`
+        // nor feed the always-in-context instructions (plugin text is resources
+        // only, ADR 0013 §3): instructions come solely from the core guide.
         $guide = new GuideLibrary(
             CoreGuide::instructions($basePath),
             CoreGuide::document($basePath),
+            ...$skills->documents(),
         );
 
         return new McpServer(

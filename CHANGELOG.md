@@ -39,8 +39,9 @@ by a pre-release security & correctness audit (Slices A–P).
 - **Agent guidance over MCP** — the server now teaches agents how to drive it:
   `initialize` returns an operating brief and `resources/list`/`resources/read`
   serve a full guide (`nimbus://guide/core`). It ships with the CMS and works for
-  any MCP client, nothing to install. Plugins can publish their own guide
-  (`nimbus://guide/plugin/{id}`) — see [ADR 0013](docs/adr/0013-mcp-agent-guidance.md).
+  any MCP client, nothing to install. A plugin can publish its own agent guide via
+  the `skills()` capability, served as `nimbus://guide/plugin/{id}` — so enabling a
+  plugin teaches agents how to drive it. See [ADR 0013](docs/adr/0013-mcp-agent-guidance.md).
 - **Roles & capabilities** — named capability bundles for users and tokens, a
   deny-by-default `Authorizer`/`Gate`, subset-only granting, and a Roles admin UI.
 - **Users, invitations & password reset** — admin user management, emailed invites

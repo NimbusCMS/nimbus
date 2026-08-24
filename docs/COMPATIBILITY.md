@@ -23,6 +23,7 @@ in any release, including patch releases.
 | `Nimbus\Plugin\PluginStorage` | reading/writing the plugin's own tables (`PluginContext::storage()`, ADR 0005) |
 | `Nimbus\Plugin\AdminPageRegistrar` | registering admin pages (`PluginContext::adminPages()`). A slug must be unique and not shadow a core section (both throw at registration → the plugin fails to load) |
 | `Nimbus\Plugin\MaintenanceRegistrar` | registering maintenance/retention tasks (`PluginContext::maintenance()`), run by `nimbus prune` |
+| `Nimbus\Plugin\SkillRegistrar` | publishing the plugin's **agent guide** (`PluginContext::skills()`, ADR 0013), served to agents as the MCP resource `nimbus://guide/plugin/{id}`. **Static markdown, bounded** (an over-long or empty fragment is rejected at registration → the plugin fails to load). It is **world-readable to any valid token** — put no secrets or per-tenant data in it — and is served as *reference documentation, not instructions*: never fed into the always-in-context brief, and wrapped in an untrusted-data envelope on read |
 | `Nimbus\Site\HeadContributor` | the head-contribution contract (ADR 0004) |
 | `Nimbus\Site\PageContext` | the page data a head contributor receives |
 | `Nimbus\Support\CoreEvents` | event-name constants a plugin may listen for |
