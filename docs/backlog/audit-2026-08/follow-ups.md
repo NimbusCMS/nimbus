@@ -101,3 +101,11 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **What:** PLUG-9's convention (prefix your tables; don't touch `nb_*`) is now documented, but nothing *flags* a plugin migration that references a core `nb_`-prefixed table. A cheap regex lint would catch the honest accident (a plugin CREATE/ALTER/DROP against `nb_*`) at registration → REGISTER_FAILED. Explicitly NOT a sandbox (a determined plugin using dynamic SQL bypasses it).
 - **Fix:** add the lint in `register()`; ensure no false positives (a plugin never legitimately DDLs `nb_*`; its own tables are prefixed). Deferred from Slice P because a false-positive-prone regex deserves the full two-skill burst, which was unavailable during the 2026-08-24 model incident.
 - **Effort:** S
+
+### FU-12 · No front-end performance baseline (Lighthouse / Core Web Vitals)
+- **Priority:** P3 (release-adjacent)
+- **Type:** performance / product
+- **Discovered:** 2026-08-24 (release-readiness discussion).
+- **What:** the public site is fast *by construction* — server-rendered HTML + one ~1 KB external stylesheet (`themes/starter/assets/app.css`), zero mandatory JS, no web fonts, an optional filesystem page cache, and `Cache-Control: public, max-age=3600` on assets. But nothing is *measured*: no Lighthouse / Core Web Vitals run, no perf budget on the public theme, no CI perf gate, and no critical-CSS/preload/font guidance for a real content theme (the starter is a skeleton). Compression (gzip/brotli) is webserver-level (operator's job, like the `/uploads/*` nosniff header). Contrast: WordPress/Drupal/Craft treat CWV as first-class (SEO ranking) — Nimbus's lean-by-default posture is a genuine advantage but is currently a claim, not a proof.
+- **Fix:** establish a baseline — run Lighthouse / a CWV check against a representative page on a real content theme (not the starter skeleton); document the numbers; optionally add a lightweight perf assertion or a documented budget. Consider a `Content-Encoding` note in the deployment docs. Relates to DATA-5 (API list N+1) and HTTP-5 (route-regex) on the server side.
+- **Effort:** S (baseline + docs) / M (CI perf gate + a real theme)
