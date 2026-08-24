@@ -19,9 +19,12 @@
 ## Context
 
 The API is now a hardened, scoped, concurrent, self-describing read+write surface.
-The goal it was all for: **an agent, holding a scoped token, can operate the
-entire CMS through MCP — define content types, write content, manage media,
-users, tokens and settings — so the admin UI is optional, not required.**
+The goal it was all for: **an agent, holding a scoped token, can operate the CMS
+through MCP — define content types, write content, manage media, users (incl.
+role assignment via `set_role`), tokens and settings — so the admin UI is optional,
+not required.** One surface is deliberately deferred: composing/editing a *role*
+(a capability bundle) stays admin-UI-only for now (ADMIN-9; see ROADMAP for the
+revisit trigger) — role *assignment* is already covered.
 
 The risk is obvious: "configure everything from an agent" could become a second,
 divergent CMS with its own weaker rules. The decision below prevents that.

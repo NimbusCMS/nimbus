@@ -368,11 +368,19 @@ can't work). Design in [ADR 0008](docs/adr/0008-openapi.md).
 
 ## 🤖 Milestone: MCP — the CMS control surface ✅ COMPLETE
 
-The payoff the whole API arc was for: an agent with a scoped token runs the
-**entire** CMS through the Model Context Protocol — content, schema, media,
-users, tokens, settings — so the admin UI is optional, not required. MCP is a
-transport + a generated tool surface over the same services the admin uses, never
-new logic. Design in [ADR 0009](docs/adr/0009-mcp-control-surface.md).
+The payoff the whole API arc was for: an agent with a scoped token runs the CMS
+through the Model Context Protocol — content, schema, media, users (incl. role
+**assignment** via `set_role`), tokens, settings — so the admin UI is optional,
+not required. MCP is a transport + a generated tool surface over the same services
+the admin uses, never new logic. Design in [ADR 0009](docs/adr/0009-mcp-control-surface.md).
+
+**One deferred surface (ADMIN-9):** composing/editing/deleting a *role* (a
+capability bundle) is admin-UI-only — a rare, highest-privilege authoring act with
+no concrete agent consumer yet. Day-to-day role *operation* (assign a role,
+list roles) is already MCP-reachable. Revisit — build a `RolesToolset`
+(`roles:write`-gated, **subset-only on create/update AND destroy** per ADMIN-3,
+audited, non-enumerating) — when an agent workflow concretely needs to compose a
+bundle, or at the pre-1.0 "entire control surface over MCP" pass.
 
 Capabilities go granular (`schema:write`, `media:*`, `users:write`,
 `tokens:write`, `settings:write`, + `admin`), designed as the atoms of a future

@@ -81,4 +81,45 @@ final class RolesAdminTest extends HttpTestCase
         $this->post('/admin/roles/' . $custom . '/delete', []);
         self::assertNull($this->roles->find($custom), 'a custom role is deleted');
     }
+
+    // ------------------------------------------------ subset-only on delete (ADMIN-3)
+
+    public function test_a_roles_write_only_actor_cannot_delete_a_superior_role(): void
+    {
+        // A custom role that grants more than the actor holds.
+        $superior = $this->roles->create('Ops', ['users:write', 'schema:write'], false);
+        // The actor can manage roles but holds neither users:write nor schema:write.
+        $this->actingWithCapabilities(['roles:write']);
+
+        $response = $this->post('/admin/roles/' . $superior . '/delete', []);
+
+        self::assertSame(302, $response->status);
+        self::assertStringContainsString('err=', (string) $response->header('Location'));
+        self::assertNotNull($this->roles->find($superior), 'the superior role must survive — delete is subset-guarded like edit');
+    }
+
+    public function test_a_blocked_delete_leaves_a_role_bound_tokens_capabilities_intact(): void
+    {
+        $tokens   = new \Nimbus\Api\ApiTokenRepository($this->db);
+        $superior = $this->roles->create('Ops', ['users:write'], false);
+        $plain    = $tokens->create('Ops token', [], null, $superior); // bound to the role, no explicit abilities
+
+        $this->actingWithCapabilities(['roles:write']);
+        $this->post('/admin/roles/' . $superior . '/delete', []);
+
+        $token = $tokens->findByPlaintext($plain);
+        self::assertNotNull($token);
+        /** @var \Nimbus\Api\ApiToken $token */
+        self::assertContains('users:write', $tokens->principalFor($token)->scopes, 'the blocked delete did not blind the role-bound token');
+    }
+
+    public function test_an_admin_can_delete_a_role_that_grants_anything(): void
+    {
+        $this->actingAs('admin'); // admin holds everything → subset guard always passes
+        $superior = $this->roles->create('Ops', ['users:write', 'schema:write'], false);
+
+        $this->post('/admin/roles/' . $superior . '/delete', []);
+
+        self::assertNull($this->roles->find($superior), 'an admin can still delete any custom role');
+    }
 }

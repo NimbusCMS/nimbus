@@ -19,6 +19,40 @@ When a finding **class** appears here twice, promote it into
 
 ## Findings
 
+### 2026-08-23 · Slice K — role-delete authz gap + public page-cache disk-fill (ADMIN-3/SVM-1/SVM-2)
+- **Status:** fixed. Fable two-skill burst — **security-green, no Critical/High.** Two Mediums
+  (ADMIN-3, SVM-1) + one Low (SVM-2), all fixed in-PR with guarding tests; ADMIN-9 = recorded
+  deferral (no vuln — a missing management surface). Catalog: #2 (privilege/authz integrity),
+  #13/DoS (public edge), #14 (availability).
+- **Surface:** `src/Admin/RolesController.php` (`destroy`), `src/Site/SiteController.php`
+  (`renderCollection`, `asset`), `src/Application.php` (`cacheKey`).
+- **ADMIN-3 (Medium, fixed) — role delete was the unguarded twin of role edit.** A `roles:write`-only
+  actor could POST `/admin/roles/{id}/delete` on a role granting caps they lack → deleted,
+  `nb_user_roles` cascades, role-bound tokens resolve to explicit-abilities-only (`principalFor`
+  role_id→null → often empty → deny). **Closed-direction sabotage/denial, not escalation** → Medium.
+  Fix: `destroy()` runs the same `firstUnheld($role->capabilities)` guard as `update()` (the one
+  shared predicate — catalog #2's "reuse, never reimplement"). Verified no OTHER role-mutation path
+  has the gap (store/update guarded; `UsersToolset::set_role` + `UsersController` assign guarded both
+  ways; admin role is isSystem/undeletable). Guard: `RolesAdminTest` (superior-role survives + a
+  role-bound token's scopes survive the blocked delete + admin still can).
+- **SVM-1 (Medium, fixed; one level down for the opt-in `PAGE_CACHE_TTL>0`) — unauthenticated
+  page-cache disk-fill.** Public `?page` floored at 1, no ceiling; an out-of-range page rendered a
+  200 empty list; `cacheKey` keys the raw `?page=N` and `respond()` stores 200s → one `.cache` file
+  per N, no site rate-limiter. **A 404 (not clamp-to-200) is what fixes it** — confirmed against
+  `cacheKey`/`respond`: a clamped 200 still mints per-N. Two-part fix: `renderCollection` 404s past
+  the end (index route) AND `cacheKey` returns null above `MAX_CACHEABLE_PAGE=1000` (covers home +
+  entry routes, which 200 but ignore `?page` — the mint the index-only 404 missed). No new oracle
+  (total_pages already rendered). Guard: `CacheRoutesTest` asserts **no `.cache` file** is written.
+- **SVM-2 (Low, fixed) — NUL in an asset path → ValueError → 500 + log spam** (no disclosure). Fix:
+  reject `\0` before `realpath` → 404. Complete for the ValueError class (PHP 8 `realpath` throws
+  only on NUL; other bad paths return false → already 404). Guard: `SiteRoutesTest` NUL → 404.
+- **ADMIN-9 (no finding):** recording the roles-CRUD-MCP deferral papers over no authz gap **because
+  ADMIN-3 ships** — the roles UI is now uniformly `roles:write` + subset-only across create/update/
+  destroy. Forward condition recorded: a future `RolesToolset` must carry subset-only on destroy.
+- **Left open (recorded):** `destroy()` has no explicit last-admin guard (defused by isSystem on the
+  admin role + subset-on-create); the public site has no site-wide flood limiter (inherent — the
+  limiter is an API control, consistent with Slice J).
+
 ### 2026-08-23 · Slice J — HTTP/CORS/HEAD hardening (HTTP-2/3/4 + API-5)
 - **Status:** fixed. Fable two-skill burst — **security-green, no Critical/High/Medium.** Two Lows
   (each with a pinning test) + informationals. Catalog: #13 (HTTP/header/proxy), #6 (CSRF boundary).
