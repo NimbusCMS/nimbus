@@ -14,6 +14,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-2 · Management forms enumerate every collection handle
+- **⏸ DEFERRED → admin-experience redesign** (deliberate). Low info-disclosure (a semi-privileged management actor sees collection *names*, never content; subset-only still blocks the grant). UI-shaped (offer only grantable/readable collections in the token/role/settings forms) — the natural home is the gated admin-experience redesign ([[nimbus-admin-experience-redesign]]). Revisit: when that redesign lands.
 - **Priority:** P3
 - **Type:** security (info-disclosure, Low)
 - **Discovered:** Slice B security review (A3).
@@ -23,6 +24,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** M
 
 ### FU-3 · Dashboard shows aggregate counts to any signed-in user
+- **⏸ DEFERRED → admin-experience redesign** (deliberate). Low aggregate-count disclosure (a number, no names). The fix (scope dashboard stats to readable collections) is a dashboard-widget change that belongs with the admin-experience redesign. Revisit: with that redesign.
 - **Priority:** P3
 - **Type:** security (info-disclosure, Low — aggregate, nameless)
 - **Discovered:** Slice B security review (A4).
@@ -42,6 +44,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-5 · No app-level request-body-size bound
+- **⏸ DEFERRED — documented, no code** (deliberate, proportionality). The deployment ceiling is documented in COMPATIBILITY (PHP `post_max_size`, MySQL `max_allowed_packet`); an app-level body-size middleware is not built without evidence of a parse-time DoS (bounded meanwhile by `MAX_PER_PAGE` on the read path + the validation caps on writes). Revisit: evidence of a parse-time memory/CPU DoS.
 - **Priority:** P3
 - **Type:** security (DoS, defense-in-depth)
 - **Discovered:** Slice F security review.
@@ -61,6 +64,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-7 · Hosted-analytics beacons need a CSP `connect-src` (or the proxy pattern documented)
+- **⏸ DEFERRED — reverse-proxy pattern documented; config-CSP deferred** (deliberate). The supported path (self-hosted or reverse-proxied analytics served from `'self'`) is documented in COMPATIBILITY (§ Page caching / CSP nonce, "External analytics beacons"). A config-driven `connect-src`/`script-src` source extension (an env allow-list, opt-in, off by default) is **not** built — it needs its own security review (widening the CSP is a real surface). Revisit: a concrete hosted-analytics operator need + that security review.
 - **Priority:** P3
 - **Type:** product-gap / security (scope decision)
 - **Discovered:** Slice H reviews (HTTP-1 / PLUG-5).
@@ -70,6 +74,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S (docs) / M (config-driven CSP)
 
 ### FU-8 · No per-route throttle on resend-invite
+- **⏸ DEFERRED — no code** (deliberate, proportionality). The **pending-gate** (only a genuinely-pending user is resendable) is the primary bound, on top of auth + `users:write` + CSRF + the subset guard; a bespoke per-route throttle is not built speculatively. Revisit: evidence of resend abuse (mail-bombing a pending inbox / `nb_password_resets` growth).
 - **Priority:** P3
 - **Type:** security (DoS, defense-in-depth)
 - **Discovered:** Slice I reviews (ADMIN-7).
@@ -137,6 +142,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-15 · A regular-collection home is duplicated at `/` and `/{handle}`
+- **⏸ DEFERRED (P4)** (deliberate). Unlike the single-kind case (SVM-4, fixed), `/{handle}` for a *browsable* collection is a legitimate advertised URL, so the remedy is a **canonical-tag policy**, not a 404. Revisit: SEO evidence that the duplicate signal matters.
 - **Priority:** P4
 - **Type:** SEO / canonical
 - **Discovered:** 2026-08-24 (Slice U platform review).
@@ -145,6 +151,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-16 · A deliberately zero-role legacy admin re-acquires `admin` on a `roles:seed` re-run
+- **⏸ DEFERRED — accepted** (deliberate). The Slice V security review rated the `RoleSeeder` zero-assignment guard **sufficient**; this narrow residual needs (legacy admin, `nb_users.role='admin'`) + (deliberately stripped to *exactly zero* roles) + (a CLI `roles:seed` re-run). The companion fix (normalize `nb_users.role` on role edits) is **riskier than it looks** — `Auth` hydrates `User->role` from that column, so normalizing it would need auditing every `User->role` read for a legacy authz check. Not built. Revisit: `User->role` becoming provably non-authoritative, or evidence of the sequence occurring.
 - **Priority:** P3
 - **Type:** security (privilege widening, Low residual of FU-1)
 - **Discovered:** 2026-08-24 (Slice V reviews).
@@ -153,6 +160,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-17 · A grandfathered collection whose handle collides with a management name stays management-judged
+- **⏸ DEFERRED — documented residual** (deliberate). Reject-at-create (FU-4) can't reach a pre-existing collision; a silent rename would orphan its scopes/API paths (handle immutable). A `nimbus doctor`-style warning is the fix **if a real upgrade hits it**. Revisit: an upgraded install carrying a colliding `nb_collections.handle`.
 - **Priority:** P3
 - **Type:** security (Low residual of FU-4)
 - **Discovered:** 2026-08-24 (Slice W security review).
@@ -161,6 +169,7 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **Effort:** S
 
 ### FU-18 · Reserve `nb`-prefixed plugin ids (namespace symmetry)
+- **✅ RESOLVED** (Slice Z) — the loader id-gate now rejects an id matching `^nb([._-]|$)` (`nb`, `nb_stats`, `nb.x`, `nb-y`) with `INVALID_MANIFEST`, so a plugin can't claim an id in core's `nb_*` table namespace (symmetric with the FU-11 migration lint). Test: `PluginLoaderTest::test_a_plugin_id_in_the_reserved_nb_namespace_is_rejected`.
 - **Priority:** P4
 - **Type:** hygiene
 - **Discovered:** 2026-08-24 (Slice Y platform review).

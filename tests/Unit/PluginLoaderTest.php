@@ -103,7 +103,7 @@ final class AllCapabilitiesBrokenPlugin implements Plugin
             }
         });
         $context->events()->listen('allcaps.event', static fn (): null => null);
-        $context->migrations()->register('allcaps', ['CREATE TABLE nb_allcaps_x (id INT)']);
+        $context->migrations()->register('allcaps', ['CREATE TABLE allcaps_x (id INT)']); // plugin-owned (not nb_*, or the FU-11 lint would throw here first)
         $context->adminPages()->register('allcaps-page', 'AllCaps', '★', static fn (): string => 'x');
         $context->maintenance()->register('allcaps-task', static fn (): int => 0);
         // Now fail: 'text' is a core type — DuplicateFieldType, which the loader
@@ -283,6 +283,24 @@ final class PluginLoaderTest extends TestCase
         foreach ($diagnostics as $d) {
             self::assertSame(PluginDiagnostic::INVALID_MANIFEST, $d->reason);
             self::assertTrue($d->isFailure());
+        }
+    }
+
+    public function test_a_plugin_id_in_the_reserved_nb_namespace_is_rejected(): void
+    {
+        // FU-18: `nb` (and `nb_`/`nb.`/`nb-`) is core's reserved table namespace —
+        // an id there would name tables `nb_*` and collide with core.
+        $path = $this->installed(
+            $this->package('vendor/nb-stats', ['id' => 'nb_stats', 'plugin' => FixturePlugin::class]),
+            $this->package('vendor/nb', ['id' => 'nb', 'plugin' => FixturePlugin::class]),
+        );
+
+        [$diagnostics] = $this->load($path);
+
+        self::assertCount(2, $diagnostics);
+        foreach ($diagnostics as $d) {
+            self::assertSame(PluginDiagnostic::INVALID_MANIFEST, $d->reason);
+            self::assertStringContainsString('nb', $d->message);
         }
     }
 
