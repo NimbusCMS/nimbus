@@ -52,6 +52,17 @@ final class McpServer
      */
     public function handle(array $message, TokenPrincipal $principal, EntryOpContext $ctx): ?array
     {
+        // A JSON-RPC **batch** (a top-level array) — and, since the transport
+        // collapses an empty or malformed body to `[]`, those too — is answered
+        // with a single Invalid Request error, never the misleading empty 202 a
+        // batch used to get (API-6). Batching is deliberately NOT implemented:
+        // MCP protocol 2025-06-18 removed it, and fanning out one HTTP request
+        // into N tool calls would bypass the per-request rate limit. This lives
+        // here, in the shared protocol layer, so the stdio transport inherits it.
+        if (array_is_list($message)) {
+            return JsonRpc::error(null, JsonRpc::INVALID_REQUEST, 'Batch requests are not supported.');
+        }
+
         $isNotification = !array_key_exists('id', $message);
         $id             = $this->id($message);
 
