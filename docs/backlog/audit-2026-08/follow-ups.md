@@ -127,3 +127,11 @@ tracked here so the burn-down stays complete. Same format as the domain files.
 - **What:** ADMIN-14a validates a relation field's `target` at *write* time (the target must be an existing collection). But nothing guards the *reverse*: deleting collection X while another collection's relation field still targets X leaves that field pointing at a now-missing collection — the same dead-relation/empty-picker state 14a prevents on write, reached from the other direction. Fail-closed today (reads resolve to `[]`, no 500), so it's a silent product papercut, not a security bug.
 - **Fix:** at collection delete, either warn/refuse when a relation field elsewhere targets it (mirroring the media in-use guard), or null/re-point those fields deliberately. Decide the semantics; small once decided.
 - **Effort:** S
+
+### FU-15 · A regular-collection home is duplicated at `/` and `/{handle}`
+- **Priority:** P4
+- **Type:** SEO / canonical
+- **Discovered:** 2026-08-24 (Slice U platform review).
+- **What:** SVM-4 (Slice U) 404s a *single-kind* home's `/{handle}`, but a **browsable** collection set as the home (`settings.home = posts`) still serves identical content at both `/` and `/posts`, and the sitemap lists both — split canonical signal. Unlike the single case this is NOT a 404 fix: `/posts` is a legitimate advertised URL for a browsable collection.
+- **Fix:** a canonical-tag policy (emit `<link rel="canonical" href="/">` on the collection index when it is the designated home, or vice-versa), not a route change. Decide the canonical direction.
+- **Effort:** S

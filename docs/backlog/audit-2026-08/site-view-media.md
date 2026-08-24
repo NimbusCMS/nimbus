@@ -63,6 +63,7 @@ not double-counted.
 ---
 
 ### SVM-4 · Reusable `blocks` fragments and single-kind collections are standalone public pages
+- **✅ RESOLVED** (Slice U) — one shared `SiteController::isPubliclyBrowsable(Collection)` predicate (`handle !== BLOCKS_HANDLE && !isSingle()`) now gates **both** `index()` and `show()` and drives `sitemap()`, so the served surface and the crawled surface can't drift. `/blocks`, `/blocks/{slug}`, `/{single-handle}` and its `__singleton` entry all `404` (reusing the same `notFound()` an absent collection returns — no enumeration oracle). Chose **404 over 301**: redirects belong to `config/redirects.php`, `isSingle()` ≠ "is the home" (a non-home single has no redirect target), and a permanent 301 outlives a mutable `settings.home`. `homePage()` is untouched (a single legitimately renders at `/`); headless `/api/.../blocks/entries` is untouched. `BLOCKS_HANDLE` const shared with the `blocks()` loader. Documented in COMPATIBILITY. Closes the 2026-08-15 ledger "hide blocks from public routes/sitemap (deferred-on-evidence)" item. Tests: `SiteRoutesTest` (blocks/single 404 both routes, absent-parity, home still 200 at `/`, normal collection still 200) + `CacheRoutesTest` (a non-browsable 404 mints no cache file).
 - **Priority:** P3
 - **Type:** product-gap
 - **Where:** `src/Site/SiteController.php:118-119` (the `{collection}` / `{collection}/{slug}` catch-alls serve **every** collection), vs `SiteController.php:167-169` (the sitemap deliberately **excludes** `blocks` and single collections).

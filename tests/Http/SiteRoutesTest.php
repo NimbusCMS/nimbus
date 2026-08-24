@@ -139,6 +139,47 @@ final class SiteRoutesTest extends HttpTestCase
         self::assertSame(404, $this->get('/nope')->status);
     }
 
+    public function test_the_blocks_fragment_store_is_not_a_public_page(): void
+    {
+        // SVM-4: blocks are embedded by slug on other pages, never standalone.
+        $blocks = $this->makeCollection('blocks');
+        $this->publish($blocks, 'Announcement', 'announcement');
+
+        self::assertSame(404, $this->get('/blocks')->status, 'the blocks index is not browsable');
+        self::assertSame(404, $this->get('/blocks/announcement')->status, 'a block is not a standalone page');
+    }
+
+    public function test_a_hidden_collection_404_is_indistinguishable_from_an_absent_one(): void
+    {
+        // Non-enumeration: "exists but not browsable" returns the same notFound()
+        // as "absent", so nothing distinguishes that a blocks collection exists.
+        $this->makeCollection('blocks');
+
+        self::assertSame($this->get('/nope')->body, $this->get('/blocks')->body);
+    }
+
+    public function test_a_single_kind_collection_is_not_reachable_at_its_handle(): void
+    {
+        // SVM-4: a single's one entry is the site home at `/`; it must not also
+        // live at /{handle} (index) or /{handle}/{slug} (show) — a duplicate
+        // canonical. Both 404, but the single still serves as the home at `/`.
+        $home = $this->singleCollection('homepage');
+        $this->publish($home, 'Welcome', EntryService::SINGLETON_SLUG);
+
+        self::assertSame(404, $this->get('/homepage')->status);
+        self::assertSame(404, $this->get('/homepage/' . EntryService::SINGLETON_SLUG)->status);
+        self::assertSame(200, $this->homeWith('homepage')->status, 'the single still serves as the home at /');
+    }
+
+    public function test_a_normal_collection_is_still_publicly_browsable(): void
+    {
+        $c = $this->makeCollection('posts');
+        $this->publish($c, 'Hello', 'hello');
+
+        self::assertSame(200, $this->get('/posts')->status);
+        self::assertSame(200, $this->get('/posts/hello')->status);
+    }
+
     // ------------------------------------------------------------------ escaping
 
     public function test_entry_output_is_escaped(): void

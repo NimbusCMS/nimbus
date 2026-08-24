@@ -100,6 +100,21 @@ final class CacheRoutesTest extends HttpTestCase
         self::assertSame(['page'], array_values(array_unique($m[1])), 'SiteController must read no query key but "page" (HTTP-6 cache-key contract)');
     }
 
+    public function test_a_non_browsable_collection_is_not_cached(): void
+    {
+        // SVM-4 + SVM-1: /blocks now 404s (a fragment store is not a page), and
+        // 404s are never cached — the fix shrinks the cacheable public surface.
+        $blocks = $this->makeCollection('blocks');
+        $this->seedLive($blocks, 'Announcement', 'announcement');
+
+        $cache = new PageCache($this->dir, 300);
+        $app   = $this->appUsing($cache);
+
+        self::assertSame(404, $app->handle($this->request('GET', '/blocks'))->status);
+        self::assertNull($cache->get('/blocks'), 'a non-browsable 404 is never cached');
+        self::assertCount(0, glob($this->dir . '/*') ?: [], 'no cache file minted for /blocks');
+    }
+
     public function test_caching_disabled_reflects_changes_immediately(): void
     {
         $c = $this->makeCollection('posts');
