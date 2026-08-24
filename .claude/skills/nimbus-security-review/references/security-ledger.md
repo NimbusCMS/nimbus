@@ -17,6 +17,17 @@ When a finding **class** appears here twice, promote it into
 
 ---
 
+### 2026-08-24 · Slice S — Route-dispatch memoization & cache-key correctness (HTTP-5/HTTP-6)
+Reviewed via the Fable security burst before building. Security-green. The security-relevant decision here was the **fix choice**, not the finding.
+
+- **HTTP-5 — no finding (either direction).** The memo can't be poisoned (`Route::$pattern` is `public readonly`; the regex derives from it alone, never from request input) and matching is byte-identical. The `{name*}` catch-all compiles to `(?P<path>.+)/?$` — a single greedy quantifier + optional literal → **linear** backtracking, no ReDoS. Internal perf, semantics-preserving.
+- **HTTP-6 — Low (latent), fixed by documentation not code.** As-is, the path+`page` key collides across other query params, so with page-cache **on** AND a query-varying theme, a first visitor's body is replayed for later queries (wrong public content; everything cacheable is already anonymous/public — no private data crosses, same scope class as the Slice H analysis). Double-gated and unreachable through the supported theme contract today.
+  - **The fix choice was the security call.** "Fold the sorted query into the key" would be a **Medium regression** — an unauthenticated client mints unbounded `.cache` files via `?x=1,2,3…` (no flood limiter on the public surface; re-opens SVM-1/Slice K). A **bucketed** key is worse: it gives the attacker **chosen-key cache poisoning** (pre-seed the bucket a victim's legitimate `?tag=news` will render into) — the rejection of option (b) is therefore *security-load-bearing*, not taste. Shipped option (a): keep path+`page`, document the no-query-vary contract, pin it with tests.
+  - **Slice H nonce invariant intact:** the key selects *which* entry; the stored `timestamp\nnonce\nHTML` triple and `Csp::adopt` re-emit are key-independent — a collision serves entry A's body with entry A's own stored nonce (wrong content, never a nonce mismatch). Confirmed.
+- **QA/permanence:** `CacheRoutesTest::test_distinct_query_strings_do_not_mint_distinct_cache_files` (file-count guard — fails loudly if someone later folds the query and re-opens the disk-fill) + `::test_the_public_front_end_reads_no_query_input_but_page` (drift guard). Existing HTTP-1 nonce tests remain the guard for the interaction.
+
+Verdict: **security-green.** Hardens: removes per-request regex recompilation with zero semantic/security change; turns HTTP-6's invisible coupling into an explicit, test-guarded contract while keeping SVM-1's disk-fill bound and the Slice H nonce invariant intact. Leaves open (Low, tracked): the latent wrong-content collision remains *possible* for a future third-party query-varying theme with caching on — accepted as documented (same posture as Slice H's A7 self-CSP constraint); the pre-written fix (allow-listed/no-store keying) lands with the first query-varying core consumer.
+
 ### 2026-08-24 · Slice R — Admin notice hardening & correctness paper-cuts (ADMIN-10/ADMIN-14)
 Reviewed via the Fable security burst before building; security-green, no Critical/High/Medium. ADMIN-10 is a confirmed **Low** (escaped, social-engineering aid only); ADMIN-14 has no security impact (both angles traced and cleared).
 

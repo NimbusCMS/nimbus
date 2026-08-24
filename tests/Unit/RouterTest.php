@@ -6,6 +6,7 @@ namespace Nimbus\Tests\Unit;
 
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
+use Nimbus\Http\Route;
 use Nimbus\Http\Router;
 use PHPUnit\Framework\TestCase;
 
@@ -14,6 +15,25 @@ final class RouterTest extends TestCase
     private function request(string $method, string $path): Request
     {
         return new Request($method, $path, [], [], [], []);
+    }
+
+    public function test_route_match_is_stable_across_repeated_calls(): void
+    {
+        // HTTP-5: regex() is memoized on the Route, so match() must be
+        // byte-identical on every call — a transparent optimization, not a
+        // behavior change.
+        $handler = static fn (Request $r, array $p): Response => Response::html('ok');
+
+        $route = new Route('GET', '/posts/{slug}', $handler);
+        $first = $route->match('/posts/hello');
+        self::assertSame(['slug' => 'hello'], $first);
+        self::assertSame($first, $route->match('/posts/hello'), 'the memoized regex changed the match result');
+        self::assertNull($route->match('/posts/a/b'), 'a single-segment param still rejects a multi-segment path after memoization');
+
+        // The {path*} catch-all still spans slashes after memoization.
+        $wild = new Route('GET', '/theme/assets/{path*}', $handler);
+        self::assertSame(['path' => 'css/app.css'], $wild->match('/theme/assets/css/app.css'));
+        self::assertSame($wild->match('/theme/assets/css/app.css'), $wild->match('/theme/assets/css/app.css'));
     }
 
     public function test_static_and_param_routes_dispatch(): void

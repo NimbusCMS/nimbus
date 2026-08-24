@@ -13,6 +13,9 @@ final class Route
 {
     private ?string $name = null;
 
+    /** The compiled match regex, built once from the immutable $pattern (HTTP-5). */
+    private ?string $compiled = null;
+
     /** @var array<int,callable> middleware run before the handler; return a Response to short-circuit */
     private array $middleware;
 
@@ -109,6 +112,12 @@ final class Route
 
     private function regex(): string
     {
+        // Compiled once and memoized: $pattern is readonly, so the derived regex
+        // is invariant for the life of the Route — recomputing it on every
+        // match() was pure waste (HTTP-5). Semantics are byte-identical.
+        if ($this->compiled !== null) {
+            return $this->compiled;
+        }
         $regex = preg_replace_callback('#\{(\w+)(\*?)\}#', static function (array $m): string {
             // {name} matches one path segment; {name*} matches the rest of the
             // path (slashes included) — for catch-alls like static asset serving.
@@ -116,6 +125,6 @@ final class Route
             return '(?P<' . $m[1] . '>' . $class . ')';
         }, $this->pattern);
 
-        return '#^' . $regex . '/?$#';
+        return $this->compiled = '#^' . $regex . '/?$#';
     }
 }

@@ -69,6 +69,7 @@ decision were both verified to still hold.
 ---
 
 ### HTTP-5 · Compiled route regex is rebuilt on every match; dispatch is a per-request linear rescan
+- **✅ RESOLVED** (Slice S) — `Route::regex()` memoizes the compiled regex on the instance (`private ?string $compiled`); `$pattern` is `readonly` so the derived regex is invariant, and matching is byte-identical (semantics-preserving). **Honest scope:** the per-request win is ~nil — `Router::dispatch` is single-pass first-match-wins, Route objects are rebuilt per request, and PHP's process PCRE cache already caches the compiled pattern across an FPM worker; the memo only saves the cheap `preg_replace_callback` string build, and pays off in repeated-dispatch (tests) / a future long-running runtime. A ≤5-line zero-risk hygiene change. Deliberately did NOT memoize `Application::routes()` (SiteController captures `Config::home()` at construction → stale routing). Test: `RouterTest::test_route_match_is_stable_across_repeated_calls`.
 - **Priority:** P3
 - **Type:** performance
 - **Where:** `src/Http/Route.php:77-83` + `:110-120` (`match()` calls `regex()`, which runs `preg_replace_callback` every time), `src/Http/Router.php:70-80`
@@ -80,6 +81,7 @@ decision were both verified to still hold.
 ---
 
 ### HTTP-6 · Page-cache key ignores every query param except `page`
+- **✅ RESOLVED** (Slice S) — **documented contract, NOT "fold the query".** Both reviews rejected the finding's "fold the sorted query string into the key" option: it re-opens the exact unauthenticated disk-fill vector `MAX_CACHEABLE_PAGE` closed (SVM-1) — an anonymous client mints one cache file per `?x=1,2,3…` — and a *bucketed* key would be worse still (attacker-steerable chosen-key cache poisoning: pre-seed the bucket a victim's `?tag=news` lands in). The kept key (path + `?page`) is safe by construction because core's front end reads **no query input but `page`** and themes have no channel to vary a cached page (no header access, view-model is the contract). Fix = make the invisible coupling an explicit, tested contract: `COMPATIBILITY.md` § Page caching now states cached output must be a pure function of path + `page`; a query-varying public page must run `PAGE_CACHE_TTL=0` (a store-side `no-store` opt-out is the named, deferred extension point — built when a query-varying core feature needs it, HTTP-7/Slice O precedent). Residual noted: `/foo` vs `/foo/` are two keys (bounded ×2). Tests: `CacheRoutesTest::test_distinct_query_strings_do_not_mint_distinct_cache_files` (no-bloat — fails if anyone folds the query) + `::test_the_public_front_end_reads_no_query_input_but_page` (drift guard).
 - **Priority:** P3
 - **Type:** correctness
 - **Where:** `src/Application.php:356-368` (`cacheKey` keys only on `path` + `page`)
