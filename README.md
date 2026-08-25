@@ -96,6 +96,11 @@ authoritative, evidence-backed capability matrix lives in
 
 No tagged release, no upgrade path between versions, no backup tooling. Run it locally, fork it, read it — don't put a client's site on it yet.
 
+> A supported, hardened self-hosting recipe (one Caddy + one MySQL + one
+> container per site, Cloudflare-fronted) already exists under [`deploy/`](deploy)
+> and [`docs/DEPLOY.md`](docs/DEPLOY.md) — built for the multi-site platform, but
+> the alpha caveats above still apply.
+
 ## Quick start
 
 ```bash
