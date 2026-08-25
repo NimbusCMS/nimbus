@@ -384,7 +384,11 @@ final class ContentToolset implements Toolset
     private function writePayload(array $args): array
     {
         $payload = [];
-        foreach (['title', 'status', 'published_at'] as $key) {
+        // `slug` is honored (the create_ schema advertises it; EntryService
+        // normalizes it with Str::slug, makes it unique, and validates its length
+        // — the same path the admin uses). Omit it and the slug derives from the
+        // title; a singleton still forces its managed slug.
+        foreach (['title', 'slug', 'status', 'published_at'] as $key) {
             if (array_key_exists($key, $args)) {
                 $payload[$key] = $args[$key];
             }

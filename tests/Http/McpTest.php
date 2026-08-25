@@ -192,6 +192,25 @@ final class McpTest extends HttpTestCase
         self::assertSame(1, $fetched['version'], 'get returns the version for read-before-write');
     }
 
+    public function test_create_honors_an_explicit_slug_distinct_from_the_title(): void
+    {
+        $this->makeCollection('posts', [$this->field('body', 'textarea')]);
+        $write = $this->tokens->create('W', ['posts:read', 'posts:write']);
+
+        $created = $this->structured($this->call('create_posts', [
+            'title'  => 'Driving Nimbus with an agent',
+            'slug'   => 'agent-guide',
+            'status' => 'published',
+            'fields' => ['body' => 'hi'],
+        ], $write));
+
+        // The explicit slug wins over the title derivation, normalized by Str::slug.
+        self::assertSame('agent-guide', $created['data']['slug']);
+        // And it's reachable at that slug (so an idempotent seed can match on it).
+        $fetched = $this->structured($this->call('get_posts', ['slug' => 'agent-guide'], $write));
+        self::assertSame('Driving Nimbus with an agent', $fetched['data']['title']);
+    }
+
     public function test_the_allow_list_binding_drops_unknown_fields_over_mcp(): void
     {
         $this->makeCollection('posts', [$this->field('body', 'textarea')]);
