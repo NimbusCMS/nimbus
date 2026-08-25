@@ -41,6 +41,11 @@ final class SiteController
     /** Most reusable blocks loaded for a page — blocks are a handful, not a feed. */
     private const MAX_BLOCKS = 100;
 
+    /** Live entries a theme may render as collection navigation (a docs sidebar):
+     *  a bounded, curated set, not a feed. Past this the nav truncates in index
+     *  order — document it like SITEMAP_MAX; nav is for curated collections. */
+    private const NAV_MAX = 200;
+
     /** The reserved handle for the shared-fragment collection (a convention, not
      *  a kind — 2026-08-15 ledger). Its entries are embedded by slug on every
      *  page, never served as standalone public pages (SVM-4). */
@@ -90,6 +95,12 @@ final class SiteController
 
     /** @var array<string,array<string,mixed>>|null memoized live blocks by slug */
     private ?array $blocks = null;
+
+    /** @var array<int,list<array<string,mixed>>> memoized nav list per collection id */
+    private array $navByCollection = [];
+
+    /** @var list<string>|bool|null memoized theme.json `nav` opt-in — handles, or true=all */
+    private array|bool|null $navOptIn = null;
 
     public function __construct(
         Connection $db,
@@ -270,6 +281,60 @@ final class SiteController
         return $collection->handle !== self::BLOCKS_HANDLE && !$collection->isSingle();
     }
 
+    /**
+     * The collections a theme opts into navigation for, from its `theme.json`
+     * `nav` key: a list of collection handles, or `true` for all browsable
+     * collections. Read once, hardened — an absent or malformed manifest means
+     * no nav (never a 500), mirroring the theme-name fallback in {@see Config}.
+     * This is the manifest's first *runtime* read: keep its parse boring.
+     *
+     * @return list<string>|bool
+     */
+    private function navOptIn(): array|bool
+    {
+        if ($this->navOptIn !== null) {
+            return $this->navOptIn;
+        }
+        $this->navOptIn = false;
+        $file = $this->themeDir . '/theme.json';
+        if (is_file($file)) {
+            $decoded = json_decode((string) file_get_contents($file), true);
+            $nav     = is_array($decoded) ? ($decoded['nav'] ?? null) : null;
+            if ($nav === true) {
+                $this->navOptIn = true;
+            } elseif (is_array($nav)) {
+                $this->navOptIn = array_values(array_filter($nav, 'is_string'));
+            }
+        }
+        return $this->navOptIn;
+    }
+
+    /**
+     * A collection's live entries for theme navigation — a bounded, **live-only**
+     * list with the exact shape of `$entries`, or `[]` when the theme has not
+     * opted the collection in (theme.json `nav`) or the collection is not
+     * publicly browsable (a singleton or the blocks store — SVM-4, so nav never
+     * mints links to pages that 404). It is fed only by the live query, carries
+     * only the public `toApi` field values (via {@see EntryView}), and is capped
+     * at NAV_MAX in the DB. Memoized so the index and entry code paths share one
+     * fetch per request.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function nav(Collection $collection): array
+    {
+        if (array_key_exists($collection->id, $this->navByCollection)) {
+            return $this->navByCollection[$collection->id];
+        }
+        $optIn  = $this->navOptIn();
+        $wanted = $optIn === true || (is_array($optIn) && in_array($collection->handle, $optIn, true));
+        $nav    = $wanted && $this->isPubliclyBrowsable($collection)
+            ? $this->view->many($collection, $this->entries->liveForCollection($collection->id, self::NAV_MAX, 0))
+            : [];
+
+        return $this->navByCollection[$collection->id] = $nav;
+    }
+
     /** A collection's live entries, newest first. */
     private function index(Request $request, string $handle): Response
     {
@@ -323,6 +388,7 @@ final class SiteController
             'head'        => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, $collection->name, $this->title(), Csp::nonce(), null, $info)),
             'collection'  => $info,
             'entries'     => $this->view->many($collection, $rows),
+            'nav'         => $this->nav($collection),
             'page'        => $page,
             'total_pages' => $totalPages,
         ]);
@@ -345,6 +411,7 @@ final class SiteController
             'head'       => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, (string) $row['title'], $this->title(), Csp::nonce(), $entry, $info)),
             'collection' => $info,
             'entry'      => $entry,
+            'nav'        => $this->nav($collection),
         ]);
     }
 

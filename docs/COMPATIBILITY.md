@@ -237,6 +237,20 @@ valid "no entries" view); this keeps an out-of-range page from being a cacheable
 empty `200`. (Behavior change in `0.x`: such a page used to render a `200` empty
 list.)
 
+**Collection navigation (`$nav`).** For building a sidebar (a docs tree, a
+knowledge base), `collection` and `entry` templates receive `$nav` — the
+collection's **live** entries in the same shape as a `$entries` item
+(`{ slug, title, published_at, fields }`, with public field values), for the theme
+to group and sort (e.g. by a `section`/`order` field). It is **opt-in**: a theme
+declares which collections get it in its `theme.json` `nav` key — a list of
+handles, or `true` for all. Without the opt-in (or on an un-browsable collection —
+a singleton or the blocks store) `$nav` is an empty list, always defined so a
+template never needs to guard it. It is **bounded** to the first 200 live entries
+(index order); a collection larger than that is a feed, not curated navigation.
+Draft and scheduled entries never appear. Cross-reference the cache note below:
+publishing an entry flushes the whole page cache, so every page's `$nav` refreshes
+together.
+
 **Page metadata.** The view-model carries `$meta` for the document head —
 `{ title, description, canonical, og_type }`. The starter renders a
 `<meta name="description">`, a `<link rel="canonical">`, and Open Graph tags from
