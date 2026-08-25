@@ -127,7 +127,7 @@ final class ContentToolset implements Toolset
         $readable = [];
         foreach ($this->collections->all() as $collection) {
             if ($principal->can($collection->handle, 'read')) {
-                $readable[] = ['handle' => $collection->handle, 'name' => $collection->name];
+                $readable[] = ['handle' => $collection->handle, 'name' => $collection->name, 'kind' => $collection->kind()];
             }
         }
         return ToolResult::ok(['collections' => $readable]);
@@ -160,6 +160,7 @@ final class ContentToolset implements Toolset
         return ToolResult::ok([
             'handle'   => $collection->handle,
             'name'     => $collection->name,
+            'kind'     => $collection->kind(),
             'version'  => $collection->version,
             'writable' => $principal->can($handle, 'write'),
             'fields'   => $fields,

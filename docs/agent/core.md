@@ -65,8 +65,21 @@ where one is required is `precondition_required`.
 `{ code, message }` map. Correct exactly the named fields and resend.
 
 **Singletons.** Some collections hold a single entry (a "singleton" — e.g. a
-homepage or an about page). They have one entry with a reserved slug and an
-auto-managed title; you `get`/`update` the one entry rather than listing many.
+homepage or an about page). Create one with `create_collection` and `kind:"single"`
+(see §3). A singleton has exactly one entry with a managed slug and an auto title.
+To build one end to end:
+
+1. `create_collection` with `kind:"single"` and the fields you want.
+2. `create_{handle}` **once** with the field values and `status:"published"` — this
+   creates the single entry (the slug/title are managed for you).
+3. Thereafter **`get_{handle}` then `update_{handle}`** to edit it. A *repeated*
+   `create_{handle}` on a singleton overwrites the one entry **without a version
+   check** — use `update_` (which is version-checked) to edit safely.
+
+Singletons are not browsable at `/{handle}`. To make one the **home page** at
+`/`, point the home setting at it:
+`set_settings {"settings": {"site.home": "{handle}"}}` (needs `settings`). Only a
+*published* singleton renders — a draft home falls back to a placeholder.
 
 **Relations.** A field can relate entries to entries in another collection. Writes
 are filtered to valid targets in the related collection; a relation to a
@@ -80,11 +93,13 @@ on how many related ids one field accepts.
 Shape collections and fields. **Changes here are structural — think before you
 alter a live collection.**
 
-- **`create_collection`** — a new collection (handle + label + fields). Handles
-  and field handles are normalized; some are **reserved** and rejected (the
-  management names — `schema`, `media`, `users`, `tokens`, `settings`, `roles`,
-  `admin`, `api`, `uploads`, `theme` — and the built-in field handles `title`,
-  `slug`, `published_at`). Pick a different name if rejected.
+- **`create_collection`** — a new collection (handle + label + fields). Pass
+  `kind:"single"` for a singleton (one entry — see Singletons in §2); the default
+  is a normal many-entry collection. `kind` is set at creation and can't be changed
+  later. Handles and field handles are normalized; some are **reserved** and
+  rejected (the management names — `schema`, `media`, `users`, `tokens`, `settings`,
+  `roles`, `admin`, `api`, `uploads`, `theme` — and the built-in field handles
+  `title`, `slug`, `published_at`). Pick a different name if rejected.
 - **`update_collection`** — rename/relabel a collection.
 - **`add_field`** — add a field (a `type` from the field registry, a label,
   required/optional, type-specific options).
