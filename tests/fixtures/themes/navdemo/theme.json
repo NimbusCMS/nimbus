@@ -1,0 +1,4 @@
+{
+    "name": "Nav Demo",
+    "nav": ["posts", "guides", "home"]
+}
