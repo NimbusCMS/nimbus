@@ -1,0 +1,4 @@
+# Real secrets + certs never land in the repo — only *.example templates do.
+.env
+sites/*.env
+certs/

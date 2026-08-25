@@ -1,0 +1,28 @@
+{
+	# The edge Caddy terminates TLS; site containers are HTTP-only on the
+	# internal network. No auto-HTTPS here.
+	auto_https off
+	frankenphp
+	# Classic mode: no `worker` block. Do not add one — see docs/DEPLOY.md.
+}
+
+:8080 {
+	root * /app/public
+	encode zstd gzip
+
+	# COMPATIBILITY.md: the front web server must send nosniff on served assets
+	# and uploads. This container is the front server for its own static files.
+	@assets path /uploads/* /theme/assets/*
+	header @assets X-Content-Type-Options nosniff
+
+	# Defense in depth: the uploads tree is user data and must NEVER be executed
+	# as PHP. The uploader already allow-lists non-PHP types with random names, so
+	# nothing writes a .php here today — this stops any that ever slips through
+	# (a second bug) from becoming RCE. `route` pins the order so this wins over
+	# php_server. See docs/threat-catalog #8.
+	route {
+		@uploads_php path_regexp uploads_php ^/uploads/.*\.php
+		respond @uploads_php 403
+		php_server
+	}
+}

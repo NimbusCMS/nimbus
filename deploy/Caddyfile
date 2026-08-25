@@ -1,0 +1,28 @@
+{
+	# Cloudflare's edge is the ONLY trusted upstream. Caddy sets X-Forwarded-For
+	# from the true peer and strips anything a client prepended, so Nimbus's
+	# rate limiter and audit log see the real visitor. Refresh this list from
+	# https://www.cloudflare.com/ips/ (see docs/DEPLOY.md).
+	servers {
+		trusted_proxies static {$CLOUDFLARE_RANGES}
+	}
+}
+
+# Defense-in-depth: refuse any origin hit that didn't come through Cloudflare
+# (the real boundary is the Hetzner Cloud Firewall — see docs/DEPLOY.md).
+(cloudflare_only) {
+	@not_cf not remote_ip {$CLOUDFLARE_RANGES}
+	respond @not_cf 403
+}
+
+site-a.example.com {
+	import cloudflare_only
+	tls /certs/site-a.pem /certs/site-a.key   # Cloudflare Origin Cert; Full (strict)
+	reverse_proxy site-a:8080
+}
+
+site-b.example.com {
+	import cloudflare_only
+	tls /certs/site-b.pem /certs/site-b.key
+	reverse_proxy site-b:8080
+}

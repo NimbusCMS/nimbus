@@ -1,0 +1,17 @@
+{
+	auto_https off
+	# Trust only the internal web subnet as an upstream. A client that connects
+	# directly (like the test curl) is NOT trusted, so Caddy strips any
+	# X-Forwarded-For it sends and rewrites it to the true peer — this is what
+	# the forged-XFF proof checks.
+	servers {
+		trusted_proxies static 192.0.2.0/24
+	}
+}
+
+http://site-a.localhost:80 {
+	reverse_proxy site-a:8080
+}
+http://site-b.localhost:80 {
+	reverse_proxy site-b:8080
+}

@@ -1,0 +1,85 @@
+# Local proof harness (HTTP-only, throwaway credentials) — NOT production.
+# Proves the prod image + multi-site routing + hardening on your machine.
+name: nimbus-proof
+
+x-site: &site
+  build:
+    context: ../..
+    dockerfile: deploy/Dockerfile
+  image: nimbus:local
+  restart: unless-stopped
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  mem_limit: 256m
+  networks: [web]
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  caddy:
+    image: caddy:2
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    mem_limit: 128m
+    ports: ["8090:80"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      web:
+        ipv4_address: 172.31.9.254   # pinned edge IP — the only proxy sites trust
+
+  db:
+    image: mysql:8
+    cap_add: [SETGID, SETUID, DAC_OVERRIDE, CHOWN]
+    mem_limit: 768m
+    # deliberately NO host ports — proves the DB is internal-only
+    environment:
+      MYSQL_ROOT_PASSWORD: proof-root-pw
+      SITE_A_DB: site_a
+      SITE_A_USER: site_a
+      SITE_A_PASS: proof-site-a-pw
+      SITE_B_DB: site_b
+      SITE_B_USER: site_b
+      SITE_B_PASS: proof-site-b-pw
+    volumes:
+      - db_data:/var/lib/mysql
+      - ../mysql/init:/docker-entrypoint-initdb.d:ro
+    networks: [web]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pproof-root-pw"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  site-a:
+    <<: *site
+    environment:
+      APP_ENV: production
+      APP_URL: http://site-a.localhost:8080
+      DB_HOST: db
+      DB_NAME: site_a
+      DB_USER: site_a
+      DB_PASS: proof-site-a-pw
+      TRUSTED_PROXIES: 172.31.9.254
+
+  site-b:
+    <<: *site
+    environment:
+      APP_ENV: production
+      APP_URL: http://site-b.localhost:8080
+      DB_HOST: db
+      DB_NAME: site_b
+      DB_USER: site_b
+      DB_PASS: proof-site-b-pw
+      TRUSTED_PROXIES: 172.31.9.254
+
+networks:
+  web:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.9.0/24
+
+volumes:
+  db_data: {}

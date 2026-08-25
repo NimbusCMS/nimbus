@@ -1,0 +1,104 @@
+# NimbusCMS platform — one edge Caddy (only published ports) + one MySQL
+# (internal only) + one FrankenPHP container per site. See docs/DEPLOY.md.
+#
+# Hardening applied to every service: non-root, cap_drop ALL, no docker socket,
+# per-service memory limits. MySQL is never published; only Caddy is.
+name: nimbus-platform
+
+x-site: &site
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+  image: nimbus:local
+  restart: unless-stopped
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  mem_limit: 256m
+  networks: [web]
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]   # to bind 80/443
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro          # Cloudflare Origin Cert (never in the image/repo)
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      web:
+        # Pinned so each site can trust the edge by its exact IP (not the whole
+        # subnet). Without this, every site would trust every sibling as a proxy
+        # and a compromised site could forge X-Forwarded-For against its
+        # neighbours' rate limiter / audit log.
+        ipv4_address: 172.31.7.254
+
+  db:
+    image: mysql:8
+    restart: unless-stopped
+    cap_drop: [ALL]
+    cap_add: [SETGID, SETUID, DAC_OVERRIDE, CHOWN]  # mysqld's minimum
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    # No host ports — the DB is reachable only on the internal network.
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in deploy/.env}
+      # Confine root to the container's own socket — sites connect as their own
+      # least-privilege user, so root is never needed over the network.
+      MYSQL_ROOT_HOST: localhost
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./mysql/my.cnf:/etc/mysql/conf.d/nimbus.cnf:ro
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro  # per-site DB+user bootstrap
+    networks: [web]
+    healthcheck:
+      # Password via MYSQL_PWD (env), never on the process cmdline / docker inspect.
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysqladmin ping -h localhost -uroot --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # --- one service per site: same image, per-site :ro config/theme + env ---
+  site-a:
+    <<: *site
+    env_file: ./sites/site-a.env
+    volumes:
+      - ./sites/site-a/config:/app/config:ro
+      - ./sites/site-a/themes:/app/themes:ro
+      - site_a_uploads:/app/public/uploads
+      - site_a_storage:/app/storage
+
+  site-b:
+    <<: *site
+    env_file: ./sites/site-b.env
+    volumes:
+      - ./sites/site-b/config:/app/config:ro
+      - ./sites/site-b/themes:/app/themes:ro
+      - site_b_uploads:/app/public/uploads
+      - site_b_storage:/app/storage
+
+networks:
+  web:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.7.0/24   # pinned so TRUSTED_PROXIES is deterministic
+
+volumes:
+  db_data: {}
+  caddy_data: {}
+  caddy_config: {}
+  site_a_uploads: {}
+  site_a_storage: {}
+  site_b_uploads: {}
+  site_b_storage: {}
