@@ -1,0 +1,11 @@
+.git
+.github
+vendor
+node_modules
+tests
+.phpunit.result.cache
+deploy/.env
+deploy/sites/*.env
+deploy/certs
+deploy/local-proof/data
+*.md

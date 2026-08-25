@@ -620,8 +620,17 @@ replace-file-without-breaking-URLs · a `media` **field type** + reusable picker
 ## 🚀 Product & website (dogfooding)
 
 - Domain **nimbuscms.dev** (purchased) — the marketing site is **powered by NimbusCMS
-  itself** (not GitHub Pages). Host on the **Oracle free ARM box** (reuse the Foodmart
-  Terraform pattern) or Fly; one deploy can serve marketing site + live demo.
+  itself** (not GitHub Pages).
+- [x] **Deploy platform — Slice 1 (the stack).** A supported, self-hostable
+  production recipe under [`deploy/`](deploy) + [`docs/DEPLOY.md`](docs/DEPLOY.md)
+  per [ADR 0010](docs/adr/0010-deployment.md): one edge **Caddy** + one **MySQL 8**
+  + **one FrankenPHP container per site** (classic mode), Cloudflare-fronted. Built
+  and **proven locally** (`deploy/local-proof`, two sites through the edge) with the
+  full hardening — non-root, `cap_drop ALL`, no docker socket, memory limits, MySQL
+  unpublished, per-site least-privilege DB, two-layer trusted-proxy, Cloudflare-only
+  origin, fail-closed install. Both review skills passed the design; every control
+  empirically verified. **Slice 2** (provision the box `23.88.45.215`, TLS, Tailscale
+  admin plane + closed :22, go live) is credential-gated and separate.
 - Sequence: domain `[x]` → live demo + docs at usable-0.1 → landing page → comparison
   posts / benchmarks at 0.2.
 - **Themes/plugins registry** = Composer packages indexed by metadata (don't host code);

@@ -1,0 +1,19 @@
+{
+	# The edge Caddy terminates TLS; site containers are HTTP-only on the
+	# internal network. No auto-HTTPS here.
+	auto_https off
+	frankenphp
+	# Classic mode: no `worker` block. Do not add one — see docs/DEPLOY.md.
+}
+
+:8080 {
+	root * /app/public
+	encode zstd gzip
+
+	# COMPATIBILITY.md: the front web server must send nosniff on served assets
+	# and uploads. This container is the front server for its own static files.
+	@assets path /uploads/* /theme/assets/*
+	header @assets X-Content-Type-Options nosniff
+
+	php_server
+}
