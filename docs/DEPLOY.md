@@ -123,13 +123,18 @@ instead of the visitor's — or, worse, trust a forged header:
 - **Caddy** (`servers.trusted_proxies` = `CLOUDFLARE_RANGES`) trusts only
   Cloudflare as an upstream, so it strips any `X-Forwarded-For` a client forges
   and sets it from the true peer.
-- **Each site** (`TRUSTED_PROXIES` in its env) lists the **pinned internal Caddy
-  subnet ∪ Cloudflare ranges** — never the whole Docker bridge (`172.16.0.0/12`)
-  and never `0.0.0.0/0`. Nimbus then walks `X-Forwarded-For` right-to-left and
-  takes the first hop it does not trust: the real visitor.
+- **Each site** (`TRUSTED_PROXIES` in its env) lists the **edge Caddy's exact
+  pinned IP (`172.31.7.254`) ∪ Cloudflare ranges** — *not* the `/24` subnet, and
+  never the whole Docker bridge (`172.16.0.0/12`) or `0.0.0.0/0`. Nimbus then
+  walks `X-Forwarded-For` right-to-left and takes the first hop it does not
+  trust: the real visitor.
 
-The compose pins the web network to a fixed subnet (`172.31.7.0/24`) so this
-list is deterministic.
+The compose pins Caddy to `172.31.7.254` on a fixed subnet so this list is exact.
+Trusting only the edge's single IP (not the whole subnet) matters on a shared
+box: every site sits on the same network, so if a site trusted the `/24` a
+*compromised* neighbour could open a direct connection and forge a client IP
+against this site's rate limiter and audit log. For stronger isolation you can
+also put each site on its own bridge network shared only with `caddy` and `db`.
 
 ### 5. Bring it up + first-run
 
@@ -156,7 +161,17 @@ guessable admin. Seed content (optional) with the MCP seed runner or the API.
 3. Add a `site-x` service in `docker-compose.prod.yml` (copy the `site-a` block,
    point `env_file` at the new env; mount a per-site `config/`+`themes/`
    read-only if it has a custom theme).
-4. Add its `hostname { … reverse_proxy site-x:8080 }` block to `deploy/Caddyfile`.
+4. Add its block to `deploy/Caddyfile` — **including `import cloudflare_only` and
+   the `tls` line**, exactly like the shipped `site-a` block, or the new site
+   loses the origin-lock 403 and tries public ACME instead of the origin cert:
+
+   ```
+   site-x.example.com {
+       import cloudflare_only
+       tls /certs/site-x.pem /certs/site-x.key
+       reverse_proxy site-x:8080
+   }
+   ```
 5. `docker compose -f docker-compose.prod.yml up -d`, then `migrate` + `install`.
 
 ### Per-site theme / config

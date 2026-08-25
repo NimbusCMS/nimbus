@@ -25,7 +25,9 @@ services:
     ports: ["8090:80"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-    networks: [web]
+    networks:
+      web:
+        ipv4_address: 172.31.9.254   # pinned edge IP — the only proxy sites trust
 
   db:
     image: mysql:8
@@ -59,7 +61,7 @@ services:
       DB_NAME: site_a
       DB_USER: site_a
       DB_PASS: proof-site-a-pw
-      TRUSTED_PROXIES: 172.31.9.0/24
+      TRUSTED_PROXIES: 172.31.9.254
 
   site-b:
     <<: *site
@@ -70,7 +72,7 @@ services:
       DB_NAME: site_b
       DB_USER: site_b
       DB_PASS: proof-site-b-pw
-      TRUSTED_PROXIES: 172.31.9.0/24
+      TRUSTED_PROXIES: 172.31.9.254
 
 networks:
   web:
