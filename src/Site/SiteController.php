@@ -131,6 +131,7 @@ final class SiteController
         $r->get('/theme/assets/{path*}', fn (Request $req, array $p): Response => $this->asset($p['path']))->name('site.asset');
         $r->get('/sitemap.xml', fn (Request $req, array $p): Response => $this->sitemap())->name('site.sitemap');
         $r->get('/robots.txt', fn (Request $req, array $p): Response => $this->robots())->name('site.robots');
+        $r->get('/llms.txt', fn (Request $req, array $p): Response => $this->llmsTxt())->name('site.llms');
         $r->get('/', fn (Request $req, array $p): Response => $this->homePage($req))->name('site.home');
         $r->get('/{collection}', fn (Request $req, array $p): Response => $this->index($req, $p['collection']))->name('site.collection');
         $r->get('/{collection}/{slug}', fn (Request $req, array $p): Response => $this->show($req, $p['collection'], $p['slug']))->name('site.entry');
@@ -235,6 +236,61 @@ final class SiteController
             '',
             'Sitemap: ' . Config::appUrl() . '/sitemap.xml',
         ];
+
+        return Response::file(implode("\n", $lines) . "\n", 'text/plain; charset=UTF-8');
+    }
+
+    /**
+     * `/llms.txt` (llmstxt.org) — a plain-text guide for AI agents and crawlers,
+     * the agent-facing sibling of robots.txt/sitemap.xml. Beyond listing the
+     * public pages, it states the one thing an agent can't infer from the HTML:
+     * this is a NimbusCMS site with a token-gated MCP control surface, and how to
+     * reach the built-in operating guide.
+     *
+     * The operational prose is **core-authored**; the only editor-controlled
+     * values (site name, description, collection names) sit in structural slots
+     * (the H1, the summary blockquote, link text) and are **flattened to a single
+     * line** so a value with newlines can't forge a section — an agent reads this
+     * as trusted site metadata, so it must not become an instruction channel.
+     * Emits **no version string** (the MCP protocol version is negotiated at
+     * `initialize`, and a CMS version would be fingerprinting). Lists only
+     * publicly browsable collections (never a singleton or the blocks store —
+     * SVM-4), matching what robots/sitemap expose.
+     */
+    private function llmsTxt(): Response
+    {
+        $base = Config::appUrl();
+        $flat = static fn (string $s): string => trim((string) preg_replace('/\s+/', ' ', $s));
+        $name = $flat($this->title());
+        $desc = $flat($this->settings !== null ? $this->settings->description() : Config::siteDescription());
+
+        $lines = ['# ' . $name, ''];
+        if ($desc !== '') {
+            $lines[] = '> ' . $desc;
+            $lines[] = '';
+        }
+        $lines[] = 'This is a NimbusCMS site. Beyond the pages below, it is operable by AI agents over '
+            . 'the Model Context Protocol (MCP) at ' . $base . '/api/v1/mcp — a token-gated, rate-limited '
+            . 'control surface. An agent connects with a scoped API token and reads the built-in operating '
+            . 'guide (the `nimbus://guide/core` MCP resource) to learn how to define content types, write '
+            . 'entries, and manage the site.';
+        $lines[] = '';
+
+        $pages = [];
+        foreach ($this->collections->all() as $collection) {
+            if ($this->isPubliclyBrowsable($collection)) {
+                $pages[] = '- [' . $flat($collection->name) . '](' . $base . '/' . $collection->handle . ')';
+            }
+        }
+        if ($pages !== []) {
+            $lines[] = '## Pages';
+            $lines[] = '';
+            $lines = array_merge($lines, $pages);
+            $lines[] = '';
+        }
+        $lines[] = '## More';
+        $lines[] = '';
+        $lines[] = '- [Sitemap](' . $base . '/sitemap.xml)';
 
         return Response::file(implode("\n", $lines) . "\n", 'text/plain; charset=UTF-8');
     }

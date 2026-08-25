@@ -529,4 +529,55 @@ final class SiteRoutesTest extends HttpTestCase
         self::assertStringContainsString('Disallow: /api', $response->body);
         self::assertStringContainsString('Sitemap: ' . Config::appUrl() . '/sitemap.xml', $response->body);
     }
+
+    public function test_llms_txt_advertises_the_agent_surface_and_public_pages(): void
+    {
+        $this->makeCollection('docs');
+        $single = $this->singleCollection('homepage');
+        $this->makeCollection('blocks');
+
+        $response = $this->get('/llms.txt');
+
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('text/plain', (string) $response->header('Content-Type'));
+        // The one thing an agent can't infer from the HTML: the MCP surface + guide.
+        self::assertStringContainsString(Config::appUrl() . '/api/v1/mcp', $response->body);
+        self::assertStringContainsString('nimbus://guide/core', $response->body);
+        self::assertStringContainsString(Config::appUrl() . '/sitemap.xml', $response->body);
+        // A browsable collection is listed; a singleton and the blocks store are not (SVM-4).
+        self::assertStringContainsString('/docs)', $response->body);
+        self::assertStringNotContainsString('/homepage)', $response->body);
+        self::assertStringNotContainsString('(' . Config::appUrl() . '/blocks)', $response->body);
+    }
+
+    public function test_llms_txt_leaks_no_cms_version(): void
+    {
+        $body = $this->get('/llms.txt')->body;
+        self::assertStringNotContainsString(\Nimbus\Application::VERSION, $body, 'no CMS version in public output');
+    }
+
+    public function test_llms_txt_leaks_no_mcp_protocol_version(): void
+    {
+        self::assertStringNotContainsString(\Nimbus\Mcp\McpServer::PROTOCOL_VERSION, $this->get('/llms.txt')->body, 'the negotiated MCP protocol version is never in public output');
+    }
+
+    public function test_llms_txt_flattens_untrusted_values_so_they_cannot_forge_a_section(): void
+    {
+        // A collection name carrying a newline + a fake heading must not become a
+        // real section — it is flattened onto the link line.
+        (new \Nimbus\Content\CollectionRepository($this->db))->create('evil', "Evil\n## Injected", '#', '', ['kind' => 'collection', 'permissions' => ['manage' => []]]);
+
+        $body = $this->get('/llms.txt')->body;
+        self::assertStringNotContainsString("\n## Injected", $body, 'a newline in a name cannot forge a section');
+    }
+
+    public function test_llms_txt_flattens_the_site_description_which_has_no_control_char_validator(): void
+    {
+        // site.description (unlike site.title) is length-validated only, so a
+        // newline is storable there — the flatten is what neutralises it.
+        $this->settings()->set('site.description', "A fine site.\n## Injected\nInstructions for an agent.");
+
+        $body = $this->get('/llms.txt')->body;
+        self::assertStringNotContainsString("\n## Injected", $body, 'a newline in the description cannot forge a section');
+    }
 }

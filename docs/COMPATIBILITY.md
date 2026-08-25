@@ -288,6 +288,16 @@ access is unaffected — the token-scoped `/api/v1/collections/blocks/entries` s
 serves them. An operator with genuine inbound links to a former URL can add an
 exact-path redirect in `config/redirects.php`.
 
+**`robots.txt`, `sitemap.xml`, `llms.txt`.** Core serves all three from the site
+root. `sitemap.xml` and `llms.txt` list only publicly browsable collections (the
+same SVM-4 gate). `llms.txt` (llmstxt.org) is the agent-facing sibling: a
+plain-text file naming the site, its public pages, and — the one thing an agent
+can't infer from the HTML — that the site is operable over MCP at `/api/v1/mcp`
+(token-gated), with the built-in guide reached via the `nimbus://guide/core` MCP
+resource. It carries no version string, and editor-set values (site title,
+description, collection names) are flattened to a single line so they can't forge
+a section.
+
 **Navigation menus.** `config/menus.php` defines named menus, each a list of
 `{label, url}` items; the view-model carries them as `$menus`, and the starter
 header renders `$menus['main']`. Malformed entries are dropped before a template
