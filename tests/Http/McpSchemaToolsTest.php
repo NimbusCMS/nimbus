@@ -161,6 +161,108 @@ final class McpSchemaToolsTest extends HttpTestCase
         self::assertTrue($onAdd['result']['isError'], 'add_field rejects a reserved field handle');
     }
 
+    // -------------------------------------------------------- singletons
+
+    public function test_create_collection_can_make_a_singleton_and_reports_the_kind(): void
+    {
+        $schema  = $this->tokens->create('S', ['schema:write']);
+        $created = $this->structured($this->call('create_collection', ['handle' => 'home', 'name' => 'Home', 'kind' => 'single'], $schema));
+
+        self::assertSame('single', $created['collection']['kind']);
+        $collection = $this->collections->findByHandle('home');
+        self::assertNotNull($collection);
+        self::assertTrue($collection->isSingle(), 'the collection is a singleton');
+    }
+
+    public function test_create_collection_defaults_to_a_regular_collection(): void
+    {
+        $schema  = $this->tokens->create('S', ['schema:write']);
+        $created = $this->structured($this->call('create_collection', ['handle' => 'posts', 'name' => 'Posts'], $schema));
+
+        self::assertSame('collection', $created['collection']['kind']);
+        $collection = $this->collections->findByHandle('posts');
+        self::assertNotNull($collection);
+        self::assertFalse($collection->isSingle());
+    }
+
+    public function test_an_unknown_kind_is_rejected_and_nothing_is_created(): void
+    {
+        $schema = $this->tokens->create('S', ['schema:write']);
+
+        // A typo must NOT silently coerce to the publicly-browsable 'collection'.
+        $typo = $this->call('create_collection', ['handle' => 'about', 'name' => 'About', 'kind' => 'singleton'], $schema);
+        self::assertTrue($typo['result']['isError']);
+        self::assertSame('invalid', $typo['result']['structuredContent']['error']['code']);
+        self::assertNull($this->collections->findByHandle('about'), 'nothing was created on a bad kind');
+
+        // A non-string kind is rejected too (never a 500).
+        $nonString = $this->call('create_collection', ['handle' => 'about', 'name' => 'About', 'kind' => ['single']], $schema);
+        self::assertTrue($nonString['result']['isError']);
+        self::assertSame('invalid', $nonString['result']['structuredContent']['error']['code']);
+    }
+
+    public function test_create_collection_builds_options_server_side_ignoring_over_posted_permissions(): void
+    {
+        // Over-posting guard: a crafted permissions/options payload must not reach
+        // the stored options — they are built server-side from kind alone.
+        $schema = $this->tokens->create('S', ['schema:write']);
+        $this->call('create_collection', [
+            'handle'      => 'home',
+            'name'        => 'Home',
+            'kind'        => 'single',
+            'permissions' => ['manage' => ['admin']],
+            'options'     => ['kind' => 'collection', 'permissions' => ['manage' => ['admin']]],
+        ], $schema);
+
+        $row = $this->db->selectOne('SELECT options FROM nb_collections WHERE handle = :h', ['h' => 'home']);
+        self::assertNotNull($row);
+        $stored = json_decode((string) $row['options'], true);
+        self::assertSame(['kind' => 'single', 'permissions' => ['manage' => []]], $stored);
+    }
+
+    public function test_a_singleton_holds_exactly_one_entry_over_mcp(): void
+    {
+        $token = $this->tokens->create('T', ['schema:write', '*:read', '*:write']);
+        $this->call('create_collection', ['handle' => 'home', 'name' => 'Home', 'kind' => 'single', 'fields' => [$this->field('Tagline', 'text')]], $token);
+
+        $first  = $this->structured($this->call('create_home', ['status' => 'published', 'tagline' => 'First'], $token));
+        $second = $this->structured($this->call('create_home', ['status' => 'published', 'tagline' => 'Second'], $token));
+
+        self::assertSame($first['data']['id'], $second['data']['id'], 'a second create targets the same singleton row');
+        $row = $this->db->selectOne('SELECT COUNT(*) AS c FROM nb_entries WHERE collection_id = (SELECT id FROM nb_collections WHERE handle = :h)', ['h' => 'home']);
+        self::assertNotNull($row);
+        self::assertSame(1, (int) $row['c'], 'the singleton has exactly one entry');
+    }
+
+    public function test_a_reserved_handle_is_rejected_even_as_a_singleton(): void
+    {
+        // The reserved-handle guard is options-independent — kind can't smuggle it.
+        $schema   = $this->tokens->create('S', ['schema:write']);
+        $response = $this->call('create_collection', ['handle' => 'media', 'name' => 'Media', 'kind' => 'single'], $schema);
+
+        self::assertTrue($response['result']['isError']);
+        self::assertSame('invalid', $response['result']['structuredContent']['error']['code']);
+        self::assertNull($this->collections->findByHandle('media'), 'nothing was created');
+    }
+
+    public function test_read_tools_expose_the_collection_kind(): void
+    {
+        $token = $this->tokens->create('T', ['schema:write', '*:read', '*:write']);
+        $this->call('create_collection', ['handle' => 'home', 'name' => 'Home', 'kind' => 'single'], $token);
+        $this->call('create_collection', ['handle' => 'posts', 'name' => 'Posts'], $token);
+
+        $list = $this->structured($this->call('list_collections', [], $token))['collections'];
+        $kinds = [];
+        foreach ($list as $row) {
+            $kinds[$row['handle']] = $row['kind'];
+        }
+        self::assertSame('single', $kinds['home']);
+        self::assertSame('collection', $kinds['posts']);
+
+        $described = $this->structured($this->call('describe_collection', ['handle' => 'home'], $token));
+        self::assertSame('single', $described['kind']);
+    }
+
     // -------------------------------------------------------- destructive
 
     public function test_delete_collection_requires_confirmation_and_reports_the_blast_radius(): void

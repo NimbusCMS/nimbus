@@ -131,8 +131,20 @@ final class SchemaToolset implements Toolset
             return ToolResult::error('One or more fields are invalid.', 'invalid', $errors);
         }
 
+        // kind (singleton parity with the admin). REJECT an unknown value rather
+        // than coerce: a typo like "singleton" would otherwise silently fall to
+        // 'collection' — the *publicly browsable* kind — the opposite of intent.
+        // Absent or empty means the default, 'collection'.
+        $kind = $args['kind'] ?? 'collection';
+        if ($kind === '') {
+            $kind = 'collection';
+        }
+        if (!in_array($kind, ['collection', 'single'], true)) {
+            return ToolResult::error('kind must be "collection" (many entries) or "single" (exactly one).', 'invalid');
+        }
+
         try {
-            $id = $this->service->create($handle, $name, $this->icon($args), trim($this->str($args, 'description')), $this->defaultOptions(), $fields);
+            $id = $this->service->create($handle, $name, $this->icon($args), trim($this->str($args, 'description')), $this->optionsForKind($kind), $fields);
         } catch (DuplicateHandle) {
             return ToolResult::error("A collection with handle \"{$handle}\" already exists.", 'invalid');
         } catch (ReservedHandle $e) {
@@ -422,6 +434,7 @@ final class SchemaToolset implements Toolset
             'collection' => [
                 'handle'  => $collection->handle,
                 'name'    => $collection->name,
+                'kind'    => $collection->kind(),
                 'version' => $collection->version,
                 'fields'  => array_map(static fn (Field $f): array => ['handle' => $f->handle, 'type' => $f->type, 'required' => $f->required], $collection->fields),
             ],
@@ -448,10 +461,17 @@ final class SchemaToolset implements Toolset
         ]);
     }
 
-    /** @return array<string,mixed> the standard options for an agent-created collection */
-    private function defaultOptions(): array
+    /**
+     * The options for an agent-created collection, built **server-side** from the
+     * validated `kind` — client input is never merged in, so a caller cannot
+     * over-post `permissions` (or any other option) through create_collection.
+     *
+     * @param 'collection'|'single' $kind
+     * @return array<string,mixed>
+     */
+    private function optionsForKind(string $kind): array
     {
-        return ['kind' => 'collection', 'permissions' => ['manage' => []]];
+        return ['kind' => $kind, 'permissions' => ['manage' => []]];
     }
 
     /** @param array<string,mixed> $args */
@@ -480,6 +500,7 @@ final class SchemaToolset implements Toolset
                 'name'        => ['type' => 'string'],
                 'icon'        => ['type' => 'string', 'description' => 'An emoji or short label.'],
                 'description' => ['type' => 'string'],
+                'kind'        => ['type' => 'string', 'enum' => ['collection', 'single'], 'description' => 'Default "collection" (many entries). "single" makes a singleton — exactly one entry (e.g. a homepage or about page), created and edited through the normal create_/get_/update_ tools; its slug is managed. Set at creation only.'],
                 'fields'      => ['type' => 'array', 'description' => 'Initial fields.', 'items' => $this->fieldObjectSchema()],
             ],
         ]);
