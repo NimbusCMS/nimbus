@@ -21,6 +21,8 @@ final class DemoModeTest extends HttpTestCase
     protected function tearDown(): void
     {
         putenv('NIMBUS_DEMO'); // unset so the flag never leaks into other tests
+        putenv('NIMBUS_DEMO_EMAIL');
+        putenv('NIMBUS_DEMO_PASSWORD');
         parent::tearDown();
     }
 
@@ -72,6 +74,26 @@ final class DemoModeTest extends HttpTestCase
     {
         $row = $this->db->selectOne('SELECT COUNT(*) AS c FROM nb_api_tokens');
         return (int) ($row['c'] ?? 0);
+    }
+
+    public function test_login_prefills_the_published_demo_credentials(): void
+    {
+        putenv('NIMBUS_DEMO=1');
+        putenv('NIMBUS_DEMO_EMAIL=demo@example.test');
+        putenv('NIMBUS_DEMO_PASSWORD=explore-nimbus-demo');
+        $this->rebuildRouter();
+
+        $body = $this->get('/admin/login')->body;
+        self::assertStringContainsString('value="demo@example.test"', $body, 'email is pre-filled');
+        self::assertStringContainsString('value="explore-nimbus-demo"', $body, 'password is pre-filled');
+        self::assertStringContainsString('the credentials are filled in', $body, 'the one-click note shows');
+    }
+
+    public function test_login_never_prefills_outside_demo(): void
+    {
+        $body = $this->get('/admin/login')->body;
+        self::assertStringNotContainsString('the credentials are filled in', $body);
+        self::assertStringNotContainsString('value="explore-nimbus-demo"', $body);
     }
 
     public function test_admin_token_minting_is_refused_in_demo(): void

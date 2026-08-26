@@ -18,6 +18,11 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
     <div class="nb-auth-brand"><?= $logo ?> <?= $e($appName) ?></div>
     <p class="nb-muted">Sign in to your dashboard</p>
 
+    <?php $demoFilled = !empty($demoEmail) && !empty($demoPassword); ?>
+    <?php if ($demoFilled): ?>
+        <div class="nb-alert nb-alert-ok">🧹 Live demo — the credentials are filled in. Just hit <strong>Sign in</strong>.</div>
+    <?php endif; ?>
+
     <?php if (!empty($notice)): ?>
         <div class="nb-alert nb-alert-ok"><?= $e($notice) ?></div>
     <?php endif; ?>
@@ -29,11 +34,11 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
         <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
         <div class="nb-field">
             <label for="email">Email</label>
-            <input id="email" type="email" name="email" autocomplete="username" autofocus required>
+            <input id="email" type="email" name="email" autocomplete="username" value="<?= $e($demoEmail ?? '') ?>"<?= $demoFilled ? '' : ' autofocus' ?> required>
         </div>
         <div class="nb-field">
             <label for="password">Password</label>
-            <input id="password" type="password" name="password" autocomplete="current-password" required>
+            <input id="password" type="password" name="password" autocomplete="current-password" value="<?= $e($demoPassword ?? '') ?>" required>
         </div>
         <button type="submit" class="nb-btn nb-btn-primary nb-btn-block">Sign in</button>
     </form>
