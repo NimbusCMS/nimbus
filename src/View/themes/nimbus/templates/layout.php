@@ -37,6 +37,11 @@ $theme = \Nimbus\View\AdminTheme::sanitize($user?->theme);  // allow-listed at r
 <label class="nb-scrim" for="nb-nav-toggle" aria-hidden="true"></label>
 
 <div class="nb-main">
+    <?php if (!empty($demo)): ?>
+        <div class="nb-demo-banner" role="status">
+            🧹 <strong>Live demo.</strong> Everyone shares this site and it resets every hour, so nothing you change here is permanent. Play freely — password change is disabled.
+        </div>
+    <?php endif; ?>
     <header class="nb-top">
         <div class="nb-top-l">
             <label class="nb-menu" for="nb-nav-toggle"><span aria-hidden="true">☰</span><span class="nb-sr">Menu</span></label>

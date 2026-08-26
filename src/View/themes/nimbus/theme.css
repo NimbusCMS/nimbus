@@ -373,6 +373,9 @@ body.nb-night::before {
 .nb-form-actions { display: flex; gap: 10px; margin-top: 22px; }
 .nb-req { color: var(--nb-danger); }
 .nb-check { display: block; margin: 4px 0; font-weight: 500; cursor: pointer; }
+/* Demo-mode banner — a persistent strip across the top of every admin page. */
+.nb-demo-banner { padding: 10px 20px; background: var(--nb-brand); color: var(--nb-on-brand); font-size: 14px; line-height: 1.4; text-align: center; }
+.nb-demo-banner strong { font-weight: 700; }
 .nb-check input { width: auto !important; margin-right: 6px; }
 /* Role picker rows carry an inline description (always visible — mobile has no
    hover, so a plain title tooltip would be invisible on touch). */
