@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Nimbus\Admin;
 
 use Nimbus\Auth\Auth;
+use Nimbus\Auth\LoginThrottle;
 use Nimbus\Auth\OAuth\OAuthIdentityRepository;
+use Nimbus\Auth\Password;
 use Nimbus\Auth\UserRepository;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
@@ -58,6 +60,7 @@ final class SettingsController extends Controller
             $g->get('', fn (Request $req, array $p): Response => $this->index($req))->name('admin.settings');
             $g->post('/theme', fn (Request $req, array $p): Response => $this->saveTheme($req));
             $g->post('/site', fn (Request $req, array $p): Response => $this->saveSite($req));
+            $g->post('/password', fn (Request $req, array $p): Response => $this->savePassword($req));
         });
     }
 
@@ -77,13 +80,16 @@ final class SettingsController extends Controller
      * @param array<string,string> $siteErrors key => validator message
      * @param array<string,string> $submitted  key => raw submitted value (overlaid onto the fields)
      */
-    private function renderSettings(Request $req, array $siteErrors = [], array $submitted = []): Response
+    private function renderSettings(Request $req, array $siteErrors = [], array $submitted = [], ?string $passwordError = null): Response
     {
         return $this->page('settings/index', 'settings', [
             'themes'    => AdminTheme::THEMES,
             'current'   => AdminTheme::sanitize($this->auth->user()?->theme),
             'flash'     => $req->query('flash'),
             'csrf'      => Csrf::token(),
+            // Change-password section: the error is a fixed string (never the
+            // submitted values — passwords are never echoed back into the form).
+            'passwordError' => $passwordError,
             // The site-settings section renders only for holders of settings:write.
             'canEditSite'  => $this->gate->can('settings', 'write'),
             'siteFields'   => $this->siteFields($submitted),
@@ -229,6 +235,61 @@ final class SettingsController extends Controller
 
         $this->settings->setMany($values);
         return $this->redirect(Url::to('admin.settings') . '?flash=site');
+    }
+
+    /**
+     * Change the SIGNED-IN user's own password — a personal action (like the
+     * theme), available to any authenticated user, no capability required. The
+     * order is load-bearing: CSRF, then throttle (before the verify, so this
+     * isn't a guessing oracle for a session-rider), then re-auth on the current
+     * password (what a CSRF token can't provide — the rider holds the token),
+     * then floor-validate, then the one blessed write. The acting user is taken
+     * from the session only, so there is no id to over-post — you can change
+     * only your own password. Password values are never echoed back on error.
+     */
+    private function savePassword(Request $req): Response
+    {
+        $this->requireCsrf($req, Url::to('admin.settings'));
+
+        $user = $this->auth->user();
+        if ($user === null) {
+            return $this->redirect(Url::to('admin.login'));
+        }
+
+        // Per-account throttle (int uid — bounded, unspoofable, writable only via
+        // this user's own session, so it can never lock out another account).
+        $throttle = new LoginThrottle($this->db);
+        $key      = 'changepw:' . $user->id;
+        if ($throttle->tooManyAttempts($key)) {
+            $minutes = (int) ceil($throttle->lockedFor($key) / 60);
+            return $this->renderSettings($req, [], [], "Too many attempts. Try again in {$minutes} minute(s).");
+        }
+
+        $current = (string) $req->input('current_password');
+        $new     = (string) $req->input('new_password');
+        $confirm = (string) $req->input('confirm_password');
+
+        if (!$this->auth->verifyCurrentPassword($current)) {
+            $throttle->recordFailure($key);
+            return $this->renderSettings($req, [], [], 'Your current password is incorrect.');
+        }
+        if (Password::isWeak($new)) {
+            return $this->renderSettings($req, [], [], 'Choose a new password of at least ' . Password::MIN_LENGTH . ' non-default characters.');
+        }
+        if ($new !== $confirm) {
+            return $this->renderSettings($req, [], [], 'The new passwords don’t match.');
+        }
+        if ($new === $current) {
+            return $this->renderSettings($req, [], [], 'Choose a password different from your current one.');
+        }
+
+        $hash = Password::hash($new);
+        $this->users->setPassword($user->id, $hash);
+        // Keep THIS session valid, invalidate every other one (A4).
+        $this->auth->refreshAfterPasswordChange($hash);
+        $throttle->clear($key);
+
+        return $this->redirect(Url::to('admin.settings') . '?flash=password');
     }
 
     private function saveTheme(Request $req): Response

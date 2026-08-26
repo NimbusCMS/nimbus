@@ -2,6 +2,7 @@
 /**
  * @var array<int,array{user:\Nimbus\Auth\User,roles:\Nimbus\Auth\Role[]}> $rows
  * @var \Nimbus\Auth\Role[]  $roles all roles, for the checklist
+ * @var array<string,string> $roleHelp built-in role name => plain-language description
  * @var ?\Nimbus\Auth\User   $editing user being edited, or null (create)
  * @var list<int>            $editingRoles role ids assigned to the edited user
  * @var list<int>            $pending user ids with an unused invite (can be re-invited)
@@ -50,10 +51,13 @@ $checked = static fn (int $roleId): string => in_array($roleId, $editingRoles, t
     <div class="nb-field">
         <label>Roles <small class="nb-muted">— a user's access is the union of their roles</small></label>
         <div class="nb-scope-list">
-            <?php foreach ($roles as $role): ?>
-                <label class="nb-check">
+            <?php foreach ($roles as $role): $help = $roleHelp[$role->name] ?? null; ?>
+                <label class="nb-check nb-check-described">
                     <input type="checkbox" name="roles[]" value="<?= (int) $role->id ?>"<?= $editing !== null ? $checked($role->id) : '' ?>>
-                    <?= $e($role->name) ?><?php if ($role->isSystem): ?> <small class="nb-muted">built-in</small><?php endif; ?>
+                    <span class="nb-check-body">
+                        <span class="nb-check-name"><?= $e($role->name) ?><?php if ($role->isSystem): ?> <small class="nb-muted">built-in</small><?php endif; ?></span>
+                        <?php if ($help !== null): ?><small class="nb-check-help nb-muted"><?= $e($help) ?></small><?php endif; ?>
+                    </span>
                 </label>
             <?php endforeach; ?>
         </div>

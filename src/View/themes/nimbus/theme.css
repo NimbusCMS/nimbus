@@ -374,6 +374,13 @@ body.nb-night::before {
 .nb-req { color: var(--nb-danger); }
 .nb-check { display: block; margin: 4px 0; font-weight: 500; cursor: pointer; }
 .nb-check input { width: auto !important; margin-right: 6px; }
+/* Role picker rows carry an inline description (always visible — mobile has no
+   hover, so a plain title tooltip would be invisible on touch). */
+.nb-check-described { display: flex; align-items: flex-start; gap: 8px; }
+.nb-check-described input { margin-top: 3px; margin-right: 0; flex: none; }
+.nb-check-body { display: flex; flex-direction: column; }
+.nb-check-name { font-weight: 500; }
+.nb-check-help { font-weight: 400; line-height: 1.4; margin-top: 2px; }
 .nb-checks { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 4px 0; }
 
 .nb-fields { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
