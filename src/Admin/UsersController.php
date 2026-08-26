@@ -51,6 +51,18 @@ final class UsersController extends Controller
         'last-admin'     => 'This is the only admin — give another user the admin role first.',
     ];
 
+    /**
+     * Plain-language descriptions of the built-in roles, shown beside each in the
+     * role picker so an admin knows what a role grants before assigning it. Keyed
+     * by system-role name (custom roles get none). These mirror the seeded
+     * bundles in {@see \Nimbus\Auth\RoleSeeder}.
+     */
+    private const ROLE_HELP = [
+        'admin'  => 'Full control — content, collections & fields, media, users, roles, API tokens, and settings.',
+        'editor' => 'Reads all content, writes in the collections that grant the editor role, and manages media. No access to users, settings, tokens, or schema.',
+        'author' => 'Like editor, for the collections that grant the author role — the lighter content contributor.',
+    ];
+
     private UserRepository $users;
     private RoleRepository $roles;
     private InvitationService $invitations;
@@ -94,6 +106,7 @@ final class UsersController extends Controller
         return $this->page('users/index', 'users', [
             'rows'         => $rows,
             'roles'        => $this->roles->all(),
+            'roleHelp'     => self::ROLE_HELP,
             'editing'      => $editing,
             'editingRoles' => $editing !== null ? array_map(static fn ($r): int => $r->id, $this->roles->rolesForUser($editing->id)) : [],
             // Users with an unused invite token — the "Resend invite" affordance

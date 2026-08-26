@@ -164,6 +164,9 @@ abstract class HttpTestCase extends IntegrationTestCase
         $roleId   = $existing !== null ? $existing->id : $roles->create($role, $base[$role] ?? [], true);
         $roles->assignToUser($id, $roleId);
 
+        // A fresh login: clear any password stamp left by a prior acting-as user
+        // so Auth::user() re-stamps for this uid (real logins set uid+stamp together).
+        unset($_SESSION['nimbus_pw']);
         $_SESSION['nimbus_uid'] = $id;
         $this->auth = new Auth($this->db);
         $this->rebuildRouter();
@@ -184,6 +187,9 @@ abstract class HttpTestCase extends IntegrationTestCase
         $roleId = $roles->create('Scoped ' . bin2hex(random_bytes(3)), $capabilities, false);
         $roles->assignToUser($id, $roleId);
 
+        // A fresh login: clear any password stamp left by a prior acting-as user
+        // so Auth::user() re-stamps for this uid (real logins set uid+stamp together).
+        unset($_SESSION['nimbus_pw']);
         $_SESSION['nimbus_uid'] = $id;
         $this->auth = new Auth($this->db);
         $this->rebuildRouter();
@@ -194,6 +200,9 @@ abstract class HttpTestCase extends IntegrationTestCase
     protected function actingAsLegacy(string $role): int
     {
         $id = $this->createUser($role, $role . '@legacy.test');
+        // A fresh login: clear any password stamp left by a prior acting-as user
+        // so Auth::user() re-stamps for this uid (real logins set uid+stamp together).
+        unset($_SESSION['nimbus_pw']);
         $_SESSION['nimbus_uid'] = $id;
         $this->auth = new Auth($this->db);
         $this->rebuildRouter();

@@ -13,6 +13,11 @@ use Nimbus\Database\Connection;
 final class Auth
 {
     private const SESSION_KEY = 'nimbus_uid';
+    /** A fingerprint of the password hash, stamped into the session at login. A
+     *  password change elsewhere makes it mismatch, so a stale session (e.g. a
+     *  stolen cookie) is logged out on its next request — the invalidation
+     *  `session_regenerate_id` alone can't give (it only rotates THIS session). */
+    private const SESSION_STAMP = 'nimbus_pw';
 
     private ?User $cached = null;
     private bool $resolved = false;
@@ -33,16 +38,53 @@ final class Auth
         if ($row === null || !$ok) {
             return false;
         }
-        if (Password::needsRehash((string) $row['password'])) {
+        $storedHash = (string) $row['password'];
+        if (Password::needsRehash($storedHash)) {
+            $storedHash = Password::hash($password);
             $this->db->execute(
                 'UPDATE nb_users SET password = :p, updated_at = :t WHERE id = :id',
-                ['p' => Password::hash($password), 't' => date('Y-m-d H:i:s'), 'id' => $row['id']],
+                ['p' => $storedHash, 't' => date('Y-m-d H:i:s'), 'id' => $row['id']],
             );
         }
         session_regenerate_id(true);
-        $_SESSION[self::SESSION_KEY] = (int) $row['id'];
+        $_SESSION[self::SESSION_KEY]   = (int) $row['id'];
+        $_SESSION[self::SESSION_STAMP] = self::stamp($storedHash);
         $this->resolved = false;
         return true;
+    }
+
+    /** A short, non-reversible fingerprint of a password hash (see SESSION_STAMP). */
+    private static function stamp(string $passwordHash): string
+    {
+        return substr(hash('sha256', $passwordHash), 0, 32);
+    }
+
+    /**
+     * Verify a plaintext against the CURRENT session user's stored hash — the
+     * re-auth primitive for sensitive self-service actions (change-password).
+     * The hash never leaves Auth. Constant-time via {@see Password::verify}.
+     */
+    public function verifyCurrentPassword(string $plain): bool
+    {
+        $id = $_SESSION[self::SESSION_KEY] ?? null;
+        if ($id === null) {
+            return false;
+        }
+        $row = $this->db->selectOne('SELECT password FROM nb_users WHERE id = :id', ['id' => $id]);
+        return $row !== null && Password::verify($plain, (string) $row['password']);
+    }
+
+    /**
+     * After the acting user changes THEIR OWN password: rotate the id and
+     * re-stamp so THIS session stays valid, while every other session (holding
+     * the old stamp) is logged out on its next request (A4).
+     */
+    public function refreshAfterPasswordChange(string $newHash): void
+    {
+        session_regenerate_id(true);
+        $_SESSION[self::SESSION_STAMP] = self::stamp($newHash);
+        $this->cached   = null;
+        $this->resolved = false;
     }
 
     /**
@@ -55,6 +97,10 @@ final class Auth
     {
         session_regenerate_id(true);
         $_SESSION[self::SESSION_KEY] = $userId;
+        $row = $this->db->selectOne('SELECT password FROM nb_users WHERE id = :id', ['id' => $userId]);
+        if ($row !== null) {
+            $_SESSION[self::SESSION_STAMP] = self::stamp((string) $row['password']);
+        }
         $this->cached   = null;
         $this->resolved = false;
     }
@@ -84,6 +130,17 @@ final class Auth
         }
         $row = $this->db->selectOne('SELECT * FROM nb_users WHERE id = :id', ['id' => $id]);
         if ($row === null) {
+            return $this->cached = null;
+        }
+        // Password-stamp gate (A4). A session predating this feature has no stamp
+        // — backfill it (protected from now on); a stamped session whose stamp no
+        // longer matches the stored hash means the password changed elsewhere, so
+        // fail closed and treat it as logged out.
+        $current = self::stamp((string) $row['password']);
+        $stamp   = $_SESSION[self::SESSION_STAMP] ?? null;
+        if (!is_string($stamp)) {
+            $_SESSION[self::SESSION_STAMP] = $current;
+        } elseif (!hash_equals($current, $stamp)) {
             return $this->cached = null;
         }
         return $this->cached = new User(
