@@ -40,6 +40,7 @@ final class MediaUploaderTest extends IntegrationTestCase
 
     protected function tearDown(): void
     {
+        putenv('NIMBUS_DEMO'); // never leak the demo flag into other tests
         foreach ([$this->storeDir, $this->tmpDir] as $dir) {
             if (is_dir($dir)) {
                 $this->rmrf($dir);
@@ -68,6 +69,29 @@ final class MediaUploaderTest extends IntegrationTestCase
         $path = $this->tmpDir . '/' . bin2hex(random_bytes(4));
         file_put_contents($path, $png);
         return ['name' => $clientName, 'type' => 'image/png', 'tmp_name' => $path, 'error' => UPLOAD_ERR_OK, 'size' => strlen($png)];
+    }
+
+    /** A minimal PDF (real %PDF magic so the MIME sniff sees application/pdf). */
+    /** @return array<string,mixed> */
+    private function pdfUpload(string $clientName = 'doc.pdf'): array
+    {
+        $pdf  = "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n";
+        $path = $this->tmpDir . '/' . bin2hex(random_bytes(4));
+        file_put_contents($path, $pdf);
+        return ['name' => $clientName, 'type' => 'application/pdf', 'tmp_name' => $path, 'error' => UPLOAD_ERR_OK, 'size' => strlen($pdf)];
+    }
+
+    public function test_a_pdf_upload_is_refused_in_demo_mode(): void
+    {
+        putenv('NIMBUS_DEMO=1');
+        try {
+            $this->uploader->store($this->pdfUpload(), authorId: null, alt: 'x');
+            self::fail('expected the PDF upload to be refused in demo mode');
+        } catch (UploadError $e) {
+            // Must be the DEMO refusal, not the generic type check — prove it's the
+            // demo path (the sniff did see application/pdf and the demo guard fired).
+            self::assertStringContainsString('demo', $e->getMessage());
+        }
     }
 
     /**

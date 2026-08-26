@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Nimbus\Tests\Http;
 
+use Nimbus\Api\ApiTokenRepository;
 use Nimbus\Auth\Password;
+use Nimbus\Http\FormNonce;
+use Nimbus\Http\Request;
 
 /**
  * Demo mode (`NIMBUS_DEMO`) — the public, shared, hourly-reset sandbox. The
@@ -63,5 +66,41 @@ final class DemoModeTest extends HttpTestCase
         self::assertNotNull($after);
         self::assertSame($before['password'], $after['password'], 'the password must not change in demo mode');
         self::assertTrue(Password::verify('correct-horse', (string) $after['password']));
+    }
+
+    private function tokenCount(): int
+    {
+        $row = $this->db->selectOne('SELECT COUNT(*) AS c FROM nb_api_tokens');
+        return (int) ($row['c'] ?? 0);
+    }
+
+    public function test_admin_token_minting_is_refused_in_demo(): void
+    {
+        $this->enableDemo();
+        $this->actingAs('admin');
+        $before = $this->tokenCount();
+
+        $resp = $this->post('/admin/tokens', ['name' => 'Grief', 'scope_all' => '1', '_nonce' => FormNonce::issue()]);
+
+        $this->assertRedirectsTo($resp, '/admin/tokens?err=demo-disabled');
+        self::assertSame($before, $this->tokenCount(), 'no token is minted via the admin UI in demo mode');
+    }
+
+    public function test_mcp_token_minting_is_refused_in_demo(): void
+    {
+        $this->enableDemo();
+        // A pre-existing admin token authenticates the MCP call (created directly,
+        // bypassing the guarded mint path); the guard must still refuse mint_token.
+        $auth   = (new ApiTokenRepository($this->db))->create('auth', ['admin']);
+        $before = $this->tokenCount();
+
+        $server = ['REMOTE_ADDR' => '127.0.0.1', 'HTTP_AUTHORIZATION' => 'Bearer ' . $auth];
+        $body   = ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/call', 'params' => ['name' => 'mint_token', 'arguments' => ['name' => 'grief', 'scopes' => ['posts:read']]]];
+        $req    = new Request('POST', '/api/v1/mcp', [], [], $server, [], null, json_encode($body, JSON_THROW_ON_ERROR));
+        $resp   = json_decode($this->throughKernel($req)->body, true);
+
+        self::assertTrue($resp['result']['isError']);
+        self::assertSame('forbidden', $resp['result']['structuredContent']['error']['code']);
+        self::assertSame($before, $this->tokenCount(), 'no token is minted over MCP in demo mode');
     }
 }

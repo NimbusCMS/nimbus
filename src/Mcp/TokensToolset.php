@@ -103,6 +103,13 @@ final class TokensToolset implements Toolset
      */
     private function mintToken(array $args, TokenPrincipal $principal, EntryOpContext $ctx): array
     {
+        // Demo mode disables token minting (over the API too, not just the admin
+        // UI): a public demo admin must not be able to mint tokens and bulk-drive
+        // the shared MySQL/disk toward starving co-located sites.
+        if (\Nimbus\Support\Config::demo()) {
+            return ToolResult::error('API token minting is disabled in the live demo.', 'forbidden');
+        }
+
         $name = trim($this->str($args, 'name'));
         if ($name === '') {
             return ToolResult::error('A token needs a name.', 'invalid');
