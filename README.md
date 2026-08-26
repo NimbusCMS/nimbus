@@ -6,6 +6,10 @@
 
 *Point it at a fresh database, define your content, and go. No LAMP-era baggage.*
 
+**[🧹 Try the live demo →](https://demo.nimbuscms.dev/admin)**
+sign in with `demo@nimbuscms.dev` / `explore-nimbus-demo` — full admin, resets hourly
+· **[nimbuscms.dev](https://nimbuscms.dev)** (site + docs)
+
 </div>
 
 ---
