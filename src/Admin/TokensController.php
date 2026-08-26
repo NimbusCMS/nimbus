@@ -18,6 +18,7 @@ use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 use Nimbus\Http\Url;
 use Nimbus\Settings\Settings;
+use Nimbus\Support\Config;
 
 /**
  * Manage API tokens: mint (shown once), list them with their lifecycle state,
@@ -56,6 +57,7 @@ final class TokensController extends Controller
         'scope-required'    => 'Choose “All collections”, at least one collection, or a role.',
         'scope-ungrantable' => 'You can’t grant access you don’t hold.',
         'not-found'         => 'That token no longer exists.',
+        'demo-disabled'     => 'API token minting is disabled in the live demo.',
     ];
 
     private ApiTokenRepository $tokens;
@@ -112,6 +114,14 @@ final class TokensController extends Controller
     {
         $this->requireCan('tokens', 'write');
         $this->requireCsrf($req, Url::to('admin.tokens.index'));
+
+        // Demo mode disables token minting: a public admin visitor could otherwise
+        // mint tokens and bulk-drive the API/uploads to exhaust the shared MySQL
+        // and disk (a cross-site availability risk). Enforced here + in MCP, not
+        // just hidden in the UI.
+        if (Config::demo()) {
+            return $this->redirect(Url::to('admin.tokens.index') . '?err=demo-disabled');
+        }
 
         $name = trim((string) $req->input('name'));
         if ($name === '') {

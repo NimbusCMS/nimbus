@@ -76,6 +76,12 @@ final class MediaUploader
         if (!isset(self::ALLOWED[$mime])) {
             throw new UploadError('That file type is not allowed. Accepted: JPEG, PNG, GIF, WebP, PDF.');
         }
+        // In the public demo, PDFs are refused: they are the realistic
+        // malware-carrier for abusing our domain as a file host (images are far
+        // lower-risk and keep the showcase intact).
+        if ($mime === 'application/pdf' && \Nimbus\Support\Config::demo()) {
+            throw new UploadError('PDF uploads are disabled in the live demo.');
+        }
         $ext = self::ALLOWED[$mime];
 
         [$relDir, $absDir] = $this->targetDir();
