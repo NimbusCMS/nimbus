@@ -36,6 +36,21 @@ final class Config
         return Env::bool('NIMBUS_DEMO', false);
     }
 
+    /**
+     * The published demo credentials, shown pre-filled on the sign-in page in
+     * demo mode so a visitor can log in with one click. Only meaningful when
+     * {@see demo()} is true; the password is intentionally public.
+     */
+    public static function demoEmail(): string
+    {
+        return (string) Env::get('NIMBUS_DEMO_EMAIL', '');
+    }
+
+    public static function demoPassword(): string
+    {
+        return (string) Env::get('NIMBUS_DEMO_PASSWORD', '');
+    }
+
     public static function appUrl(): string
     {
         return rtrim((string) Env::get('APP_URL', 'http://localhost:8080'), '/');

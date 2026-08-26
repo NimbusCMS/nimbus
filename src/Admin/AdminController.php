@@ -14,6 +14,7 @@ use Nimbus\Http\Router;
 use Nimbus\Http\Url;
 use Nimbus\Plugin\PluginStatus;
 use Nimbus\Settings\Settings;
+use Nimbus\Support\Config;
 
 /**
  * Authentication, the dashboard, and the read-only plugins page. The admin shell
@@ -118,6 +119,10 @@ final class AdminController extends Controller
             'notice'         => $notice,
             'csrf'           => Csrf::token(),
             'oauthProviders' => $this->oauthButtons(),
+            // Demo mode pre-fills the published credentials so a visitor can sign
+            // in with one click. Empty (and the note hidden) on a real install.
+            'demoEmail'      => Config::demo() ? Config::demoEmail() : '',
+            'demoPassword'   => Config::demo() ? Config::demoPassword() : '',
         ]);
     }
 
