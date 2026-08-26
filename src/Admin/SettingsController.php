@@ -251,6 +251,13 @@ final class SettingsController extends Controller
     {
         $this->requireCsrf($req, Url::to('admin.settings'));
 
+        // Demo mode disables password change (a shared, resettable instance must
+        // not let one visitor lock others out). Enforced HERE, not just hidden in
+        // the template — a direct POST is refused too.
+        if (Config::demo()) {
+            return $this->renderSettings($req, [], [], 'Password change is disabled in the live demo.');
+        }
+
         $user = $this->auth->user();
         if ($user === null) {
             return $this->redirect(Url::to('admin.login'));

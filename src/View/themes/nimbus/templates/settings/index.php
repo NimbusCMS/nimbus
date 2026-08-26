@@ -11,6 +11,7 @@
  * @var list<array{key:string,label:string,linked:bool,email:?string}> $oauthAccounts
  * @var array{kind:string,message:string}|null $oauthFlash
  * @var ?string $passwordError fixed message when a change-password submit fails
+ * @var bool $demo demo mode (shared) — hides the change-password form
  */
 use Nimbus\View\View;
 
@@ -30,6 +31,12 @@ $e = static fn (?string $v): string => View::e($v);
 
 <?php if (!empty($siteErrors)): ?>
     <div class="nb-alert nb-alert-error">Some settings couldn’t be saved — please check the highlighted fields.</div>
+<?php endif; ?>
+
+<?php // Change-password result shows top-level so it's visible even when the
+      // form itself is hidden (demo mode). ?>
+<?php if ($passwordError !== null): ?>
+    <div class="nb-alert nb-alert-error"><?= $e($passwordError) ?></div>
 <?php endif; ?>
 
 <?php if ($canEditSite): ?>
@@ -95,13 +102,12 @@ $e = static fn (?string $v): string => View::e($v);
 <?php endif; ?>
 
 <?php // Change password — a personal action, any signed-in user. Fields never
-      // carry a value: a submitted password is never echoed back into the form. ?>
+      // carry a value: a submitted password is never echoed back into the form.
+      // Hidden in demo mode (and refused server-side there too). ?>
+<?php if (empty($demo)): ?>
 <form class="nb-form-card" method="post" action="/admin/settings/password" autocomplete="off">
     <h2>Change password</h2>
     <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
-    <?php if ($passwordError !== null): ?>
-        <div class="nb-alert nb-alert-error"><?= $e($passwordError) ?></div>
-    <?php endif; ?>
     <div class="nb-field">
         <label for="cur-pw">Current password</label>
         <input type="password" id="cur-pw" name="current_password" autocomplete="current-password" required>
@@ -117,6 +123,7 @@ $e = static fn (?string $v): string => View::e($v);
     </div>
     <button type="submit" class="nb-btn nb-btn-primary">Change password</button>
 </form>
+<?php endif; ?>
 
 <form class="nb-form-card" method="post" action="/admin/settings/theme">
     <h2>Appearance</h2>

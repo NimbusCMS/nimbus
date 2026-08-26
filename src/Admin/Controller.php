@@ -38,6 +38,7 @@ abstract class Controller
             'auth'    => $auth,
             'appName' => Config::appName(),
             'cspNonce' => \Nimbus\Http\Csp::nonce(),
+            'demo'     => Config::demo(),
         ]);
         $this->authMw = new AuthMiddleware($auth);
         $this->gate   = new Gate(new RoleRepository($db), $auth);

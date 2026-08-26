@@ -24,6 +24,18 @@ final class Config
         return (string) Env::get('APP_NAME', 'NimbusCMS');
     }
 
+    /**
+     * Demo mode: a public, shared, periodically-reset instance (e.g. the live
+     * "try it" sandbox). Off by default. When on, the admin shows a persistent
+     * banner and refuses account-destructive self-service (change-password) so a
+     * visitor can't lock others out between resets — enforced at the handler,
+     * never merely hidden in the UI.
+     */
+    public static function demo(): bool
+    {
+        return Env::bool('NIMBUS_DEMO', false);
+    }
+
     public static function appUrl(): string
     {
         return rtrim((string) Env::get('APP_URL', 'http://localhost:8080'), '/');
