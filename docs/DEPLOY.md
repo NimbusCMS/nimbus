@@ -195,6 +195,25 @@ Back up **off-box** (Hetzner Storage Box / an object store) so backups don't fil
 the disk: a periodic `mysqldump` per database + the `site_*_uploads` volumes.
 Not automated here — wire it to your host's scheduler.
 
+## Running a public demo site
+
+To run a shared, public "try it" instance, set `NIMBUS_DEMO=true` in that site's
+env: the admin shows a persistent banner and the account-destructive
+self-service actions are refused server-side — **change-password** and
+**API-token minting** (admin *and* MCP) — and **PDF uploads** are dropped. This
+stops one anonymous visitor from locking others out or abusing the shared box
+between resets; it is not a substitute for the reset.
+
+A demo that also showcases the official plugins uses
+[`deploy/demo/Dockerfile`](../deploy/demo/Dockerfile) — the production image plus
+`seo`, `markdown`, `api-advanced`, and `analytics` (installed from their repos;
+enabled-by-default once present). Give the demo its **own MySQL** (so a visitor
+can't starve the marketing DB), and reset it on a timer from a pre-baked,
+root-owned golden dump the container can't reach — stop the app, restore only the
+demo DB, wipe its uploads + storage volumes, start — plus a short-interval
+size-watchdog that resets early if the demo balloons, hard-capping its disk
+footprint. Front it with a Cloudflare rate-limit rule on `/admin/login` + `/api/`.
+
 ## Box hardening (Slice 2)
 
 Provisioning + host hardening is a separate step: Docker install, deploy the
