@@ -544,6 +544,12 @@ deliberate public surface:
   documented events (`entry.created/updated/saved/deleted`) plus `request.handled`
   (best-effort/isolated); consumer: Analytics. `entry.saving/published` deferred
   until a consumer appears
+- [x] **Plugin event emit** via `PluginContext::events()->emit()` — a plugin
+  dispatches under its own id verbatim (`nimbuscms.inventory.low`), never into a
+  core namespace (loader reserves core event roots); best-effort + depth-bounded
+  delivery ([ADR 0014](docs/adr/0014-plugin-event-dispatch.md)). First of the four
+  plugin-boundary capabilities for the Inventory + Commerce initiative; consumer:
+  Inventory (building next)
 - [x] Plugin-owned migrations + storage — own tables only ([ADR 0005](docs/adr/0005-plugin-owned-storage.md));
   consumer: Analytics. Core connection/tables/repos stay off-limits
 - [x] Admin pages + nav via `PluginContext::adminPages()` — GET-only for now

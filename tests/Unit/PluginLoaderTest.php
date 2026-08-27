@@ -453,12 +453,19 @@ final class PluginLoaderTest extends TestCase
     public static function malformedIds(): array
     {
         return [
-            'reserved core' => ['core'],
-            'empty'         => [''],
-            'colon'         => ['a:b'],
-            'uppercase'     => ['Bad'],
-            'leading dot'   => ['.hidden'],
-            'over 64 chars' => [str_repeat('x', 65)],
+            'reserved core'          => ['core'],
+            'empty'                  => [''],
+            'colon'                  => ['a:b'],
+            'uppercase'              => ['Bad'],
+            'leading dot'            => ['.hidden'],
+            'over 64 chars'          => [str_repeat('x', 65)],
+            // ADR 0014: an id rooted in a core event namespace could forge a core
+            // event (emit prefixes the id verbatim), so the loader rejects it.
+            'reserved event root'    => ['entry'],
+            'reserved root api'      => ['api'],
+            'reserved root auth'     => ['auth'],
+            'reserved root request'  => ['request'],
+            'rooted in a core event' => ['entry.stats'],
         ];
     }
 
