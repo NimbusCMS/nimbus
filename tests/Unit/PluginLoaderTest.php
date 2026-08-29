@@ -107,6 +107,19 @@ final class AllCapsToolset extends PluginToolset
     }
 }
 
+interface AllCapsPort
+{
+    public function ping(): string;
+}
+
+final class AllCapsService implements AllCapsPort
+{
+    public function ping(): string
+    {
+        return 'pong';
+    }
+}
+
 final class AllCapabilitiesBrokenPlugin implements Plugin
 {
     public function register(PluginContext $context): void
@@ -126,6 +139,7 @@ final class AllCapabilitiesBrokenPlugin implements Plugin
         $context->capabilities()->declare('AllCaps', ['read', 'write']);
         $context->mcp()->register(new AllCapsToolset());
         $context->routes()->get('allcaps', '/ping', static fn (Request $r, array $p): Response => Response::html('pong'));
+        $context->services()->provide(AllCapsPort::class, new AllCapsService());
         // Now fail: 'text' is a core type — DuplicateFieldType, which the loader
         // turns into REGISTER_FAILED + full rollback of everything above.
         $context->fieldTypes()->register(new class () extends BaseType {
@@ -442,6 +456,7 @@ final class PluginLoaderTest extends TestCase
             'capabilities' => fn (): bool => $caps->capabilities->managementResources() === [],
             'mcpToolsets'  => fn (): bool => $caps->mcpToolsets->all() === [],
             'routes'       => fn (): bool => $caps->routes->all() === [],
+            'services'     => fn (): bool => $caps->services->get(AllCapsPort::class) === null,
         ];
         foreach ($covered as $name => $isClean) {
             self::assertTrue($isClean(), "the {$name} registry was not rolled back on a failed load");

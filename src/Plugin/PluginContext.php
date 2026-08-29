@@ -12,7 +12,8 @@ use Nimbus\Database\Connection;
  * Nine capabilities today: field types, head contributions (ADR 0004), events
  * — subscribe, and emit under the plugin's own namespace (ADR 0014) — migrations
  * for the plugin's own tables, a grantable management capability (ADR 0015), an
- * MCP toolset (ADR 0016), public routes under /ext (ADR 0017), storage of its own data
+ * MCP toolset (ADR 0016), public routes under /ext (ADR 0017), typed service ports
+ * to other plugins (ADR 0019), storage of its own data
  * (ADR 0005), admin pages, maintenance tasks, and an agent-guidance skill
  * (ADR 0013). Each was added alongside a plugin that concretely needed it — field
  * types by the built-in types and Markdown, head contributions by plugin-seo,
@@ -52,6 +53,7 @@ final class PluginContext
     private CapabilitiesRegistrar $capabilities;
     private McpRegistrar $mcp;
     private RouteRegistrar $routes;
+    private ServiceRegistrar $services;
     private ?Connection $db;
     private ?PluginStorage $storage = null;
 
@@ -67,6 +69,7 @@ final class PluginContext
         $this->capabilities = new CapabilitiesRegistrar($capabilities->capabilities, $pluginId);
         $this->mcp          = new McpRegistrar($capabilities->mcpToolsets, $pluginId);
         $this->routes       = new RouteRegistrar($capabilities->routes, $pluginId);
+        $this->services     = new ServiceRegistrar($capabilities->services, $pluginId);
         $this->db           = $capabilities->db;
     }
 
@@ -128,6 +131,12 @@ final class PluginContext
     public function routes(): RouteRegistrar
     {
         return $this->routes;
+    }
+
+    /** Provide a typed service to, or consume one from, another plugin (ADR 0019). Stamped with its id. */
+    public function services(): ServiceRegistrar
+    {
+        return $this->services;
     }
 
     /**

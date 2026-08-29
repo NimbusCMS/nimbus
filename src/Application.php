@@ -44,6 +44,7 @@ use Nimbus\Plugin\PluginCapabilities;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
 use Nimbus\Plugin\PluginStatus;
+use Nimbus\Plugin\ServiceRegistry;
 use Nimbus\Settings\Settings;
 use Nimbus\Settings\SettingsRegistry;
 use Nimbus\Settings\SettingsRepository;
@@ -90,6 +91,7 @@ final class Application
     private CapabilityRegistry $capabilities;
     private McpToolsetRegistry $mcpToolsets;
     private PluginRouteRegistry $pluginRoutes;
+    private ServiceRegistry $services;
     private EventDispatcher $events;
 
     /** Request-scoped carrier for the authenticated API principal (ADR 0006). */
@@ -151,6 +153,7 @@ final class Application
         $this->capabilities     = new CapabilityRegistry();
         $this->mcpToolsets      = new McpToolsetRegistry();
         $this->pluginRoutes     = new PluginRouteRegistry();
+        $this->services         = new ServiceRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
         // Composed after the env/db block above so the registry captures loaded
@@ -209,6 +212,7 @@ final class Application
             capabilities: $this->capabilities,
             mcpToolsets: $this->mcpToolsets,
             routes: $this->pluginRoutes,
+            services: $this->services,
             db: $this->db,
         ));
         $this->pluginStatuses    = $loader->statuses();

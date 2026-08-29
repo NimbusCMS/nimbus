@@ -48,6 +48,8 @@ final class PluginCapabilities
         public readonly McpToolsetRegistry $mcpToolsets = new McpToolsetRegistry(),
         // Public routes plugins serve under /ext/{namespace} (ADR 0017).
         public readonly PluginRouteRegistry $routes = new PluginRouteRegistry(),
+        // Typed service ports between plugins (ADR 0019).
+        public readonly ServiceRegistry $services = new ServiceRegistry(),
         // The live connection, for the storage capability. Null when a caller
         // has no database (a unit test, or a plugin that never touches storage).
         public readonly ?Connection $db = null,
