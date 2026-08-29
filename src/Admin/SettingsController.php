@@ -18,6 +18,7 @@ use Nimbus\Http\Router;
 use Nimbus\Http\Url;
 use Nimbus\Settings\Settings;
 use Nimbus\Settings\SettingsRegistry;
+use Nimbus\Site\ThemeCatalog;
 use Nimbus\Support\Config;
 use Nimbus\View\AdminTheme;
 
@@ -95,6 +96,8 @@ final class SettingsController extends Controller
             'siteFields'   => $this->siteFields($submitted),
             'siteErrors'   => $siteErrors,
             'collections'  => $this->collectionChoices(),
+            // Installed public themes, for the site-theme picker (slug => name).
+            'siteThemes'   => array_map(static fn (array $t): string => $t['name'], (new ThemeCatalog())->installed()),
             // Connected accounts (ADR 0012) — a personal setting, like the theme:
             // any signed-in user manages their own links. Empty when no provider
             // is configured, so the section is hidden.

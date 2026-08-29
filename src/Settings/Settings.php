@@ -60,6 +60,12 @@ final class Settings
         return $this->get('site.description');
     }
 
+    /** The active public theme name — the chosen theme, backed by the config/theme.php default. */
+    public function theme(): string
+    {
+        return $this->get('site.theme');
+    }
+
     /**
      * Persist an already-validated value. Callers must validate through the
      * registry first ({@see Setting::validate}); this drops the memo so a

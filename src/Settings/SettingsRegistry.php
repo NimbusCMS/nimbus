@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Settings;
 
 use Nimbus\Content\CollectionRepository;
+use Nimbus\Site\ThemeCatalog;
 use Nimbus\Support\Config;
 
 /**
@@ -32,8 +33,9 @@ final class SettingsRegistry
     /** @var array<string,Setting> */
     private array $settings;
 
-    public function __construct(CollectionRepository $collections)
+    public function __construct(CollectionRepository $collections, ?ThemeCatalog $themes = null)
     {
+        $themes ??= new ThemeCatalog();
         $this->settings = [
             'site.title' => new Setting(
                 'site.title',
@@ -85,6 +87,22 @@ final class SettingsRegistry
                 static fn (string $value): ?string => mb_strlen($value) <= self::MAX_DESCRIPTION
                     ? null
                     : 'Keep the description under ' . self::MAX_DESCRIPTION . ' characters.',
+            ),
+            'site.theme' => new Setting(
+                'site.theme',
+                'theme',
+                'Theme',
+                'The look of your public site. Choose from the themes installed under themes/.',
+                // Defaults to the config/theme.php value, so a fresh (or DB-less)
+                // install renders from the file and a chosen theme overrides it —
+                // the same file↔DB pattern as the title above.
+                Config::theme(),
+                // Allow-list against installed themes: the value becomes a
+                // filesystem path (themes/{name}), so only a real, safely-named
+                // theme is ever accepted — `../…` and unknown names are refused.
+                static fn (string $value): ?string => $themes->has($value)
+                    ? null
+                    : 'Choose one of the installed themes.',
             ),
         ];
     }

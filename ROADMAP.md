@@ -574,6 +574,12 @@ deliberate public surface:
   consumer: Analytics. Core connection/tables/repos stay off-limits
 - [x] Admin pages + nav via `PluginContext::adminPages()` — GET-only for now
   (forms pending the CSRF-token decision above); consumer: Analytics
+- [x] **Public theme picker** — the active site theme is a `site.theme` setting
+  (file-defaulted from `config/theme.php`, DB-overridable like `site.title`), chosen
+  in the admin from installed themes; `ThemeCatalog` discovers `themes/` and
+  allow-lists the name on write + contains the path on read
+  ([ADR 0018](docs/adr/0018-site-theme-picker.md)). Groundwork for themes as
+  installable packages
 - [ ] Storage adapter interface (local / S3-compatible) — *media/asset backends,
   distinct from plugin-owned storage above*
 - [ ] Cache adapter interface
