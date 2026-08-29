@@ -11,8 +11,8 @@ use Nimbus\Database\Connection;
  *
  * Nine capabilities today: field types, head contributions (ADR 0004), events
  * — subscribe, and emit under the plugin's own namespace (ADR 0014) — migrations
- * for the plugin's own tables, a grantable management capability (ADR 0015),
- * storage of its own data
+ * for the plugin's own tables, a grantable management capability (ADR 0015), an
+ * MCP toolset (ADR 0016), storage of its own data
  * (ADR 0005), admin pages, maintenance tasks, and an agent-guidance skill
  * (ADR 0013). Each was added alongside a plugin that concretely needed it — field
  * types by the built-in types and Markdown, head contributions by plugin-seo,
@@ -50,6 +50,7 @@ final class PluginContext
     private MaintenanceRegistrar $maintenance;
     private SkillRegistrar $skills;
     private CapabilitiesRegistrar $capabilities;
+    private McpRegistrar $mcp;
     private ?Connection $db;
     private ?PluginStorage $storage = null;
 
@@ -63,6 +64,7 @@ final class PluginContext
         $this->maintenance  = new MaintenanceRegistrar($capabilities->maintenance, $pluginId);
         $this->skills       = new SkillRegistrar($capabilities->skills, $pluginId);
         $this->capabilities = new CapabilitiesRegistrar($capabilities->capabilities, $pluginId);
+        $this->mcp          = new McpRegistrar($capabilities->mcpToolsets, $pluginId);
         $this->db           = $capabilities->db;
     }
 
@@ -112,6 +114,12 @@ final class PluginContext
     public function capabilities(): CapabilitiesRegistrar
     {
         return $this->capabilities;
+    }
+
+    /** Register this plugin's MCP toolset — agent-facing tools that gate on its capability (ADR 0016). Stamped with its id. */
+    public function mcp(): McpRegistrar
+    {
+        return $this->mcp;
     }
 
     /**

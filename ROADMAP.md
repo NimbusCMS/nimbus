@@ -556,7 +556,13 @@ deliberate public surface:
   `Authorizer` consults core ∪ plugin set, sealed once at boot; the namespaced
   (dotted) resource makes collection-handle collision structurally impossible
   ([ADR 0015](docs/adr/0015-plugin-capabilities.md), H2a — closes the A1 authz
-  leak). The plugin **MCP toolset** half (H2b) builds with Inventory, its consumer
+  leak).
+- [x] **Plugin MCP toolsets** via `PluginContext::mcp()->register()` — a plugin
+  extends `PluginToolset` and declares `PluginTool`s; the base gates every tool on
+  the plugin's capability and namespaces every name, so an ungated or colliding
+  tool can't ship; composed after the core toolsets in the shared factory
+  ([ADR 0016](docs/adr/0016-plugin-mcp-toolsets.md), H2b — completes the keystone).
+  Consumer: Inventory (`receive`/`adjust`/`count`, building next)
 - [x] Plugin-owned migrations + storage — own tables only ([ADR 0005](docs/adr/0005-plugin-owned-storage.md));
   consumer: Analytics. Core connection/tables/repos stay off-limits
 - [x] Admin pages + nav via `PluginContext::adminPages()` — GET-only for now

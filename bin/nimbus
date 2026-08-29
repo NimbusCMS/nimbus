@@ -260,6 +260,7 @@ try {
                 $app->settings(),
                 $ops,
                 $app->agentSkills(),
+                $app->mcpToolsets(),
                 Nimbus\Application::VERSION,
                 Config::basePath(),
             );

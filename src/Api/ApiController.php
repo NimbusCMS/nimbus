@@ -17,6 +17,7 @@ use Nimbus\Http\Router;
 use Nimbus\Mcp\Guide\SkillRegistry;
 use Nimbus\Mcp\McpServer;
 use Nimbus\Mcp\McpServerFactory;
+use Nimbus\Mcp\McpToolsetRegistry;
 use Nimbus\Settings\Settings;
 use Nimbus\Support\Config;
 use Nimbus\Support\EventDispatcher;
@@ -53,6 +54,7 @@ final class ApiController
         RateLimitMiddleware $ipFlood,
         Settings $settings,
         SkillRegistry $skills,
+        McpToolsetRegistry $mcpToolsets,
     ) {
         $this->collections = new CollectionRepository($db);
         $this->types       = $types;
@@ -61,7 +63,7 @@ final class ApiController
         // One assembly seam for both transports (ADR 0013) — the toolset list,
         // the agent guide and the server version live in the factory, so the HTTP
         // and stdio front doors can never drift.
-        $this->mcpServer = McpServerFactory::build($db, $types, $events, $settings, $this->ops, $skills, Application::VERSION, Config::basePath());
+        $this->mcpServer = McpServerFactory::build($db, $types, $events, $settings, $this->ops, $skills, $mcpToolsets, Application::VERSION, Config::basePath());
         $this->authContext = $authContext;
         $this->auth        = new ApiAuthMiddleware(new ApiTokenRepository($db), $authContext, $events);
 
