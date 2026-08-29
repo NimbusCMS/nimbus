@@ -549,7 +549,9 @@ final class SiteController
         // (header/footer brand) reflect the editable setting consistently. Done
         // at render time, so /api and cache-hit requests never run the query.
         $this->render->share('appName', $this->title());
-        return Response::html($this->render->render($template, $data), $status);
+        // In demo mode, core adds the "live demo" banner — so any theme works in
+        // the hosted sandbox without carrying demo markup (a no-op otherwise).
+        return Response::html(DemoBanner::inject($this->render->render($template, $data)), $status);
     }
 
     /** The site title: the stored setting, or the config default when unwired. */
