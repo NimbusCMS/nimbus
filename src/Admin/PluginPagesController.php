@@ -7,6 +7,7 @@ namespace Nimbus\Admin;
 use Nimbus\Auth\Auth;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csp;
+use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
@@ -38,14 +39,44 @@ final class PluginPagesController extends Controller
             return;
         }
 
-        $r->group('/admin', [$this->authMw], function (Router $g) use ($pages): void {
+        $actions = $this->adminPages?->actions() ?? [];
+        // Each action inherits the capability of the page it belongs to.
+        $capabilityOf = [];
+        foreach ($pages as $page) {
+            $capabilityOf[$page['slug']] = $page['capability'];
+        }
+
+        $r->group('/admin', [$this->authMw], function (Router $g) use ($pages, $actions, $capabilityOf): void {
             foreach ($pages as $page) {
                 $slug       = $page['slug'];
                 $handler    = $page['handler'];
                 $capability = $page['capability'];
                 $g->get('/' . $slug, fn (Request $req, array $p): Response => $this->render($slug, $handler, $capability, $req))->name('admin.plugin.' . $slug);
             }
+            foreach ($actions as $a) {
+                $handler    = $a['handler'];
+                $capability = $capabilityOf[$a['page']] ?? null;
+                $g->post('/' . $a['page'] . '/' . $a['action'], fn (Request $req, array $p): Response => $this->runAction($handler, $capability, $a['page'], $req))
+                    ->name('admin.plugin.' . $a['page'] . '.' . $a['action']);
+            }
         });
+    }
+
+    /**
+     * A plugin admin form POST (H3). Core enforces the boundary before the plugin
+     * runs: the page's capability (wildcard-immune, like the GET), then CSRF —
+     * so a plugin cannot ship an unauthenticated or CSRF-unprotected admin write.
+     * The handler does its work and returns a Response (typically a redirect back
+     * to its page with a fixed status code).
+     */
+    private function runAction(callable $handler, ?string $capability, string $page, Request $request): Response
+    {
+        if ($capability !== null && !$this->gate->holds($capability)) {
+            $this->abortTo(Url::to('admin.dashboard'));
+        }
+        $this->requireCsrf($request, '/admin/' . $page);
+
+        return $handler($request);
     }
 
     /**
@@ -65,7 +96,10 @@ final class PluginPagesController extends Controller
             $this->abortTo(Url::to('admin.dashboard'));
         }
 
-        $result = $handler($request, Csp::nonce());
+        // The handler receives the CSP nonce and a CSRF token — so a page that
+        // renders a form (H3) can embed a valid `_token` and post to its action.
+        // Additive: a handler declaring fewer parameters ignores the extras.
+        $result = $handler($request, Csp::nonce(), Csrf::token());
 
         return $result instanceof Response ? $result : $this->shell($slug, (string) $result);
     }

@@ -70,6 +70,22 @@ final class AdminPageRegistrar
     }
 
     /**
+     * Register a POST form handler for one of this plugin's admin pages (H3),
+     * served at `/admin/{page}/{action}`. Core enforces auth, the page's capability
+     * and CSRF before calling `$handler`, which does the work and returns a Response
+     * (typically a redirect back to the page). The handler is passed the Request.
+     *
+     * @param callable(\Nimbus\Http\Request):\Nimbus\Http\Response $handler
+     */
+    public function action(string $page, string $action, callable $handler): void
+    {
+        if (preg_match('/^[a-z0-9-]+$/', $page) !== 1 || preg_match('/^[a-z0-9-]+$/', $action) !== 1) {
+            throw new InvalidArgumentException("An admin action page and name must be lowercase letters, digits or hyphens: \"{$page}/{$action}\".");
+        }
+        $this->registry->addAction($page, $action, $handler, $this->pluginId);
+    }
+
+    /**
      * Only `admin` and the exact-or-admin **core** management capabilities are
      * accepted — these are wildcard-immune (the content `*:action` grant never
      * satisfies them), so the page is genuinely restricted.
