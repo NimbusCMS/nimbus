@@ -12,7 +12,7 @@ use Nimbus\Database\Connection;
  * Nine capabilities today: field types, head contributions (ADR 0004), events
  * — subscribe, and emit under the plugin's own namespace (ADR 0014) — migrations
  * for the plugin's own tables, a grantable management capability (ADR 0015), an
- * MCP toolset (ADR 0016), storage of its own data
+ * MCP toolset (ADR 0016), public routes under /ext (ADR 0017), storage of its own data
  * (ADR 0005), admin pages, maintenance tasks, and an agent-guidance skill
  * (ADR 0013). Each was added alongside a plugin that concretely needed it — field
  * types by the built-in types and Markdown, head contributions by plugin-seo,
@@ -51,6 +51,7 @@ final class PluginContext
     private SkillRegistrar $skills;
     private CapabilitiesRegistrar $capabilities;
     private McpRegistrar $mcp;
+    private RouteRegistrar $routes;
     private ?Connection $db;
     private ?PluginStorage $storage = null;
 
@@ -65,6 +66,7 @@ final class PluginContext
         $this->skills       = new SkillRegistrar($capabilities->skills, $pluginId);
         $this->capabilities = new CapabilitiesRegistrar($capabilities->capabilities, $pluginId);
         $this->mcp          = new McpRegistrar($capabilities->mcpToolsets, $pluginId);
+        $this->routes       = new RouteRegistrar($capabilities->routes, $pluginId);
         $this->db           = $capabilities->db;
     }
 
@@ -120,6 +122,12 @@ final class PluginContext
     public function mcp(): McpRegistrar
     {
         return $this->mcp;
+    }
+
+    /** Register public routes under /ext/{namespace} — storefronts, webhooks (ADR 0017). Stamped with its id. */
+    public function routes(): RouteRegistrar
+    {
+        return $this->routes;
     }
 
     /**

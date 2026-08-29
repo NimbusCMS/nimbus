@@ -27,13 +27,14 @@ final class CollectionService
      * permission-capability name, so `Authorizer` would judge the collection
      * under management rules (a `media:read` holder gaining content-read of a
      * collection named `media`); the rest are built-in public route prefixes
-     * that would shadow the collection's own pages. Kept a superset of
+     * that would shadow the collection's own pages — including `ext`, the plugin
+     * public-route space (ADR 0017). Kept a superset of
      * `Authorizer::MANAGEMENT ∪ {'admin'}` by a drift-guard test (PHP consts
      * can't merge arrays, so the invariant is asserted, not computed).
      */
     public const RESERVED_COLLECTION_HANDLES = [
         'schema', 'media', 'users', 'tokens', 'settings', 'roles', 'admin',
-        'api', 'uploads', 'theme',
+        'api', 'uploads', 'theme', 'ext',
     ];
 
     /** Field handles that collide with a built-in entry attribute in the flat

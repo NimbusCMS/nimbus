@@ -74,6 +74,16 @@ final class Request
     }
 
     /**
+     * The unparsed request body. A webhook receiver (ADR 0017) needs the exact
+     * bytes to verify a provider's HMAC signature — `json()`/`all()` would have
+     * re-encoded them. Read it, verify the signature over it, and only then parse.
+     */
+    public function rawBody(): string
+    {
+        return $this->rawBody;
+    }
+
+    /**
      * The client IP, used for throttling.
      *
      * X-Forwarded-For is spoofable by anyone, so it counts only when the

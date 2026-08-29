@@ -563,6 +563,13 @@ deliberate public surface:
   tool can't ship; composed after the core toolsets in the shared factory
   ([ADR 0016](docs/adr/0016-plugin-mcp-toolsets.md), H2b — completes the keystone).
   Consumer: Inventory (`receive`/`adjust`/`count`, building next)
+- [x] **Plugin public routes** via `PluginContext::routes()` — a plugin serves
+  `get`/`post`/etc under the reserved `/ext/{namespace}/…` prefix (structurally
+  non-colliding with content; mounted after core, before the content catch-all;
+  namespace unique across plugins). Public, no ambient auth or CSRF — the plugin
+  owns it (verify a webhook signature over the new `Request::rawBody()`)
+  ([ADR 0017](docs/adr/0017-plugin-public-routes.md), H4). Consumer: Nimbus Commerce
+  (storefront actions + payment webhooks)
 - [x] Plugin-owned migrations + storage — own tables only ([ADR 0005](docs/adr/0005-plugin-owned-storage.md));
   consumer: Analytics. Core connection/tables/repos stay off-limits
 - [x] Admin pages + nav via `PluginContext::adminPages()` — GET-only for now

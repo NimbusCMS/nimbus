@@ -82,12 +82,16 @@ namespace** ([ADR 0014](docs/adr/0014-plugin-event-dispatch.md)) — a **grantab
 management capability** ([ADR 0015](docs/adr/0015-plugin-capabilities.md) — wildcard-immune,
 e.g. `inventory:write`) — **MCP tools** that gate on it
 ([ADR 0016](docs/adr/0016-plugin-mcp-toolsets.md) — the base enforces the gate and
-name-spacing, so an agent can drive the plugin) — **its own migrations and tables**
+name-spacing, so an agent can drive the plugin) — **public routes** under
+`/ext/{namespace}` for storefronts and webhooks
+([ADR 0017](docs/adr/0017-plugin-public-routes.md) — reserved prefix, the plugin
+owns its auth) — **its own migrations and tables**
 ([ADR 0005](docs/adr/0005-plugin-owned-storage.md) — own tables only),
 and **admin pages** (with a nav entry). Each of these was added alongside an
-official plugin that actually needed it — Markdown (field types), SEO (head), and
-Analytics (events, migrations, storage, admin pages). Arbitrary routes, custom
-permissions, and access to *core* tables are deliberately still not exposed. The
+official plugin that actually needed it — Markdown (field types), SEO (head),
+Analytics (events, migrations, storage, admin pages), and Inventory (a grantable
+capability, MCP tools, and public routes). Access to *core* tables and controllers
+is deliberately still not exposed. The
 authoritative, evidence-backed capability matrix lives in
 [`references/capability-evidence.md`](.claude/skills/nimbus-review-loop/references/capability-evidence.md).
 
