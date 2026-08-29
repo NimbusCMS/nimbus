@@ -7,6 +7,7 @@ namespace Nimbus\Tests\Unit;
 use Nimbus\Content\Field;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Content\FieldTypes\BaseType;
+use Nimbus\Mcp\PluginToolset;
 use Nimbus\Plugin\Plugin;
 use Nimbus\Plugin\PluginCapabilities;
 use Nimbus\Plugin\PluginContext;
@@ -91,6 +92,19 @@ final class HalfBrokenPlugin implements Plugin
 }
 
 /** Registers one of EVERY capability, then throws — to prove all six roll back. */
+final class AllCapsToolset extends PluginToolset
+{
+    public function namespace(): string
+    {
+        return 'allcaps';
+    }
+
+    protected function tools(): array
+    {
+        return [];
+    }
+}
+
 final class AllCapabilitiesBrokenPlugin implements Plugin
 {
     public function register(PluginContext $context): void
@@ -108,6 +122,7 @@ final class AllCapabilitiesBrokenPlugin implements Plugin
         $context->maintenance()->register('allcaps-task', static fn (): int => 0);
         $context->skills()->register('AllCaps guide', 'How to drive the allcaps plugin.');
         $context->capabilities()->declare('AllCaps', ['read', 'write']);
+        $context->mcp()->register(new AllCapsToolset());
         // Now fail: 'text' is a core type — DuplicateFieldType, which the loader
         // turns into REGISTER_FAILED + full rollback of everything above.
         $context->fieldTypes()->register(new class () extends BaseType {
@@ -422,6 +437,7 @@ final class PluginLoaderTest extends TestCase
             'maintenance'  => fn (): bool => $caps->maintenance->all() === [],
             'skills'       => fn (): bool => $caps->skills->documents() === [],
             'capabilities' => fn (): bool => $caps->capabilities->managementResources() === [],
+            'mcpToolsets'  => fn (): bool => $caps->mcpToolsets->all() === [],
         ];
         foreach ($covered as $name => $isClean) {
             self::assertTrue($isClean(), "the {$name} registry was not rolled back on a failed load");

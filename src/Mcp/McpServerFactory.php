@@ -53,6 +53,7 @@ final class McpServerFactory
         Settings $settings,
         EntryOperations $ops,
         SkillRegistry $skills,
+        McpToolsetRegistry $pluginToolsets,
         string $version,
         string $basePath,
     ): McpServer {
@@ -82,6 +83,9 @@ final class McpServerFactory
             new TokensToolset(new ApiTokenRepository($db), new RoleRepository($db), $events),
             new SettingsToolset($settings, new SettingsRegistry($collections), $events),
             new ContentToolset($collections, $types, $ops),
+            // Plugin toolsets are composed LAST, so a fixed core tool name is
+            // always claimed by core, never shadowed by a plugin (ADR 0016).
+            ...$pluginToolsets->all(),
         );
     }
 }

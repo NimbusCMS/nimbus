@@ -38,6 +38,7 @@ use Nimbus\Http\Url;
 use Nimbus\Mail\Mailer;
 use Nimbus\Mail\MailerFactory;
 use Nimbus\Mcp\Guide\SkillRegistry;
+use Nimbus\Mcp\McpToolsetRegistry;
 use Nimbus\Plugin\PluginCapabilities;
 use Nimbus\Plugin\PluginDiagnostic;
 use Nimbus\Plugin\PluginLoader;
@@ -86,6 +87,7 @@ final class Application
     private MaintenanceRegistry $maintenance;
     private SkillRegistry $skills;
     private CapabilityRegistry $capabilities;
+    private McpToolsetRegistry $mcpToolsets;
     private EventDispatcher $events;
 
     /** Request-scoped carrier for the authenticated API principal (ADR 0006). */
@@ -145,6 +147,7 @@ final class Application
         $this->maintenance      = new MaintenanceRegistry();
         $this->skills           = new SkillRegistry();
         $this->capabilities     = new CapabilityRegistry();
+        $this->mcpToolsets      = new McpToolsetRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
         // Composed after the env/db block above so the registry captures loaded
@@ -201,6 +204,7 @@ final class Application
             maintenance: $this->maintenance,
             skills: $this->skills,
             capabilities: $this->capabilities,
+            mcpToolsets: $this->mcpToolsets,
             db: $this->db,
         ));
         $this->pluginStatuses    = $loader->statuses();
@@ -240,6 +244,12 @@ final class Application
     public function agentSkills(): SkillRegistry
     {
         return $this->skills;
+    }
+
+    /** The MCP toolsets enabled plugins registered (ADR 0016) — composed into the server after the core ones. */
+    public function mcpToolsets(): McpToolsetRegistry
+    {
+        return $this->mcpToolsets;
     }
 
     /** The field-type registry (core + plugin types) — used by the OpenAPI CLI dump. */
@@ -409,7 +419,7 @@ final class Application
         // Plugin admin pages, after the core admin controllers so a plugin slug
         // can never shadow a core /admin route.
         (new PluginPagesController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
-        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth, $this->events, $this->apiFlood, $this->settings, $this->skills))->routes($router);
+        (new ApiController($this->db, $this->fieldTypes, $this->apiAuth, $this->events, $this->apiFlood, $this->settings, $this->skills, $this->mcpToolsets))->routes($router);
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.

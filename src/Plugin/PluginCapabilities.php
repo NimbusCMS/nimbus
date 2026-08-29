@@ -10,6 +10,7 @@ use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Database\MigrationRegistry;
 use Nimbus\Mcp\Guide\SkillRegistry;
+use Nimbus\Mcp\McpToolsetRegistry;
 use Nimbus\Site\HeadContributorRegistry;
 use Nimbus\Support\EventDispatcher;
 use Nimbus\Support\MaintenanceRegistry;
@@ -42,6 +43,8 @@ final class PluginCapabilities
         public readonly SkillRegistry $skills = new SkillRegistry(),
         // Grantable, wildcard-immune management capabilities a plugin declares (ADR 0015).
         public readonly CapabilityRegistry $capabilities = new CapabilityRegistry(),
+        // Plugin-registered MCP toolsets, composed after the core ones (ADR 0016).
+        public readonly McpToolsetRegistry $mcpToolsets = new McpToolsetRegistry(),
         // The live connection, for the storage capability. Null when a caller
         // has no database (a unit test, or a plugin that never touches storage).
         public readonly ?Connection $db = null,
