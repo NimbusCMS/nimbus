@@ -56,8 +56,16 @@ final class AdminController extends Controller
     {
         $this->requireAdmin();
 
+        // Plugin id → its admin-page slug, so a plugin that ships an admin page
+        // (Inventory, Commerce, Analytics …) links straight to it from this list.
+        $openable = [];
+        foreach ($this->adminPages?->all() ?? [] as $page) {
+            $openable[$page['provider']] ??= $page['slug'];
+        }
+
         return $this->page('plugins', 'plugins', [
             'plugins'  => $this->pluginStatuses,
+            'openable' => $openable,
             'problems' => array_values(array_filter(
                 $this->pluginStatuses,
                 static fn (PluginStatus $s): bool => $s->isProblem(),
