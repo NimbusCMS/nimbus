@@ -7,6 +7,7 @@ namespace Nimbus\Tests\Http;
 use Nimbus\Admin\AdminController;
 use Nimbus\Admin\AdminPageRegistry;
 use Nimbus\Admin\PluginPagesController;
+use Nimbus\Http\Csrf;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
 
@@ -48,6 +49,50 @@ final class PluginAdminPageTest extends HttpTestCase
         } catch (\Nimbus\Http\HttpException $e) {
             return $e->response;
         }
+    }
+
+    private function actionRegistry(bool &$ranFlag): AdminPageRegistry
+    {
+        $registry = new AdminPageRegistry();
+        $registry->add('shop', 'Shop', '🛒', static fn (): string => 'the shop page', 'nimbuscms.shop');
+        $registry->addAction('shop', 'buy', function () use (&$ranFlag): Response {
+            $ranFlag = true;
+            return Response::redirect('/admin/shop?ok=1');
+        }, 'nimbuscms.shop');
+        return $registry;
+    }
+
+    public function test_a_plugin_admin_action_runs_with_a_valid_csrf_token(): void
+    {
+        // H3: a plugin form POST reaches the handler when logged in with a valid token.
+        $this->actingAs('admin');
+        $ran      = false;
+        $router   = $this->pluginRouter($this->actionRegistry($ran));
+        $response = $this->dispatchGuarded($router, $this->request('POST', '/admin/shop/buy', [], ['_token' => Csrf::token()]));
+
+        self::assertTrue($ran, 'the action handler ran');
+        self::assertSame(302, $response->status, 'and returned its redirect');
+    }
+
+    public function test_a_plugin_admin_action_is_refused_without_a_csrf_token(): void
+    {
+        // Core verifies CSRF before the handler — a plugin can't ship an unprotected write.
+        $this->actingAs('admin');
+        $ran    = false;
+        $router = $this->pluginRouter($this->actionRegistry($ran));
+        $this->dispatchGuarded($router, $this->request('POST', '/admin/shop/buy', [], [])); // no _token
+
+        self::assertFalse($ran, 'the handler must not run without a valid CSRF token');
+    }
+
+    public function test_a_plugin_admin_action_requires_login(): void
+    {
+        // Not logged in — the authMw group blocks the POST before the handler.
+        $ran    = false;
+        $router = $this->pluginRouter($this->actionRegistry($ran));
+        $this->dispatchGuarded($router, $this->request('POST', '/admin/shop/buy', [], ['_token' => 'anything']));
+
+        self::assertFalse($ran, 'the handler must not run when not authenticated');
     }
 
     public function test_every_core_admin_section_is_a_reserved_plugin_slug(): void

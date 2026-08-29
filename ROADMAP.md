@@ -572,8 +572,10 @@ deliberate public surface:
   (storefront actions + payment webhooks)
 - [x] Plugin-owned migrations + storage — own tables only ([ADR 0005](docs/adr/0005-plugin-owned-storage.md));
   consumer: Analytics. Core connection/tables/repos stay off-limits
-- [x] Admin pages + nav via `PluginContext::adminPages()` — GET-only for now
-  (forms pending the CSRF-token decision above); consumer: Analytics
+- [x] Admin pages + nav via `PluginContext::adminPages()`; consumer: Analytics.
+  Now also **POST form actions** via `adminPages()->action($page, $name, $handler)`
+  (H3) — core enforces auth + the page's capability + CSRF before the handler
+  runs; consumers: Inventory (receive/adjust) + Commerce (place order)
 - [x] **Public theme picker** — the active site theme is a `site.theme` setting
   (file-defaulted from `config/theme.php`, DB-overridable like `site.title`), chosen
   in the admin from installed themes; `ThemeCatalog` discovers `themes/` and
