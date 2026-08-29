@@ -70,9 +70,15 @@ final class AdminPageRegistrar
     }
 
     /**
-     * Only `admin` and the exact-or-admin management capabilities are accepted —
-     * these are wildcard-immune (the content `*:action` grant never satisfies
-     * them), so the page is genuinely restricted.
+     * Only `admin` and the exact-or-admin **core** management capabilities are
+     * accepted — these are wildcard-immune (the content `*:action` grant never
+     * satisfies them), so the page is genuinely restricted.
+     *
+     * Deliberately core-only for now: a page is registered *during* a plugin's
+     * `register()`, but plugin-declared capabilities aren't frozen into the
+     * Authorizer until every plugin has loaded (ADR 0015), so a plugin cannot yet
+     * gate a page on its own capability without an ordering trap. Admin pages are
+     * GET-only today (forms are H3) and no consumer needs this, so it is deferred.
      */
     private static function isGateableCapability(string $capability): bool
     {

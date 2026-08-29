@@ -107,6 +107,7 @@ final class AllCapabilitiesBrokenPlugin implements Plugin
         $context->adminPages()->register('allcaps-page', 'AllCaps', '★', static fn (): string => 'x');
         $context->maintenance()->register('allcaps-task', static fn (): int => 0);
         $context->skills()->register('AllCaps guide', 'How to drive the allcaps plugin.');
+        $context->capabilities()->declare('AllCaps', ['read', 'write']);
         // Now fail: 'text' is a core type — DuplicateFieldType, which the loader
         // turns into REGISTER_FAILED + full rollback of everything above.
         $context->fieldTypes()->register(new class () extends BaseType {
@@ -418,8 +419,9 @@ final class PluginLoaderTest extends TestCase
             'events'      => fn (): bool => !$caps->events->hasListeners('allcaps.event'),
             'migrations'  => fn (): bool => $caps->migrations->all() === [],
             'adminPages'  => fn (): bool => $caps->adminPages->all() === [],
-            'maintenance' => fn (): bool => $caps->maintenance->all() === [],
-            'skills'      => fn (): bool => $caps->skills->documents() === [],
+            'maintenance'  => fn (): bool => $caps->maintenance->all() === [],
+            'skills'       => fn (): bool => $caps->skills->documents() === [],
+            'capabilities' => fn (): bool => $caps->capabilities->managementResources() === [],
         ];
         foreach ($covered as $name => $isClean) {
             self::assertTrue($isClean(), "the {$name} registry was not rolled back on a failed load");

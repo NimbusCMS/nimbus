@@ -78,8 +78,10 @@ It is a diagnostic view, not an installer: plugins are managed with
 Today a plugin can register **field types**, **document-head contributions**
 (structured data / meta for public pages, see [ADR 0004](docs/adr/0004-plugin-head-contributions.md)),
 **events** — listen (including `request.handled`) and **emit under its own
-namespace** ([ADR 0014](docs/adr/0014-plugin-event-dispatch.md)) — **its own
-migrations and tables** ([ADR 0005](docs/adr/0005-plugin-owned-storage.md) — own tables only),
+namespace** ([ADR 0014](docs/adr/0014-plugin-event-dispatch.md)) — a **grantable
+management capability** ([ADR 0015](docs/adr/0015-plugin-capabilities.md) — wildcard-immune,
+e.g. `inventory:write`) — **its own migrations and tables**
+([ADR 0005](docs/adr/0005-plugin-owned-storage.md) — own tables only),
 and **admin pages** (with a nav entry). Each of these was added alongside an
 official plugin that actually needed it — Markdown (field types), SEO (head), and
 Analytics (events, migrations, storage, admin pages). Arbitrary routes, custom

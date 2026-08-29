@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Plugin;
 
 use Nimbus\Admin\AdminPageRegistry;
+use Nimbus\Auth\CapabilityRegistry;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Database\MigrationRegistry;
@@ -39,6 +40,8 @@ final class PluginCapabilities
         public readonly MaintenanceRegistry $maintenance = new MaintenanceRegistry(),
         // Agent-guidance fragments (ADR 0013): each becomes a plugin guide resource.
         public readonly SkillRegistry $skills = new SkillRegistry(),
+        // Grantable, wildcard-immune management capabilities a plugin declares (ADR 0015).
+        public readonly CapabilityRegistry $capabilities = new CapabilityRegistry(),
         // The live connection, for the storage capability. Null when a caller
         // has no database (a unit test, or a plugin that never touches storage).
         public readonly ?Connection $db = null,
