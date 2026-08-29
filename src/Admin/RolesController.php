@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Nimbus\Admin;
 
 use Nimbus\Auth\Auth;
+use Nimbus\Auth\CapabilityRegistry;
 use Nimbus\Auth\RoleRepository;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
@@ -54,12 +55,14 @@ final class RolesController extends Controller
 
     private RoleRepository $roles;
     private CollectionRepository $collections;
+    private CapabilityRegistry $capabilities;
 
-    public function __construct(Connection $db, Auth $auth, Settings $settings, ?AdminPageRegistry $adminPages = null)
+    public function __construct(Connection $db, Auth $auth, Settings $settings, ?AdminPageRegistry $adminPages = null, ?CapabilityRegistry $capabilities = null)
     {
         parent::__construct($db, $auth, $settings, $adminPages);
-        $this->roles       = new RoleRepository($db);
-        $this->collections = new CollectionRepository($db);
+        $this->roles        = new RoleRepository($db);
+        $this->collections  = new CollectionRepository($db);
+        $this->capabilities = $capabilities ?? new CapabilityRegistry();
     }
 
     public function routes(Router $r): void
@@ -82,7 +85,9 @@ final class RolesController extends Controller
         return $this->page('roles/index', 'roles', [
             'roles'       => $this->roles->all(),
             'collections' => $this->collections->all(),
-            'management'  => self::MANAGEMENT,
+            // Core management capabilities plus any a plugin declared (ADR 0015),
+            // rendered as the same wildcard-immune checklist.
+            'management'  => array_merge(self::MANAGEMENT, $this->capabilities->grantable()),
             'editing'     => $editing,
             'counts'      => $this->assignedCounts(),
             'notice'      => $this->notice($req, self::OK_NOTICES, self::ERR_NOTICES),
@@ -199,7 +204,11 @@ final class RolesController extends Controller
         $posted = $req->all()['caps'] ?? [];
         $posted = is_array($posted) ? array_map('strval', $posted) : [];
 
-        $valid = array_merge(['admin', '*:read', '*:write'], array_keys(self::MANAGEMENT));
+        $valid = array_merge(
+            ['admin', '*:read', '*:write'],
+            array_keys(self::MANAGEMENT),
+            array_keys($this->capabilities->grantable()), // plugin-declared management caps (ADR 0015)
+        );
         foreach ($this->collections->all() as $collection) {
             $valid[] = $collection->handle . ':read';
             $valid[] = $collection->handle . ':write';

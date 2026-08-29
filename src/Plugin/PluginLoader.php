@@ -193,6 +193,7 @@ final class PluginLoader
             $capabilities->adminPages->forgetProvider($id);
             $capabilities->maintenance->forgetProvider($id);
             $capabilities->skills->forgetProvider($id);
+            $capabilities->capabilities->forgetProvider($id);
             $rolledBack = $capabilities->fieldTypes->forgetProvider($id);
             $detail     = $rolledBack === [] ? '' : ' Rolled back: ' . implode(', ', $rolledBack) . '.';
             $message    = $e->getMessage() . $detail;

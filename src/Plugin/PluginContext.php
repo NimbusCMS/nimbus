@@ -9,9 +9,10 @@ use Nimbus\Database\Connection;
 /**
  * Everything a plugin is allowed to touch.
  *
- * Eight capabilities today: field types, head contributions (ADR 0004), events
+ * Nine capabilities today: field types, head contributions (ADR 0004), events
  * — subscribe, and emit under the plugin's own namespace (ADR 0014) — migrations
- * for the plugin's own tables, storage of its own data
+ * for the plugin's own tables, a grantable management capability (ADR 0015),
+ * storage of its own data
  * (ADR 0005), admin pages, maintenance tasks, and an agent-guidance skill
  * (ADR 0013). Each was added alongside a plugin that concretely needed it — field
  * types by the built-in types and Markdown, head contributions by plugin-seo,
@@ -48,19 +49,21 @@ final class PluginContext
     private AdminPageRegistrar $adminPages;
     private MaintenanceRegistrar $maintenance;
     private SkillRegistrar $skills;
+    private CapabilitiesRegistrar $capabilities;
     private ?Connection $db;
     private ?PluginStorage $storage = null;
 
     public function __construct(PluginCapabilities $capabilities, private string $pluginId)
     {
-        $this->fieldTypes  = new FieldTypeRegistrar($capabilities->fieldTypes, $pluginId);
-        $this->head        = new HeadRegistrar($capabilities->head, $pluginId);
-        $this->events      = new EventRegistrar($capabilities->events, $pluginId);
-        $this->migrations  = new MigrationRegistrar($capabilities->migrations, $pluginId);
-        $this->adminPages  = new AdminPageRegistrar($capabilities->adminPages, $pluginId);
-        $this->maintenance = new MaintenanceRegistrar($capabilities->maintenance, $pluginId);
-        $this->skills      = new SkillRegistrar($capabilities->skills, $pluginId);
-        $this->db          = $capabilities->db;
+        $this->fieldTypes   = new FieldTypeRegistrar($capabilities->fieldTypes, $pluginId);
+        $this->head         = new HeadRegistrar($capabilities->head, $pluginId);
+        $this->events       = new EventRegistrar($capabilities->events, $pluginId);
+        $this->migrations   = new MigrationRegistrar($capabilities->migrations, $pluginId);
+        $this->adminPages   = new AdminPageRegistrar($capabilities->adminPages, $pluginId);
+        $this->maintenance  = new MaintenanceRegistrar($capabilities->maintenance, $pluginId);
+        $this->skills       = new SkillRegistrar($capabilities->skills, $pluginId);
+        $this->capabilities = new CapabilitiesRegistrar($capabilities->capabilities, $pluginId);
+        $this->db           = $capabilities->db;
     }
 
     /** Register field types. Registrations are stamped with this plugin's id. */
@@ -103,6 +106,12 @@ final class PluginContext
     public function skills(): SkillRegistrar
     {
         return $this->skills;
+    }
+
+    /** Declare this plugin's grantable, wildcard-immune management capability (ADR 0015). Stamped with its id. */
+    public function capabilities(): CapabilitiesRegistrar
+    {
+        return $this->capabilities;
     }
 
     /**

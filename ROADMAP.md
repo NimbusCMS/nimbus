@@ -550,6 +550,13 @@ deliberate public surface:
   delivery ([ADR 0014](docs/adr/0014-plugin-event-dispatch.md)). First of the four
   plugin-boundary capabilities for the Inventory + Commerce initiative; consumer:
   Inventory (building next)
+- [x] **Grantable plugin capabilities** via `PluginContext::capabilities()->declare()`
+  — a plugin adds a wildcard-immune **management** capability (`{pluginId}:read/write`,
+  e.g. `inventory:write`) that the content `*:write` wildcard can never reach;
+  `Authorizer` consults core ∪ plugin set, sealed once at boot; the namespaced
+  (dotted) resource makes collection-handle collision structurally impossible
+  ([ADR 0015](docs/adr/0015-plugin-capabilities.md), H2a — closes the A1 authz
+  leak). The plugin **MCP toolset** half (H2b) builds with Inventory, its consumer
 - [x] Plugin-owned migrations + storage — own tables only ([ADR 0005](docs/adr/0005-plugin-owned-storage.md));
   consumer: Analytics. Core connection/tables/repos stay off-limits
 - [x] Admin pages + nav via `PluginContext::adminPages()` — GET-only for now

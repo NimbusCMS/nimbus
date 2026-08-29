@@ -13,9 +13,10 @@ namespace Nimbus\Auth;
  * The rules, in order:
  * - `admin` grants everything.
  * - an exact `{resource}:{action}` grant always suffices.
- * - a **management** capability (schema/media/users/tokens/settings/roles) needs
- *   an exact grant or `admin` — the content wildcard never reaches it, so
- *   "write all my content" can't manage the site.
+ * - a **management** capability (schema/media/users/tokens/settings/roles, plus
+ *   any a plugin declared — ADR 0015) needs an exact grant or `admin` — the
+ *   content wildcard never reaches it, so "write all my content" can't manage the
+ *   site, nor move a plugin's money-grade resources (e.g. `inventory:write`).
  * - for **content** (any other resource), the wildcard `*:{action}` grants that
  *   action on every collection, and `{resource}:write` **implies**
  *   `{resource}:read` — you cannot edit content you cannot read.
@@ -24,6 +25,42 @@ final class Authorizer
 {
     /** Capabilities that escalate the site — granted only exactly (or by `admin`). */
     public const MANAGEMENT = ['schema', 'media', 'users', 'tokens', 'settings', 'roles'];
+
+    /**
+     * Plugin-declared management resources (ADR 0015), installed once at boot from
+     * the frozen {@see CapabilityRegistry} and read-only thereafter. These extend
+     * the wildcard-immune set exactly like the core {@see MANAGEMENT} const, so a
+     * plugin capability (e.g. `nimbuscms.inventory:write`) is unreachable by the
+     * content `*:write` wildcard. Composed in one place (Application::loadPlugins);
+     * a drift test asserts {@see useManagement()} has no other caller.
+     *
+     * @var list<string>
+     */
+    private static array $pluginManagement = [];
+
+    /**
+     * Install the plugin-declared management resources. Called once, at the end of
+     * plugin load, before the first request is served — never at request time.
+     *
+     * @param list<string> $resources plugin ids that are management capabilities
+     */
+    public static function useManagement(array $resources): void
+    {
+        self::$pluginManagement = array_values($resources);
+    }
+
+    /** Clear the plugin-declared set. Test isolation only — production installs once. */
+    public static function reset(): void
+    {
+        self::$pluginManagement = [];
+    }
+
+    /** Is this resource a management capability — core or plugin-declared — and so wildcard-immune? */
+    public static function isManagement(string $resource): bool
+    {
+        return in_array($resource, self::MANAGEMENT, true)
+            || in_array($resource, self::$pluginManagement, true);
+    }
 
     /** @param list<string> $capabilities */
     public static function can(array $capabilities, string $resource, string $action): bool
@@ -34,7 +71,7 @@ final class Authorizer
         if (in_array("{$resource}:{$action}", $capabilities, true)) {
             return true;
         }
-        if (in_array($resource, self::MANAGEMENT, true)) {
+        if (self::isManagement($resource)) {
             return false;
         }
         if (in_array("*:{$action}", $capabilities, true)) {

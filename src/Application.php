@@ -19,6 +19,8 @@ use Nimbus\Admin\UsersController;
 use Nimbus\Api\ApiAuthContext;
 use Nimbus\Api\ApiController;
 use Nimbus\Auth\Auth;
+use Nimbus\Auth\Authorizer;
+use Nimbus\Auth\CapabilityRegistry;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
@@ -83,6 +85,7 @@ final class Application
     private AdminPageRegistry $adminPages;
     private MaintenanceRegistry $maintenance;
     private SkillRegistry $skills;
+    private CapabilityRegistry $capabilities;
     private EventDispatcher $events;
 
     /** Request-scoped carrier for the authenticated API principal (ADR 0006). */
@@ -141,6 +144,7 @@ final class Application
         $this->adminPages       = new AdminPageRegistry();
         $this->maintenance      = new MaintenanceRegistry();
         $this->skills           = new SkillRegistry();
+        $this->capabilities     = new CapabilityRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
         // Composed after the env/db block above so the registry captures loaded
@@ -196,9 +200,16 @@ final class Application
             adminPages: $this->adminPages,
             maintenance: $this->maintenance,
             skills: $this->skills,
+            capabilities: $this->capabilities,
             db: $this->db,
         ));
         $this->pluginStatuses    = $loader->statuses();
+
+        // Freeze the plugin-declared management capabilities into the Authorizer
+        // for the rest of the process (ADR 0015). This is the ONE caller of
+        // useManagement() — a drift test holds that invariant — so the authorization
+        // vocabulary is sealed here, at boot, and never mutated at request time.
+        Authorizer::useManagement($this->capabilities->managementResources());
 
         foreach ($this->pluginDiagnostics as $diagnostic) {
             if ($diagnostic->isFailure()) {
@@ -392,7 +403,7 @@ final class Application
         (new EntriesController($this->db, $this->auth, $this->settings, $this->fieldTypes, $this->events, $this->adminPages))->routes($router);
         (new MediaController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
         (new UsersController($this->db, $this->auth, $this->settings, $this->adminPages, $this->mailer, $this->events))->routes($router);
-        (new RolesController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
+        (new RolesController($this->db, $this->auth, $this->settings, $this->adminPages, $this->capabilities))->routes($router);
         (new TokensController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
         (new SettingsController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
         // Plugin admin pages, after the core admin controllers so a plugin slug
