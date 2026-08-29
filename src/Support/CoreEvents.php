@@ -140,6 +140,55 @@ final class CoreEvents
      */
     public const INVITATION_ACCEPTED = 'auth.invitation_accepted';
 
+    /**
+     * Every event name core itself dispatches. The single list that
+     * {@see reservedRoots()} derives from — add a constant above, add it here,
+     * and the plugin-id reservation follows automatically.
+     *
+     * @return list<string>
+     */
+    public static function all(): array
+    {
+        return [
+            self::ENTRY_CREATED,
+            self::ENTRY_UPDATED,
+            self::ENTRY_SAVED,
+            self::ENTRY_DELETED,
+            self::REQUEST_HANDLED,
+            self::API_TOKEN_REJECTED,
+            self::API_ACCESS_DENIED,
+            self::API_ENTRY_WRITTEN,
+            self::API_MANAGEMENT_WRITTEN,
+            self::PASSWORD_RESET_REQUESTED,
+            self::PASSWORD_RESET_COMPLETED,
+            self::INVITATION_ACCEPTED,
+        ];
+    }
+
+    /**
+     * The root namespaces core reserves — the segment before the first dot of
+     * every event core dispatches (`entry`, `request`, `api`, `auth`).
+     *
+     * A plugin emits under its own id verbatim ({@see \Nimbus\Plugin\EventRegistrar::emit()}
+     * prepends `{pluginId}.`), so the *only* way a plugin could forge a core
+     * event like `entry.saved` is to be loaded under an id rooted in one of these
+     * namespaces. The loader forbids exactly that (PluginLoader validation), which
+     * is why emit itself needs no per-call reserved-name check: the prefix is
+     * already proven safe. Derived from {@see all()} so it can never drift behind
+     * a newly added core event.
+     *
+     * @return list<string>
+     */
+    public static function reservedRoots(): array
+    {
+        $roots = [];
+        foreach (self::all() as $event) {
+            $root = strstr($event, '.', true);
+            $roots[$root === false ? $event : $root] = true;
+        }
+        return array_keys($roots);
+    }
+
     private function __construct()
     {
     }

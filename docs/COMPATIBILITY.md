@@ -18,7 +18,7 @@ in any release, including patch releases.
 | `Nimbus\Plugin\PluginContext` | what a plugin is handed |
 | `Nimbus\Plugin\FieldTypeRegistrar` | registering field types |
 | `Nimbus\Plugin\HeadRegistrar` | registering document-head contributors |
-| `Nimbus\Plugin\EventRegistrar` | subscribing to events (`PluginContext::events()`) |
+| `Nimbus\Plugin\EventRegistrar` | subscribing to events, and **emitting** under the plugin's own namespace (`PluginContext::events()`, ADR 0014). `emit($name)` always prefixes the plugin id verbatim (`nimbuscms.inventory` + `low` → `nimbuscms.inventory.low`); an id rooted in a core event namespace is refused at load, so a plugin cannot forge a core event. Delivery is best-effort and depth-bounded — a throwing or looping subscriber cannot fail or hang the emitting operation |
 | `Nimbus\Plugin\MigrationRegistrar` | declaring migrations for the plugin's own tables (ADR 0005). **Prefix your table names with your plugin slug** (`analytics_hits`, not `hits`) so two plugins can't collide; never create/alter core `nb_*` tables — a migration statement that does (DDL or DML against `nb_*`) is **rejected at registration** and the plugin is skipped (an *accident guard, like a linter — not a sandbox*: an installed plugin is trusted in-process code and can still reach `nb_*` from its runtime, per ADR 0001). **Each statement must be individually idempotent** (`… IF NOT EXISTS`): MySQL can't roll DDL back, a failed migration is isolated + retried, and your runtime must not assume a table/constraint exists until the migration is recorded |
 | `Nimbus\Plugin\PluginStorage` | reading/writing the plugin's own tables (`PluginContext::storage()`, ADR 0005) |
 | `Nimbus\Plugin\AdminPageRegistrar` | registering admin pages (`PluginContext::adminPages()`). A slug must be unique and not shadow a core section (both throw at registration → the plugin fails to load) |
@@ -449,8 +449,10 @@ reason.
 - **Database schema.** Table and column names are internal. Read content
   through services, never `nb_*` tables directly.
 - **Admin HTML and CSS.** Class names and markup change freely.
-- **Event payload shapes.** Event subscription **is** a plugin capability
-  (`EventRegistrar`, `PluginContext::events()`), and the `CoreEvents` names are
-  stable — but the **payload arrays** each event carries are not frozen yet.
+- **Event payload shapes.** Event subscription and namespaced emission **are** a
+  plugin capability (`EventRegistrar`, `PluginContext::events()`, ADR 0014), and
+  the `CoreEvents` names are stable — but the **payload arrays** each event
+  carries are not frozen yet, and a plugin's *own* emitted event names/payloads
+  are that plugin's contract to keep, not core's.
 - **Anything reached by reflection.** Making a private thing accessible does
   not make it supported.

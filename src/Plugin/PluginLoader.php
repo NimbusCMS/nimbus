@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Nimbus\Plugin;
 
+use Nimbus\Support\CoreEvents;
 use Throwable;
 
 /**
@@ -123,6 +124,19 @@ final class PluginLoader
                 || preg_match('/^[a-z0-9][a-z0-9._-]*$/', $id) !== 1
                 || preg_match('/^nb([._-]|$)/', $id) === 1) {
                 $this->reject($name, $id, $display, $version, $official, PluginStatus::INVALID, PluginDiagnostic::INVALID_MANIFEST, 'A plugin id must be lowercase letters, digits, dot/dash/underscore (≤64 chars); cannot be "core"; and cannot start with the reserved "nb" namespace.');
+                continue;
+            }
+
+            // A plugin may now emit its own events (ADR 0014), always namespaced
+            // under its id verbatim. So an id rooted in a namespace core dispatches
+            // in (`entry`/`api`/`auth`/`request`) would let a plugin forge a core
+            // event — an `entry`-rooted plugin emitting `entry.saved` into core's
+            // revision/audit listeners. Reserving those roots at the identity level
+            // makes forgery structurally impossible, so emit() needs no per-call
+            // check. Derived from CoreEvents so it can't drift behind a new event.
+            $root = strstr($id, '.', true);
+            if (in_array($root === false ? $id : $root, CoreEvents::reservedRoots(), true)) {
+                $this->reject($name, $id, $display, $version, $official, PluginStatus::INVALID, PluginDiagnostic::INVALID_MANIFEST, 'A plugin id cannot be, or start with, a namespace core dispatches events in (' . implode(', ', CoreEvents::reservedRoots()) . ') — a plugin could otherwise forge a core event.');
                 continue;
             }
 

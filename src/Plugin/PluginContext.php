@@ -9,8 +9,9 @@ use Nimbus\Database\Connection;
 /**
  * Everything a plugin is allowed to touch.
  *
- * Eight capabilities today: field types, head contributions (ADR 0004), event
- * subscription, migrations for the plugin's own tables, storage of its own data
+ * Eight capabilities today: field types, head contributions (ADR 0004), events
+ * — subscribe, and emit under the plugin's own namespace (ADR 0014) — migrations
+ * for the plugin's own tables, storage of its own data
  * (ADR 0005), admin pages, maintenance tasks, and an agent-guidance skill
  * (ADR 0013). Each was added alongside a plugin that concretely needed it — field
  * types by the built-in types and Markdown, head contributions by plugin-seo,
@@ -74,7 +75,7 @@ final class PluginContext
         return $this->head;
     }
 
-    /** Subscribe to events (see CoreEvents). Stamped with this plugin's id. */
+    /** Subscribe to events, and emit under this plugin's own namespace (ADR 0014). Stamped with its id. */
     public function events(): EventRegistrar
     {
         return $this->events;
