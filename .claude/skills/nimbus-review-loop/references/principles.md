@@ -41,14 +41,17 @@ charter is the authority; this is the working detail.
   a write. Listener exceptions surface at the error boundary.
 - **Config lives in files; admin-editable content lives in the DB.** Deploy/env
   configuration — DB credentials, `APP_URL`, debug, trusted proxies, upload
-  limits, rate limits, enabled plugins, the active public theme — stays in
+  limits, rate limits, enabled plugins — stays in
   `.env` + `config/*.php`: it is per-environment, set at deploy, and some of it
   is needed *before* the database is available, so `Support\Config` is a static,
   **DB-free** facade and must stay that way. Values an editor changes at runtime
-  (site home, description, and future site content) live in `nb_settings` behind
+  (site home, description, and — since [ADR 0018](../../../../docs/adr/0018-site-theme-picker.md)
+  — the active public theme) live in `nb_settings` behind
   the typed `Settings` service, with the `config/*.php` value as the **default**
   the DB overrides — no seed migration, so a fresh install works from the file
-  and a set value wins. Do not couple `Config` to the DB, and do not move
+  and a set value wins. (The active theme moved from deploy-config to a
+  file-defaulted setting with maintainer approval; `Config` stayed DB-free — the
+  DB choice is resolved in `SiteController`, not `Config`.) Do not couple `Config` to the DB, and do not move
   deploy/env config into the settings store. A setting's default *source* is
   "whatever the file layer says for that key" and may differ per setting
   (`site.home`/`site.description` default from `config/site.php`; `site.title`

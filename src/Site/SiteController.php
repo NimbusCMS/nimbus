@@ -113,7 +113,7 @@ final class SiteController
         $this->collections      = new CollectionRepository($db);
         $this->entries          = new EntryRepository($db);
         $this->view             = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
-        $this->themeDir         = $themePath ?? Config::themePath();
+        $this->themeDir         = $themePath ?? self::resolveThemeDir($settings);
         $this->render           = new View($this->themeDir, [
             'appName'  => Config::appName(),
             'menus'    => Config::menus(),
@@ -122,6 +122,24 @@ final class SiteController
         $this->home             = $home;
         $this->settings         = $settings;
         $this->headContributors = $headContributors ?? new HeadContributorRegistry();
+    }
+
+    /**
+     * The active public theme's directory, from the chosen setting — the one place
+     * the DB-stored theme choice enters (ADR: the picker). `Config` stays DB-free;
+     * the setting overrides the `config/theme.php` default here.
+     *
+     * The setting is allow-list-validated on write against installed themes, but a
+     * theme can be deleted after it was chosen, and any value that becomes a
+     * filesystem path earns its own containment check: the resolved path must be a
+     * real directory inside `themes/`, or we fall back to the config-file theme
+     * (ultimately the bundled starter). So a stale or `../…` value can never point
+     * rendering outside the themes directory.
+     */
+    private static function resolveThemeDir(?Settings $settings): string
+    {
+        $name = $settings?->theme() ?? Config::theme();
+        return (new ThemeCatalog())->dirFor($name) ?? Config::themePath();
     }
 
     public function routes(Router $r): void

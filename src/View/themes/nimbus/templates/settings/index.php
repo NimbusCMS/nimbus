@@ -55,6 +55,14 @@ $e = static fn (?string $v): string => View::e($v);
                         </option>
                     <?php endforeach; ?>
                 </select>
+            <?php elseif ($field['type'] === 'theme'): ?>
+                <select id="set-<?= $e($field['key']) ?>" name="settings[<?= $e($field['key']) ?>]">
+                    <?php foreach ($siteThemes as $slug => $name): ?>
+                        <option value="<?= $e($slug) ?>"<?= $slug === $field['value'] ? ' selected' : '' ?>>
+                            <?= $e($name) ?> (<?= $e($slug) ?>)
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             <?php elseif ($field['type'] === 'text'): ?>
                 <input type="text" id="set-<?= $e($field['key']) ?>" name="settings[<?= $e($field['key']) ?>]" value="<?= $e($field['value']) ?>">
             <?php else: ?>
