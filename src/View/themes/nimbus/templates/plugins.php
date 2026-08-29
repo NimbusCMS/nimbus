@@ -48,7 +48,7 @@ $badgeClass = static fn (PluginStatus $p): string => match ($p->state) {
            not itself a guarantee — review any package before installing).</p>
     </div>
 <?php else: ?>
-    <div class="nb-table-wrap">
+    <div class="nb-table-wrap nb-stack">
         <table class="nb-table">
             <thead>
                 <tr>
@@ -60,22 +60,26 @@ $badgeClass = static fn (PluginStatus $p): string => match ($p->state) {
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($plugins as $p): ?>
+                <?php foreach ($plugins as $p): $slug = ($openable ?? [])[$p->id] ?? null; ?>
                     <tr<?= $p->isProblem() ? ' class="nb-row-danger"' : '' ?>>
-                        <td>
-                            <strong><?= $e($p->displayName) ?></strong>
+                        <td data-label="Plugin">
+                            <?php if ($slug !== null): ?>
+                                <a href="/admin/<?= $e($slug) ?>"><strong><?= $e($p->displayName) ?></strong></a>
+                            <?php else: ?>
+                                <strong><?= $e($p->displayName) ?></strong>
+                            <?php endif; ?>
                             <?php if ($p->id !== ''): ?>
                                 <div class="nb-muted"><code><?= $e($p->id) ?></code></div>
                             <?php endif; ?>
                         </td>
-                        <td><code><?= $e($p->packageName) ?></code></td>
-                        <td class="nb-muted"><?= $e($p->version) ?></td>
-                        <td>
+                        <td data-label="Package"><code><?= $e($p->packageName) ?></code></td>
+                        <td class="nb-muted" data-label="Version"><?= $e($p->version) ?></td>
+                        <td data-label="Source">
                             <span class="nb-badge <?= $p->official ? 'nb-badge-official' : 'nb-badge-muted' ?>">
                                 <?= $e($p->providerLabel()) ?>
                             </span>
                         </td>
-                        <td>
+                        <td data-label="Status">
                             <span class="nb-badge <?= $badgeClass($p) ?>"><?= $e($p->stateLabel()) ?></span>
                             <?php if ($p->message !== ''): ?>
                                 <div class="nb-muted nb-plugin-msg"><?= $e($p->message) ?></div>

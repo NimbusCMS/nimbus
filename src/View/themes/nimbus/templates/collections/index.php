@@ -19,13 +19,13 @@ $e = static fn (?string $v): string => View::e($v);
         <p>A collection is a content type — like Posts or Products.<?php if ($isAdmin): ?> Create one to start adding entries.<?php endif; ?></p>
     </div>
 <?php else: ?>
-    <div class="nb-table-wrap">
+    <div class="nb-table-wrap nb-stack">
         <table class="nb-table">
             <thead><tr><th>Name</th><th>Handle</th><th>Fields</th><th>Entries</th><th class="nb-actions-col"></th></tr></thead>
             <tbody>
             <?php foreach ($rows as $row): $c = $row['c']; $linkable = !$c->isSingle() || $row['manage']; ?>
                 <tr>
-                    <td>
+                    <td data-label="Name">
                         <span class="nb-ic-badge"><?= $e($c->iconChar()) ?></span>
                         <?php if ($linkable): ?>
                             <a href="/admin/collections/<?= $e($c->handle) ?>/entries"><strong><?= $e($c->name) ?></strong></a>
@@ -34,9 +34,9 @@ $e = static fn (?string $v): string => View::e($v);
                         <?php endif; ?>
                         <?php if ($c->isSingle()): ?><span class="nb-badge nb-badge-muted">Single</span><?php endif; ?>
                     </td>
-                    <td><code><?= $e($c->handle) ?></code></td>
-                    <td><?= (int) $row['fields'] ?></td>
-                    <td><?= $c->isSingle() ? '—' : (int) $row['entries'] ?></td>
+                    <td data-label="Handle"><code><?= $e($c->handle) ?></code></td>
+                    <td data-label="Fields"><?= (int) $row['fields'] ?></td>
+                    <td data-label="Entries"><?= $c->isSingle() ? '—' : (int) $row['entries'] ?></td>
                     <td class="nb-row-actions">
                         <?php if ($linkable): ?>
                             <a href="/admin/collections/<?= $e($c->handle) ?>/entries"><?= $c->isSingle() ? 'Edit' : 'Entries' ?></a>
