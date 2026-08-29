@@ -9,6 +9,7 @@ use Nimbus\Auth\CapabilityRegistry;
 use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 use Nimbus\Database\MigrationRegistry;
+use Nimbus\Http\PluginRouteRegistry;
 use Nimbus\Mcp\Guide\SkillRegistry;
 use Nimbus\Mcp\McpToolsetRegistry;
 use Nimbus\Site\HeadContributorRegistry;
@@ -45,6 +46,8 @@ final class PluginCapabilities
         public readonly CapabilityRegistry $capabilities = new CapabilityRegistry(),
         // Plugin-registered MCP toolsets, composed after the core ones (ADR 0016).
         public readonly McpToolsetRegistry $mcpToolsets = new McpToolsetRegistry(),
+        // Public routes plugins serve under /ext/{namespace} (ADR 0017).
+        public readonly PluginRouteRegistry $routes = new PluginRouteRegistry(),
         // The live connection, for the storage capability. Null when a caller
         // has no database (a unit test, or a plugin that never touches storage).
         public readonly ?Connection $db = null,

@@ -30,6 +30,7 @@ use Nimbus\Http\Cors;
 use Nimbus\Http\Csp;
 use Nimbus\Http\HttpException;
 use Nimbus\Http\Middleware\RateLimitMiddleware;
+use Nimbus\Http\PluginRouteRegistry;
 use Nimbus\Http\Request;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
@@ -88,6 +89,7 @@ final class Application
     private SkillRegistry $skills;
     private CapabilityRegistry $capabilities;
     private McpToolsetRegistry $mcpToolsets;
+    private PluginRouteRegistry $pluginRoutes;
     private EventDispatcher $events;
 
     /** Request-scoped carrier for the authenticated API principal (ADR 0006). */
@@ -148,6 +150,7 @@ final class Application
         $this->skills           = new SkillRegistry();
         $this->capabilities     = new CapabilityRegistry();
         $this->mcpToolsets      = new McpToolsetRegistry();
+        $this->pluginRoutes     = new PluginRouteRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
         // Composed after the env/db block above so the registry captures loaded
@@ -205,6 +208,7 @@ final class Application
             skills: $this->skills,
             capabilities: $this->capabilities,
             mcpToolsets: $this->mcpToolsets,
+            routes: $this->pluginRoutes,
             db: $this->db,
         ));
         $this->pluginStatuses    = $loader->statuses();
@@ -420,6 +424,22 @@ final class Application
         // can never shadow a core /admin route.
         (new PluginPagesController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
         (new ApiController($this->db, $this->fieldTypes, $this->apiAuth, $this->events, $this->apiFlood, $this->settings, $this->skills, $this->mcpToolsets))->routes($router);
+
+        // Plugin public routes (ADR 0017), mounted after every core surface — so a
+        // plugin can never shadow /admin or /api — and before the content catch-all
+        // below, so `/ext/{namespace}/…` resolves to the plugin, not to content.
+        foreach ($this->pluginRoutes->all() as $route) {
+            $handler = $route['handler'];
+            match ($route['method']) {
+                'GET'    => $router->get($route['pattern'], $handler),
+                'POST'   => $router->post($route['pattern'], $handler),
+                'PUT'    => $router->put($route['pattern'], $handler),
+                'PATCH'  => $router->patch($route['pattern'], $handler),
+                'DELETE' => $router->delete($route['pattern'], $handler),
+                default  => throw new \LogicException("Unsupported plugin route method \"{$route['method']}\"."),
+            };
+        }
+
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.
