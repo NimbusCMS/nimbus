@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NimbusCMS · headless example</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/example.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>NimbusCMS — headless example</h1>
+      <p class="lede">
+        This single static page reads the <strong>same content</strong> the themed
+        demo renders, over the JSON API — the "headless" way to build with Nimbus.
+        It's served from the demo itself, so it talks to <code>/api/v1</code>
+        same-origin with a read-only token. View source, or read the
+        <a href="https://github.com/NimbusCMS/nimbus/blob/main/docs/HEADLESS.md">guide</a>.
+      </p>
+    </header>
+
+    <section>
+      <h2>Menu <button id="reload" class="btn" type="button">Reload</button></h2>
+      <p class="muted">
+        <code>GET /api/v1/collections/menu/entries</code> — only <em>published</em>
+        entries come back, exactly as on the rendered site.
+      </p>
+      <div id="list">Loading…</div>
+    </section>
+
+    <section>
+      <h2>Entry</h2>
+      <p class="muted"><code id="req">Pick a menu item above.</code></p>
+      <div id="detail" class="panel">Pick a menu item to fetch it as JSON.</div>
+    </section>
+
+    <section>
+      <h2>Preview a draft</h2>
+      <p class="muted">
+        Paste a <strong>preview token</strong> (from an entry's “Preview draft”
+        button in the admin) to fetch an <em>unpublished</em> entry via
+        <code>GET /api/v1/preview?token=…</code> — no API token needed, scoped to
+        that one entry.
+      </p>
+      <p class="row">
+        <input id="ptoken" type="text" placeholder="preview token" autocomplete="off">
+        <button id="pgo" class="btn" type="button">Fetch draft</button>
+      </p>
+      <div id="preview" class="panel">No draft fetched yet.</div>
+    </section>
+
+    <footer class="muted">
+      Read-only demo token, embedded on purpose — the API is public read here.
+      Never ship a token in client JS for anything but public, read-only content.
+    </footer>
+  </main>
+  <script src="/example.js"></script>
+</body>
+</html>
