@@ -44,12 +44,13 @@ out of the box — before the optional page cache. Measured and reproducible:
 - ✉️ **Pluggable mail** — a small `Mailer` behind one interface: `log` (default — writes to a file, zero config), `native` (PHP `mail()`), or `api` (a transactional provider's HTTPS API — one key, no SMTP). Used by password reset today
 - 🔑 **SSO — "Sign in with Google / GitHub"** (optional, **off by default**) — Authorization-Code + PKCE, dependency-free (no JWT library); a user links a provider from Settings and then signs in without a password. Password sign-in always stays available; no account is ever auto-created (a person still has to be invited). See [ADR 0012](docs/adr/0012-oauth-sso.md)
 - 🎨 **Themeable, mobile-native admin** — six built-in themes (**Nimbus** night-sky, **Nocturne** dark, **Daybreak**, **Grimoire**, **Auto** match-device, **Owl** high-contrast) with a per-user picker, all token-driven; a phone-native shell (off-canvas nav drawer, responsive tables/forms), WCAG-AA, one inlined vanilla-CSS file — no framework, no build ([docs/design/admin-experience.md](docs/design/admin-experience.md))
-- 🗓️ **Publishing lifecycle** — draft / published / scheduled / archived with cron-free scheduling; the API serves exactly the live set
+- 🗓️ **Publishing lifecycle** — draft / published / scheduled / archived with cron-free scheduling; the API serves exactly the live set. **Draft preview** (ADR 0021): a "Preview draft" button mints a short-lived, scheme-safe, entry-scoped link that renders the unpublished entry through the theme *and* serves it headless (`GET /api/v1/preview`) — uncacheable, no-referrer, and it leaks nothing without the token
 - 🖼️ **Media library** — upload (content-validated, safe names), a library, and a `media` field the API expands to `{ url, alt, … }`
-- 🔌 **Headless JSON API** — read + write `/api/v1`, scoped bearer tokens (expiry/pause/revoke), ETag/If-Match concurrency, rate limiting + CORS, `toApi()` serialization; self-describing via generated **OpenAPI** (`GET /api/v1/openapi.json`)
+- 🔌 **Headless JSON API** — read + write `/api/v1`, scoped bearer tokens (expiry/pause/revoke), ETag/If-Match concurrency, rate limiting + CORS, `toApi()` serialization; self-describing via generated **OpenAPI** (`GET /api/v1/openapi.json`); guide + a live example in [docs/HEADLESS.md](docs/HEADLESS.md)
 - ⚙️ **Site settings** — admin-editable site configuration (site title, home page, default meta description) in a small typed store, with `.env`/`config/*.php` as the shipped default the database overrides; gated on `settings:write` and editable over the API/MCP too. Deploy/env config stays in files
+- ☰ **Menus editor** — edit the header (`main`) and `footer` navigation in the admin (`/admin/menus`, `settings:write`); a DB store overrides the `config/menus.php` default per menu, link URLs are scheme-validated, and a save flushes the page cache
 - 🤖 **MCP-native** — an agent with a scoped token operates the whole CMS over the [Model Context Protocol](https://modelcontextprotocol.io) (HTTP `POST /api/v1/mcp` **and** stdio `nimbus mcp`): content, schema, media, users, tokens and settings, through the same scope-checked, audited services the admin uses — not a bolt-on. See [docs/MCP.md](docs/MCP.md)
-- 🧩 **Plugins** — official [Markdown](https://github.com/NimbusCMS/plugin-markdown), [SEO](https://github.com/NimbusCMS/plugin-seo) and [Analytics](https://github.com/NimbusCMS/plugin-analytics) plugins, a Composer-driven loader, and a read-only Plugins admin page
+- 🧩 **Plugins** — a Composer-driven loader, a read-only Plugins admin page, and six official plugins: [Markdown](https://github.com/NimbusCMS/plugin-markdown), [SEO](https://github.com/NimbusCMS/plugin-seo), [Analytics](https://github.com/NimbusCMS/plugin-analytics), [Advanced API](https://github.com/NimbusCMS/plugin-api-advanced), [Inventory](https://github.com/NimbusCMS/plugin-inventory) (ledger-based stock, agent-drivable) and [Commerce](https://github.com/NimbusCMS/plugin-commerce) (orders reserving stock through Inventory). Plugins declare their own grantable capability, MCP tools, events, public routes, service ports and capability-gated admin pages
 
 ### 🔌 Plugins
 
@@ -87,10 +88,15 @@ name-spacing, so an agent can drive the plugin) — **public routes** under
 ([ADR 0017](docs/adr/0017-plugin-public-routes.md) — reserved prefix, the plugin
 owns its auth) — **its own migrations and tables**
 ([ADR 0005](docs/adr/0005-plugin-owned-storage.md) — own tables only),
-and **admin pages** (with a nav entry). Each of these was added alongside an
-official plugin that actually needed it — Markdown (field types), SEO (head),
-Analytics (events, migrations, storage, admin pages), and Inventory (a grantable
-capability, MCP tools, and public routes). Access to *core* tables and controllers
+**admin pages** — with a nav entry, **POST form actions** (core enforces CSRF +
+the page's capability), and gating on **the plugin's own** wildcard-immune
+capability ([ADR 0020](docs/adr/0020-plugin-admin-page-capability-gate.md)) — and
+**typed service ports** between plugins ([ADR 0019](docs/adr/0019-plugin-service-ports.md) —
+one plugin calls another synchronously through a contract interface). Each was
+added alongside an official plugin that actually needed it — Markdown (field
+types), SEO (head), Analytics (events, migrations, storage, admin pages), and
+Inventory + Commerce (grantable capabilities, MCP tools, public routes, service
+ports, and capability-gated admin pages). Access to *core* tables and controllers
 is deliberately still not exposed. The
 authoritative, evidence-backed capability matrix lives in
 [`references/capability-evidence.md`](.claude/skills/nimbus-review-loop/references/capability-evidence.md).
