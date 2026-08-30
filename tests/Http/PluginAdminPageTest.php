@@ -7,6 +7,7 @@ namespace Nimbus\Tests\Http;
 use Nimbus\Admin\AdminController;
 use Nimbus\Admin\AdminPageRegistry;
 use Nimbus\Admin\PluginPagesController;
+use Nimbus\Auth\Authorizer;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Response;
 use Nimbus\Http\Router;
@@ -17,6 +18,26 @@ use Nimbus\Http\Router;
  */
 final class PluginAdminPageTest extends HttpTestCase
 {
+    protected function tearDown(): void
+    {
+        // Tests here freeze plugin management capabilities into the process-wide
+        // Authorizer; clear them so the frozen set never leaks into another test.
+        Authorizer::reset();
+        parent::tearDown();
+    }
+
+    /** A plugin page + POST action gated on $capability (provider = nimbuscms.shop). */
+    private function shopRegistry(string $capability, bool &$ranFlag): AdminPageRegistry
+    {
+        $registry = new AdminPageRegistry();
+        $registry->add('shop', 'Shop', '🛒', static fn (): string => '<h1>Shop</h1>', 'nimbuscms.shop', $capability);
+        $registry->addAction('shop', 'buy', function () use (&$ranFlag): Response {
+            $ranFlag = true;
+            return Response::redirect('/admin/shop?ok=1');
+        }, 'nimbuscms.shop');
+        return $registry;
+    }
+
     private function registry(callable $handler): AdminPageRegistry
     {
         $registry = new AdminPageRegistry();
@@ -259,5 +280,143 @@ final class PluginAdminPageTest extends HttpTestCase
         self::assertNotNull($response);
         /** @var Response $response */
         self::assertStringNotContainsString('href="/admin/reports"', $response->body, 'no dead link for a non-holder');
+    }
+
+    // -------------------------------------------- plugin-capability gated pages (ADR 0020)
+
+    public function test_a_plugin_may_gate_a_page_on_its_own_capability(): void
+    {
+        // The registrar accepts {pluginId}:{read|write} for the declaring plugin.
+        $registry  = new AdminPageRegistry();
+        $registrar = new \Nimbus\Plugin\AdminPageRegistrar($registry, 'nimbuscms.shop');
+        $registrar->register('shop', 'Shop', '🛒', static fn (): string => 'x', 'nimbuscms.shop:write');
+
+        $pages = $registry->all();
+        self::assertSame('nimbuscms.shop:write', $pages[0]['capability']);
+    }
+
+    public function test_a_plugin_may_not_gate_a_page_on_another_plugins_capability(): void
+    {
+        $registrar = new \Nimbus\Plugin\AdminPageRegistrar(new AdminPageRegistry(), 'nimbuscms.shop');
+        $this->expectException(\InvalidArgumentException::class);
+        $registrar->register('shop', 'Shop', '🛒', static fn (): string => 'x', 'nimbuscms.other:write');
+    }
+
+    public function test_a_plugin_may_not_gate_a_page_on_a_content_capability(): void
+    {
+        // A content-shaped cap would be satisfiable by the `*:read` wildcard, so it
+        // is refused — the gate must be genuinely restrictive.
+        $registrar = new \Nimbus\Plugin\AdminPageRegistrar(new AdminPageRegistry(), 'nimbuscms.shop');
+        $this->expectException(\InvalidArgumentException::class);
+        $registrar->register('shop', 'Shop', '🛒', static fn (): string => 'x', 'posts:read');
+    }
+
+    public function test_a_plugin_capability_holder_reaches_the_gated_page(): void
+    {
+        // Freeze AFTER acting: actingWith*/actingAs call rebuildRouter(), which boots
+        // an Application that re-seals useManagement() (empty in tests) — so the freeze
+        // must be the last thing before dispatch.
+        $this->actingWithCapabilities(['nimbuscms.shop:write']);
+        Authorizer::useManagement(['nimbuscms.shop']);
+        $ran      = false;
+        $router   = $this->pluginRouter($this->shopRegistry('nimbuscms.shop:write', $ran));
+        $response = $router->dispatch($this->request('GET', '/admin/shop'));
+
+        self::assertNotNull($response);
+        /** @var Response $response */
+        self::assertSame(200, $response->status);
+        self::assertStringContainsString('<h1>Shop</h1>', $response->body);
+    }
+
+    public function test_admin_reaches_a_plugin_gated_page(): void
+    {
+        $this->actingAs('admin');
+        Authorizer::useManagement(['nimbuscms.shop']);
+        $ran      = false;
+        $router   = $this->pluginRouter($this->shopRegistry('nimbuscms.shop:write', $ran));
+        $response = $router->dispatch($this->request('GET', '/admin/shop'));
+
+        self::assertNotNull($response);
+        /** @var Response $response */
+        self::assertSame(200, $response->status);
+    }
+
+    public function test_a_content_wildcard_cannot_reach_a_plugin_gated_page(): void
+    {
+        // The core finding: a `*:write` grant (an editor) must NOT open a page gated
+        // on a plugin's money-grade capability — parity with the wildcard-immune MCP path.
+        $this->actingWithCapabilities(['*:write']);
+        Authorizer::useManagement(['nimbuscms.shop']);
+        $ran      = false;
+        $router   = $this->pluginRouter($this->shopRegistry('nimbuscms.shop:write', $ran));
+        $response = $this->dispatchGuarded($router, $this->request('GET', '/admin/shop'));
+
+        self::assertSame(302, $response->status);
+        self::assertSame('/admin', $response->header('Location'), 'the route (not just the nav) turns the wildcard holder away');
+    }
+
+    public function test_a_content_wildcard_cannot_run_a_plugin_gated_action(): void
+    {
+        // The money-move path: the POST action inherits the page's plugin capability,
+        // so a `*:write` grant cannot pay/fulfil/cancel or move stock.
+        $this->actingWithCapabilities(['*:write']);
+        Authorizer::useManagement(['nimbuscms.shop']);
+        $ran    = false;
+        $router = $this->pluginRouter($this->shopRegistry('nimbuscms.shop:write', $ran));
+        $this->dispatchGuarded($router, $this->request('POST', '/admin/shop/buy', [], ['_token' => Csrf::token()]));
+
+        self::assertFalse($ran, 'a content *:write grant must not run a plugin-capability-gated action');
+    }
+
+    public function test_a_plugin_capability_holder_runs_the_gated_action(): void
+    {
+        $this->actingWithCapabilities(['nimbuscms.shop:write']);
+        Authorizer::useManagement(['nimbuscms.shop']);
+        $ran      = false;
+        $router   = $this->pluginRouter($this->shopRegistry('nimbuscms.shop:write', $ran));
+        $response = $this->dispatchGuarded($router, $this->request('POST', '/admin/shop/buy', [], ['_token' => Csrf::token()]));
+
+        self::assertTrue($ran, 'the capability holder runs the action');
+        self::assertSame(302, $response->status);
+    }
+
+    public function test_an_undeclared_plugin_gate_is_admin_only_never_content_reachable(): void
+    {
+        // 'nimbuscms.ghost' is never frozen as a management resource (the plugin
+        // forgot to declare it). Fail-safe: it is refused to a content wildcard AND
+        // to a "holder" of the undeclared string — only `admin` opens it.
+        $ran = false;
+
+        $this->actingWithCapabilities(['*:write']);
+        $router   = $this->pluginRouter($this->shopRegistry('nimbuscms.ghost:write', $ran));
+        $response = $this->dispatchGuarded($router, $this->request('GET', '/admin/shop'));
+        self::assertSame(302, $response->status, 'an undeclared plugin gate is not satisfied by *:write');
+
+        $this->actingWithCapabilities(['nimbuscms.ghost:write']);
+        $router   = $this->pluginRouter($this->shopRegistry('nimbuscms.ghost:write', $ran));
+        $response = $this->dispatchGuarded($router, $this->request('GET', '/admin/shop'));
+        self::assertSame(302, $response->status, 'an undeclared gate resolves to admin-only (fail-safe), never content-reachable');
+
+        $this->actingAs('admin');
+        $router   = $this->pluginRouter($this->shopRegistry('nimbuscms.ghost:write', $ran));
+        $response = $router->dispatch($this->request('GET', '/admin/shop'));
+        self::assertNotNull($response);
+        /** @var Response $response */
+        self::assertSame(200, $response->status, 'admin always reaches the page');
+    }
+
+    public function test_the_nav_hides_a_plugin_gated_page_from_a_content_wildcard(): void
+    {
+        $this->actingWithCapabilities(['*:write']);
+        Authorizer::useManagement(['nimbuscms.shop']);
+        $ran    = false;
+        $router = new Router();
+        (new AdminController($this->db, $this->auth, $this->settings(), [], $this->shopRegistry('nimbuscms.shop:write', $ran)))->routes($router);
+
+        $response = $router->dispatch($this->request('GET', '/admin'));
+
+        self::assertNotNull($response);
+        /** @var Response $response */
+        self::assertStringNotContainsString('href="/admin/shop"', $response->body, 'no dead link the wildcard holder cannot open');
     }
 }
