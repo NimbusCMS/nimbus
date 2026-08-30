@@ -75,7 +75,7 @@ abstract class Controller
         // Plugin-registered pages sit below the core sections; one that declared a
         // capability appears only to holders (no dead links) — the route enforces it too.
         foreach ($this->adminPages?->all() ?? [] as $page) {
-            if ($page['capability'] !== null && !$this->gate->holds($page['capability'])) {
+            if (!$this->gate->holdsPageGate($page['capability'])) {
                 continue;
             }
             $items[] = ['key' => $page['slug'], 'label' => $page['label'], 'url' => '/admin/' . $page['slug'], 'icon' => $page['icon']];

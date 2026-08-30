@@ -101,6 +101,38 @@ final class Gate
         return count($parts) === 2 && $parts[1] !== '' && $this->can($parts[0], $parts[1]);
     }
 
+    /**
+     * May the user open an admin page gated by $capability? `null` = login-only
+     * (any signed-in user). `admin` and a core management capability behave like
+     * {@see holds()}.
+     *
+     * The load-bearing rule is for a **plugin** capability (a namespaced resource,
+     * ADR 0015): it is honoured only when it is a *frozen, declared* management
+     * capability ({@see Authorizer::isManagement()} — sealed at boot). An unknown
+     * or undeclared resource is refused to everyone but `admin`, so a content
+     * `*:write` wildcard can never satisfy a plugin page's gate (the money-grade
+     * asymmetry the MCP path already forbids — ADR 0020). This is the one gate the
+     * nav (visibility) and the plugin route (enforcement) both call, so they can
+     * never drift.
+     */
+    public function holdsPageGate(?string $capability): bool
+    {
+        if ($capability === null) {
+            return true;
+        }
+        if ($capability === 'admin') {
+            return $this->holds('admin');
+        }
+        [$resource] = explode(':', $capability, 2);
+        // A non-core resource must be a frozen plugin management capability; if it
+        // isn't (typo, undeclared, or a content-shaped handle), only `admin` opens
+        // the page — the content wildcard is never allowed to reach it.
+        if (!in_array($resource, Authorizer::MANAGEMENT, true) && !Authorizer::isManagement($resource)) {
+            return $this->holds('admin');
+        }
+        return $this->holds($capability);
+    }
+
     private function seeded(): bool
     {
         return $this->seeded ??= $this->roles->hasAny();

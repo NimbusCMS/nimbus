@@ -19,12 +19,15 @@ use Nimbus\Auth\Authorizer;
  * core section.
  *
  * By default a page is **login-only** (any signed-in user). A page that does
- * privileged work may require a capability: pass `admin` or a core management
- * capability (`{schema|media|users|tokens|settings|roles}:{read|write}`). Those
- * are the only accepted values — a content-shaped capability (e.g. `posts:read`)
- * is rejected, because the content wildcard `*:read` would satisfy it and the
- * gate would not actually restrict the page. Plugin-defined capabilities are not
- * supported yet (they would need to be grantable in the Roles UI).
+ * privileged work may require a capability: pass `admin`, a core management
+ * capability (`{schema|media|users|tokens|settings|roles}:{read|write}`), or
+ * **this plugin's own capability** (`{pluginId}:{read|write}`, ADR 0020) — the
+ * grantable, wildcard-immune capability the plugin declared (ADR 0015). Those are
+ * the only accepted values — a content-shaped capability (e.g. `posts:read`) is
+ * rejected, because the content wildcard `*:read` would satisfy it and the gate
+ * would not actually restrict the page. For a *plugin* capability a page may gate
+ * only on its **own** (resource = its id) — never another plugin's — so it can
+ * protect its money-grade admin actions exactly as its MCP tools already are.
  *
  * The slug is bound to a safe URL segment, and the registration is stamped with
  * the plugin's id (by the loader), so it cannot be spoofed and rolls back on a
@@ -52,8 +55,9 @@ final class AdminPageRegistrar
     /**
      * @param callable(\Nimbus\Http\Request,string):(string|\Nimbus\Http\Response) $handler
      *     receives the Request and the CSP nonce; a 1-argument handler is still valid
-     * @param ?string $capability null = login-only; else `admin` or a core
-     *                            management `{resource}:{read|write}`
+     * @param ?string $capability null = login-only; else `admin`, a core
+     *                            management `{resource}:{read|write}`, or this
+     *                            plugin's own `{pluginId}:{read|write}` (ADR 0020)
      */
     public function register(string $slug, string $label, string $icon, callable $handler, ?string $capability = null): void
     {
@@ -63,8 +67,8 @@ final class AdminPageRegistrar
         if (in_array($slug, self::RESERVED_SLUGS, true)) {
             throw new InvalidArgumentException("The admin page slug \"{$slug}\" is reserved by a core section. Prefix it with your plugin name (e.g. \"myplugin-{$slug}\").");
         }
-        if ($capability !== null && !self::isGateableCapability($capability)) {
-            throw new InvalidArgumentException("An admin page capability must be \"admin\" or a management capability (e.g. \"settings:read\"), not \"{$capability}\".");
+        if ($capability !== null && !$this->isGateableCapability($capability)) {
+            throw new InvalidArgumentException("An admin page capability must be \"admin\", a core management capability (e.g. \"settings:read\"), or this plugin's own capability (\"{$this->pluginId}:read\"/\":write\"), not \"{$capability}\".");
         }
         $this->registry->add($slug, $label, $icon, $handler, $this->pluginId, $capability);
     }
@@ -86,25 +90,31 @@ final class AdminPageRegistrar
     }
 
     /**
-     * Only `admin` and the exact-or-admin **core** management capabilities are
-     * accepted — these are wildcard-immune (the content `*:action` grant never
-     * satisfies them), so the page is genuinely restricted.
+     * A gateable capability is `admin`, a **core** management capability, or **this
+     * plugin's own** capability (`{pluginId}:{read|write}`) — all wildcard-immune
+     * (the content `*:action` grant never satisfies them), so the page is genuinely
+     * restricted.
      *
-     * Deliberately core-only for now: a page is registered *during* a plugin's
-     * `register()`, but plugin-declared capabilities aren't frozen into the
-     * Authorizer until every plugin has loaded (ADR 0015), so a plugin cannot yet
-     * gate a page on its own capability without an ordering trap. Admin pages are
-     * GET-only today (forms are H3) and no consumer needs this, so it is deferred.
+     * The own-capability case is validated *structurally* here (resource = this
+     * plugin's id), not against the {@see \Nimbus\Auth\CapabilityRegistry}: a page
+     * is registered *during* `register()`, but plugin capabilities aren't frozen
+     * into the {@see Authorizer} until every plugin has loaded (ADR 0015), so
+     * existence can't be confirmed at registration without an ordering trap. That
+     * is safe because enforcement is fail-safe: {@see \Nimbus\Auth\Gate::holdsPageGate()}
+     * honours a plugin capability only once it is a frozen management resource, and
+     * refuses an undeclared one to everyone but `admin` — never falling through to
+     * the content wildcard (ADR 0020).
      */
-    private static function isGateableCapability(string $capability): bool
+    private function isGateableCapability(string $capability): bool
     {
         if ($capability === 'admin') {
             return true;
         }
         $parts = explode(':', $capability, 2);
+        if (count($parts) !== 2 || !in_array($parts[1], ['read', 'write'], true)) {
+            return false;
+        }
 
-        return count($parts) === 2
-            && in_array($parts[0], Authorizer::MANAGEMENT, true)
-            && in_array($parts[1], ['read', 'write'], true);
+        return in_array($parts[0], Authorizer::MANAGEMENT, true) || $parts[0] === $this->pluginId;
     }
 }

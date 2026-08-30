@@ -64,14 +64,16 @@ final class PluginPagesController extends Controller
 
     /**
      * A plugin admin form POST (H3). Core enforces the boundary before the plugin
-     * runs: the page's capability (wildcard-immune, like the GET), then CSRF —
-     * so a plugin cannot ship an unauthenticated or CSRF-unprotected admin write.
+     * runs: the page's capability via {@see Gate::holdsPageGate()} (wildcard-immune,
+     * like the GET — `admin`, a core management cap, or the plugin's own frozen
+     * capability; ADR 0020), then CSRF — so a plugin cannot ship an unauthenticated,
+     * under-privileged, or CSRF-unprotected admin write.
      * The handler does its work and returns a Response (typically a redirect back
      * to its page with a fixed status code).
      */
     private function runAction(callable $handler, ?string $capability, string $page, Request $request): Response
     {
-        if ($capability !== null && !$this->gate->holds($capability)) {
+        if (!$this->gate->holdsPageGate($capability)) {
             $this->abortTo(Url::to('admin.dashboard'));
         }
         $this->requireCsrf($request, '/admin/' . $page);
@@ -82,9 +84,10 @@ final class PluginPagesController extends Controller
     /**
      * A handler returns HTML (wrapped in the admin shell) or a full Response
      * (passed straight through — a download, a redirect). A page that declared a
-     * capability is gated here (the route, not just the nav) — the declared cap
-     * is validated at registration to be `admin` or a management capability, so
-     * it is wildcard-immune.
+     * capability is gated here (the route, not just the nav) via
+     * {@see Gate::holdsPageGate()} — the declared cap is `admin`, a core management
+     * capability, or the plugin's own frozen capability (ADR 0020), all
+     * wildcard-immune.
      *
      * The handler is passed the CSP nonce as a second argument, so a page that
      * emits an inline `<script nonce>` can run under the admin CSP. It is additive:
@@ -92,7 +95,7 @@ final class PluginPagesController extends Controller
      */
     private function render(string $slug, callable $handler, ?string $capability, Request $request): Response
     {
-        if ($capability !== null && !$this->gate->holds($capability)) {
+        if (!$this->gate->holdsPageGate($capability)) {
             $this->abortTo(Url::to('admin.dashboard'));
         }
 
