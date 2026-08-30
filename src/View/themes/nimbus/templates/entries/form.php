@@ -7,6 +7,7 @@
  * @var array{kind:string,message:string}|null $notice resolved admin notice (ADMIN-10)
  * @var \Nimbus\Content\FieldTypeRegistry  $types
  * @var string                            $csrf
+ * @var bool                              $canPreview  a saved, listable entry can be previewed (ADR 0021)
  */
 use Nimbus\View\View;
 
@@ -117,3 +118,13 @@ $heading = $single ? $e($collection->name) : ($editing ? 'Edit' : 'New') . ' · 
         <a class="nb-btn" href="<?= $e($backUrl) ?>">Cancel</a>
     </div>
 </form>
+<?php if ($canPreview ?? false): ?>
+    <?php // A separate form (target=_blank): mints a short-lived preview token and
+          // opens the saved draft at its public URL. Kept outside the edit form —
+          // forms can't nest — so previewing never submits the editor. ?>
+    <form method="post" action="/admin/collections/<?= $h ?>/entries/<?= (int) $model['id'] ?>/preview" target="_blank" class="nb-form-actions">
+        <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
+        <button type="submit" class="nb-btn">Preview draft ↗</button>
+    </form>
+    <p class="nb-help">Opens the saved draft at its public URL — not visible to the public.</p>
+<?php endif; ?>

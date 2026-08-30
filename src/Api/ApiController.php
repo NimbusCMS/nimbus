@@ -7,6 +7,7 @@ namespace Nimbus\Api;
 use Nimbus\Application;
 use Nimbus\Content\CollectionRepository;
 use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Content\PreviewTokens;
 use Nimbus\Database\Connection;
 use Nimbus\Http\ApiRateLimiter;
 use Nimbus\Http\Middleware\ApiAuthMiddleware;
@@ -37,6 +38,7 @@ final class ApiController
     private CollectionRepository $collections;
     private FieldTypeRegistry $types;
     private EntryOperations $ops;
+    private PreviewTokens $previewTokens;
     private Settings $settings;
     private McpServer $mcpServer;
     private ApiAuthMiddleware $auth;
@@ -56,9 +58,10 @@ final class ApiController
         SkillRegistry $skills,
         McpToolsetRegistry $mcpToolsets,
     ) {
-        $this->collections = new CollectionRepository($db);
-        $this->types       = $types;
-        $this->ops         = new EntryOperations($db, $types, $events);
+        $this->collections   = new CollectionRepository($db);
+        $this->types         = $types;
+        $this->ops           = new EntryOperations($db, $types, $events);
+        $this->previewTokens = new PreviewTokens($db);
         $this->settings    = $settings;
         // One assembly seam for both transports (ADR 0013) — the toolset list,
         // the agent guide and the server version live in the factory, so the HTTP
@@ -79,6 +82,15 @@ final class ApiController
 
     public function routes(Router $r): void
     {
+        // Draft preview (ADR 0021) is a PUBLIC endpoint: it authorizes via the
+        // entry-scoped preview token in the query, NOT an API token — so it sits
+        // outside the token-auth group (only the IP flood guard applies) and the
+        // preview token never enters the TokenPrincipal machinery. It can reveal
+        // exactly the one entry the token names, nothing else.
+        $r->group('/api/v1', [$this->ipFlood], function (Router $g): void {
+            $g->get('/preview', fn (Request $req, array $p): Response => $this->preview($req))->name('api.preview');
+        });
+
         // Order matters: flood guard → authenticate → per-token quota → handler.
         $r->group('/api/v1', [$this->ipFlood, $this->auth, $this->tokenQuota], function (Router $g): void {
             $g->get('/openapi.json', fn (Request $req, array $p): Response => $this->openapi())->name('api.openapi');
@@ -128,6 +140,25 @@ final class ApiController
     }
 
     /** A page of a collection's live entries, newest first. */
+    /**
+     * The headless draft preview (ADR 0021): resolve the entry-scoped token to the
+     * one entry it grants and return it as JSON, non-live. An absent, malformed, or
+     * expired token — and a token whose entry no longer exists — all return the same
+     * generic 404, so nothing distinguishes "a draft is here" from "nothing here".
+     * `no-store` + `no-referrer` keep the token out of shared caches and the Referer.
+     */
+    private function preview(Request $request): Response
+    {
+        $granted = $this->previewTokens->resolve((string) ($request->query('token') ?? ''));
+        $entry   = $granted === null ? null : $this->ops->previewById($granted['collection_id'], $granted['entry_id']);
+        if ($entry === null) {
+            return ApiResponse::error(404, 'not_found', 'No such preview.');
+        }
+        return ApiResponse::entity($entry)
+            ->withHeader('Cache-Control', 'no-store')
+            ->withHeader('Referrer-Policy', 'no-referrer');
+    }
+
     private function index(Request $request, string $handle): Response
     {
         $principal = $this->principal();

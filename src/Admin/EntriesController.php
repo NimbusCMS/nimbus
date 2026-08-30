@@ -11,6 +11,7 @@ use Nimbus\Content\EntryInput;
 use Nimbus\Content\EntryRepository;
 use Nimbus\Content\EntryService;
 use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Content\PreviewTokens;
 use Nimbus\Content\Publication;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Database\Connection;
@@ -60,6 +61,7 @@ final class EntriesController extends Controller
     private EntryRepository $entries;
     private RelationRepository $relations;
     private EntryService $entryService;
+    private PreviewTokens $previewTokens;
 
     /**
      * $fieldTypes and $events are the application's single instances. A plugin
@@ -75,10 +77,11 @@ final class EntriesController extends Controller
         ?AdminPageRegistry $adminPages = null,
     ) {
         parent::__construct($db, $auth, $settings, $adminPages);
-        $this->collections  = new CollectionRepository($this->db);
-        $this->entries      = new EntryRepository($this->db);
-        $this->relations    = new RelationRepository($this->db);
-        $this->entryService = new EntryService($this->db, $this->entries, $this->relations, $this->types, $events);
+        $this->collections   = new CollectionRepository($this->db);
+        $this->entries       = new EntryRepository($this->db);
+        $this->relations     = new RelationRepository($this->db);
+        $this->entryService  = new EntryService($this->db, $this->entries, $this->relations, $this->types, $events);
+        $this->previewTokens = new PreviewTokens($this->db);
     }
 
     public function routes(Router $r): void
@@ -92,6 +95,7 @@ final class EntriesController extends Controller
             $g->post('/{id}/publish', fn (Request $req, array $p): Response => $this->setStatus($req, $p['handle'], (int) $p['id'], Publication::PUBLISHED));
             $g->post('/{id}/unpublish', fn (Request $req, array $p): Response => $this->setStatus($req, $p['handle'], (int) $p['id'], Publication::DRAFT));
             $g->post('/{id}/delete', fn (Request $req, array $p): Response => $this->destroy($req, $p['handle'], (int) $p['id']));
+            $g->post('/{id}/preview', fn (Request $req, array $p): Response => $this->preview($req, $p['handle'], (int) $p['id']))->name('admin.entries.preview');
         });
     }
 
@@ -275,6 +279,9 @@ final class EntriesController extends Controller
             'relationOptions' => $relationOptions,
             'mediaOptions'    => $mediaOptions,
             'csrf'            => Csrf::token(),
+            // A saved, listable entry can be previewed at its public URL (ADR 0021);
+            // a singleton has no /{handle}/{slug} route to render.
+            'canPreview'      => $model['id'] !== null && !$collection->isSingle(),
         ]);
     }
 
@@ -383,6 +390,33 @@ final class EntriesController extends Controller
      * additionally gated by {@see requireManage()}, and a content write implies
      * read so every manager passes here.
      */
+    /**
+     * Mint a draft-preview token for a saved entry and open its preview URL
+     * (ADR 0021). Requires the collection's read cap + CSRF; the token then carries
+     * an entry-scoped read grant for its short TTL. The redirect target is the
+     * entry's own public path with `?preview=<token>` — the shareable link.
+     */
+    private function preview(Request $req, string $handle, int $id): Response
+    {
+        $collection = $this->mustFind($handle);
+        if (!$this->gate->reads($collection)) {
+            $this->abortTo(Url::to('admin.collections.index'));
+        }
+        $editUrl = Url::to('admin.entries.edit', ['handle' => $handle, 'id' => $id]);
+        $this->requireCsrf($req, $editUrl);
+
+        $entry = $this->entries->find($collection->id, $id);
+        if ($entry === null || $collection->isSingle()) {
+            return $this->redirect($editUrl);
+        }
+
+        $token = $this->previewTokens->issue($collection->id, $id, $this->auth->user()?->id);
+
+        return $this->redirect(
+            '/' . rawurlencode($collection->handle) . '/' . rawurlencode((string) $entry['slug']) . '?preview=' . $token,
+        );
+    }
+
     private function mustFind(string $handle): Collection
     {
         $collection = $this->collections->findByHandle($handle);

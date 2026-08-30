@@ -473,12 +473,19 @@ final class Application
 
     /**
      * The page-cache key for a request, or null when it must not be cached:
-     * a non-GET request, an admin / API / theme-asset path, or caching disabled.
-     * Only the `page` query param varies a public page, so nothing else is keyed.
+     * a non-GET request, an admin / API / theme-asset path, a draft **preview**,
+     * or caching disabled. Only the `page` query param varies a public page, so
+     * nothing else is keyed.
      */
     private function cacheKey(Request $request): ?string
     {
         if ($request->method !== 'GET' || !$this->pageCache->enabled()) {
+            return null;
+        }
+        // A draft preview (?preview=<token>, ADR 0021) must NEVER be cached: the
+        // key ignores unknown params, so a preview 200 would otherwise be stored
+        // under the public URL and served to everyone. Bail before keying.
+        if ($request->query('preview') !== null) {
             return null;
         }
         foreach (['/admin', '/api', '/theme/assets'] as $prefix) {

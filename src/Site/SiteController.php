@@ -10,6 +10,7 @@ use Nimbus\Content\EntryRepository;
 use Nimbus\Content\EntryService;
 use Nimbus\Content\EntryView;
 use Nimbus\Content\FieldTypeRegistry;
+use Nimbus\Content\PreviewTokens;
 use Nimbus\Content\RelationRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csp;
@@ -82,6 +83,7 @@ final class SiteController
     private EntryRepository $entries;
     private EntryView $view;
     private View $render;
+    private PreviewTokens $previewTokens;
 
     /** Absolute path to the active theme directory (for serving its assets). */
     private string $themeDir;
@@ -113,6 +115,7 @@ final class SiteController
         $this->collections      = new CollectionRepository($db);
         $this->entries          = new EntryRepository($db);
         $this->view             = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
+        $this->previewTokens    = new PreviewTokens($db);
         $this->themeDir         = $themePath ?? self::resolveThemeDir($settings);
         $this->render           = new View($this->themeDir, [
             'appName'  => Config::appName(),
@@ -428,6 +431,22 @@ final class SiteController
             return $this->notFound();
         }
 
+        // Draft preview (ADR 0021): a valid, entry-scoped token for THIS entry's
+        // URL renders the non-live entry. Any invalid/mismatched token falls
+        // through to the normal live path — so it leaks nothing (a bad token on a
+        // draft URL 404s exactly as before) and a stray ?preview on a live URL
+        // still shows the published page.
+        $preview = (string) ($request->query('preview') ?? '');
+        if ($preview !== '') {
+            $granted = $this->previewTokens->resolve($preview);
+            if ($granted !== null && $granted['collection_id'] === $collection->id) {
+                $draft = $this->entries->findBySlug($collection->id, $slug);
+                if ($draft !== null && (int) $draft['id'] === $granted['entry_id']) {
+                    return $this->renderEntry($request, $collection, $draft, true);
+                }
+            }
+        }
+
         $row = $this->entries->findLiveBySlug($collection->id, $slug);
         if ($row === null) {
             // A draft, a scheduled-but-not-due, or a genuinely absent entry all
@@ -473,7 +492,7 @@ final class SiteController
      *
      * @param array<string,mixed> $row a live nb_entries row
      */
-    private function renderEntry(Request $request, Collection $collection, array $row): Response
+    private function renderEntry(Request $request, Collection $collection, array $row, bool $preview = false): Response
     {
         $entry = $this->view->one($collection, $row);
         $info  = ['handle' => $collection->handle, 'name' => $collection->name];
@@ -486,7 +505,7 @@ final class SiteController
             'collection' => $info,
             'entry'      => $entry,
             'nav'        => $this->nav($collection),
-        ]);
+        ], 200, $preview);
     }
 
     /**
@@ -541,7 +560,7 @@ final class SiteController
      *
      * @param array<string,mixed> $data
      */
-    private function renderPage(string $template, array $data, int $status = 200): Response
+    private function renderPage(string $template, array $data, int $status = 200, bool $preview = false): Response
     {
         $data['blocks'] = $this->blocks();
         // Resolve the site title from the store (DB override ?? file default) and
@@ -551,7 +570,18 @@ final class SiteController
         $this->render->share('appName', $this->title());
         // In demo mode, core adds the "live demo" banner — so any theme works in
         // the hosted sandbox without carrying demo markup (a no-op otherwise).
-        return Response::html(DemoBanner::inject($this->render->render($template, $data)), $status);
+        $html = DemoBanner::inject($this->render->render($template, $data));
+        if (!$preview) {
+            return Response::html($html, $status);
+        }
+        // A draft preview (ADR 0021): core adds the "unpublished draft" banner and
+        // hardens the response — never store it (a preview must not enter the page
+        // cache or a shared CDN), never send the ?preview token in the Referer, and
+        // keep the draft URL out of search indexes.
+        return Response::html(PreviewBanner::inject($html), $status)
+            ->withHeader('Cache-Control', 'no-store')
+            ->withHeader('Referrer-Policy', 'no-referrer')
+            ->withHeader('X-Robots-Tag', 'noindex, nofollow');
     }
 
     /** The site title: the stored setting, or the config default when unwired. */

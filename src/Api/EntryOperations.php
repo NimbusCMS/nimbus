@@ -119,6 +119,29 @@ final class EntryOperations
     }
 
     /**
+     * A single entry by id for an **authorized draft preview** (ADR 0021):
+     * non-live (any status), no principal, no scope filter — the preview token
+     * already authorized exactly this one entry, so the serialization is the full
+     * entry. Returns null if the collection or entry is absent. Never reachable
+     * except through the dedicated public preview route, which resolves the token
+     * to the (collection_id, entry_id) pair passed here.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function previewById(int $collectionId, int $entryId): ?array
+    {
+        $collection = $this->collections->find($collectionId);
+        if ($collection === null) {
+            return null;
+        }
+        $row = $this->entries->find($collectionId, $entryId);
+        if ($row === null) {
+            return null;
+        }
+        return $this->view->one($collection, $row);
+    }
+
+    /**
      * Create an entry from a payload. Requires `{handle}:write`.
      *
      * @param array<string,mixed> $payload the write body: `fields`, and optional `title`/`slug`/`status`/`published_at`
