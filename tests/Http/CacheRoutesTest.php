@@ -67,6 +67,26 @@ final class CacheRoutesTest extends HttpTestCase
         );
     }
 
+    public function test_saving_a_menu_flushes_the_page_cache(): void
+    {
+        // A menu edit changes the nav on every page — the cached copies must go
+        // (MENUS_SAVED → the same flush listener as a content write).
+        $this->actingAs('admin');
+        $c = $this->makeCollection('posts');
+        $this->seedLive($c, 'Cached Hello', 'hello');
+
+        $cache = new PageCache($this->dir, 300);
+        $app   = $this->appUsing($cache);
+        $app->handle($this->request('GET', '/posts'));
+        self::assertNotNull($cache->get('/posts'), 'the page is cached');
+
+        $app->handle($this->request('POST', '/admin/menus', [], [
+            'menu' => 'main', 'label' => ['Home'], 'url' => ['/'], '_token' => Csrf::token(),
+        ]));
+
+        self::assertNull($cache->get('/posts'), 'saving a menu flushed the page cache');
+    }
+
     public function test_distinct_query_strings_do_not_mint_distinct_cache_files(): void
     {
         // HTTP-6: the cache key is path + ?page only, so distinct query strings

@@ -43,7 +43,7 @@ final class AdminPageRegistrar
      */
     private const RESERVED_SLUGS = [
         'login', 'logout', 'dashboard', 'plugins', 'collections', 'media',
-        'users', 'roles', 'tokens', 'settings', 'oauth', 'forgot', 'reset', 'accept',
+        'users', 'roles', 'tokens', 'settings', 'menus', 'oauth', 'forgot', 'reset', 'accept',
     ];
 
     public function __construct(
