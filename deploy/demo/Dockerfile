@@ -29,4 +29,9 @@ RUN cd /app \
     && rm -f /usr/bin/composer \
     && chown -R www-data:www-data /app/vendor /app/composer.json /app/composer.lock
 
+# The headless example — a static page served same-origin at /example.html, read
+# by docs/HEADLESS.md. External JS/CSS (not inline) so it loads under the strict
+# nonce-only CSP via 'self'. Demo-only; the marketing image stays without it.
+COPY example.html example.css example.js /app/public/
+
 USER www-data
