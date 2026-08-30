@@ -14,6 +14,7 @@ use Nimbus\Http\Request;
  */
 final class ContentPreviewTest extends HttpTestCase
 {
+    /** @return array{collection_id:int,id:int,slug:string} */
     private function draft(string $title): array
     {
         $c = $this->makeCollection('posts');
@@ -28,6 +29,7 @@ final class ContentPreviewTest extends HttpTestCase
         return (new PreviewTokens($this->db))->issue($collectionId, $entryId, null);
     }
 
+    /** @param array<string,string> $query */
     private function apiGet(string $path, array $query, ?string $bearer = null): \Nimbus\Http\Response
     {
         $server = ['REMOTE_ADDR' => '127.0.0.1'];
