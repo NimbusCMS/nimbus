@@ -9,6 +9,7 @@ use Nimbus\Admin\AdminPageRegistry;
 use Nimbus\Admin\CollectionsController;
 use Nimbus\Admin\EntriesController;
 use Nimbus\Admin\MediaController;
+use Nimbus\Admin\MenusController;
 use Nimbus\Admin\OAuthController;
 use Nimbus\Admin\PasswordResetController;
 use Nimbus\Admin\PluginPagesController;
@@ -184,6 +185,8 @@ final class Application
         };
         $this->events->listen(CoreEvents::ENTRY_SAVED, $flush);
         $this->events->listen(CoreEvents::ENTRY_DELETED, $flush);
+        // A menu edit changes the nav on every (cached) page — flush so it shows.
+        $this->events->listen(CoreEvents::MENUS_SAVED, $flush);
 
         $this->loadPlugins();
     }
@@ -424,6 +427,7 @@ final class Application
         (new RolesController($this->db, $this->auth, $this->settings, $this->adminPages, $this->capabilities))->routes($router);
         (new TokensController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
         (new SettingsController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);
+        (new MenusController($this->db, $this->auth, $this->settings, $this->events, $this->adminPages))->routes($router);
         // Plugin admin pages, after the core admin controllers so a plugin slug
         // can never shadow a core /admin route.
         (new PluginPagesController($this->db, $this->auth, $this->settings, $this->adminPages))->routes($router);

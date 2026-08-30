@@ -71,6 +71,9 @@ abstract class Controller
         if ($this->gate->holds('admin')) {
             $items[] = ['key' => 'plugins', 'label' => 'Plugins', 'url' => '/admin/plugins', 'icon' => '⚡'];
         }
+        if ($this->gate->can('settings', 'write')) {
+            $items[] = ['key' => 'menus', 'label' => 'Menus', 'url' => Url::to('admin.menus'), 'icon' => '☰'];
+        }
         $items[] = ['key' => 'settings', 'label' => 'Settings', 'url' => Url::to('admin.settings'), 'icon' => '⚙'];
         // Plugin-registered pages sit below the core sections; one that declared a
         // capability appears only to holders (no dead links) — the route enforces it too.

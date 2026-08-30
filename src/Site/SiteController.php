@@ -119,7 +119,9 @@ final class SiteController
         $this->themeDir         = $themePath ?? self::resolveThemeDir($settings);
         $this->render           = new View($this->themeDir, [
             'appName'  => Config::appName(),
-            'menus'    => Config::menus(),
+            // DB-backed menus (admin Menus editor) override the config/menus.php
+            // defaults per name; the file remains the seed/fallback.
+            'menus'    => (new Menus($db))->all(),
             'cspNonce' => \Nimbus\Http\Csp::nonce(),
         ]);
         $this->home             = $home;

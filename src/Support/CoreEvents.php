@@ -48,6 +48,9 @@ final class CoreEvents
     /** An entry row was actually deleted. Payload: id, collection_id. */
     public const ENTRY_DELETED = 'entry.deleted';
 
+    /** A navigation menu was saved in the admin — flushes the page cache so cached pages pick up the new nav. */
+    public const MENUS_SAVED = 'menus.saved';
+
     /**
      * A request has been handled and its response built. Payload:
      * `['request' => Request, 'response' => Response]`.
