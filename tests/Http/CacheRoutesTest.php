@@ -95,9 +95,16 @@ final class CacheRoutesTest extends HttpTestCase
         // query-varying public handler (?tag/?q/?sort) would silently serve stale
         // content under the cache — it must fail loudly HERE first and honor the
         // no-query-vary contract (or ship PAGE_CACHE_TTL=0 guidance).
+        //
+        // `preview` is the one allowed exception (ADR 0021): it varies output, but a
+        // request carrying it is never cached — Application::cacheKey() returns null
+        // when it is present — so it can never serve stale content. Any OTHER new key
+        // still trips this guard.
         $src = (string) file_get_contents(\dirname(__DIR__, 2) . '/src/Site/SiteController.php');
         preg_match_all("/query\\(\\s*'([^']*)'/", $src, $m);
-        self::assertSame(['page'], array_values(array_unique($m[1])), 'SiteController must read no query key but "page" (HTTP-6 cache-key contract)');
+        $keys = array_values(array_unique($m[1]));
+        sort($keys);
+        self::assertSame(['page', 'preview'], $keys, 'SiteController may read only "page" (cache vary) and "preview" (uncacheable, ADR 0021)');
     }
 
     public function test_a_non_browsable_collection_is_not_cached(): void
