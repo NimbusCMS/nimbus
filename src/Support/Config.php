@@ -217,11 +217,12 @@ final class Config
     }
 
     /**
-     * Named navigation menus, read from config/menus.php — each menu a list of
-     * `{label, url}` items the active theme renders (a theme reads `main` for its
-     * header). Malformed entries are dropped rather than trusted, so a typo in
-     * config never reaches a template. Editor-managed menus are a later
-     * capability; this keeps navigation in config, like the rest of the site.
+     * The **default** named navigation menus, read from config/menus.php — each
+     * menu a list of `{label, url}` items a theme renders (`main` for the header,
+     * `footer` for the footer). Malformed entries are dropped rather than trusted,
+     * so a typo in config never reaches a template. These are the seed/fallback:
+     * the admin Menus editor ({@see \Nimbus\Site\Menus}) overrides a menu per name
+     * in the DB, and {@see \Nimbus\Site\Menus::all} merges the two.
      *
      * @return array<string,list<array{label:string,url:string}>>
      */

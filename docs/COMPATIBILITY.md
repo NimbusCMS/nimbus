@@ -21,7 +21,7 @@ in any release, including patch releases.
 | `Nimbus\Plugin\EventRegistrar` | subscribing to events, and **emitting** under the plugin's own namespace (`PluginContext::events()`, ADR 0014). `emit($name)` always prefixes the plugin id verbatim (`nimbuscms.inventory` + `low` → `nimbuscms.inventory.low`); an id rooted in a core event namespace is refused at load, so a plugin cannot forge a core event. Delivery is best-effort and depth-bounded — a throwing or looping subscriber cannot fail or hang the emitting operation |
 | `Nimbus\Plugin\MigrationRegistrar` | declaring migrations for the plugin's own tables (ADR 0005). **Prefix your table names with your plugin slug** (`analytics_hits`, not `hits`) so two plugins can't collide; never create/alter core `nb_*` tables — a migration statement that does (DDL or DML against `nb_*`) is **rejected at registration** and the plugin is skipped (an *accident guard, like a linter — not a sandbox*: an installed plugin is trusted in-process code and can still reach `nb_*` from its runtime, per ADR 0001). **Each statement must be individually idempotent** (`… IF NOT EXISTS`): MySQL can't roll DDL back, a failed migration is isolated + retried, and your runtime must not assume a table/constraint exists until the migration is recorded |
 | `Nimbus\Plugin\PluginStorage` | reading/writing the plugin's own tables (`PluginContext::storage()`, ADR 0005) |
-| `Nimbus\Plugin\AdminPageRegistrar` | registering admin pages (`PluginContext::adminPages()`). A slug must be unique and not shadow a core section (both throw at registration → the plugin fails to load). `register()` adds a GET page (its handler receives the Request, the CSP nonce, and a CSRF token); `action($page, $name, $handler)` adds a **POST form handler** at `/admin/{page}/{name}` (H3) — core enforces auth, the page's capability, and **CSRF** before the handler runs, which does its work and returns a Response (typically a redirect) |
+| `Nimbus\Plugin\AdminPageRegistrar` | registering admin pages (`PluginContext::adminPages()`). A slug must be unique and not shadow a core section (both throw at registration → the plugin fails to load). `register()` adds a GET page (its handler receives the Request, the CSP nonce, and a CSRF token); `action($page, $name, $handler)` adds a **POST form handler** at `/admin/{page}/{name}` (H3) — core enforces auth, the page's capability, and **CSRF** before the handler runs, which does its work and returns a Response (typically a redirect). A page may gate on `admin`, a core management capability, or **the plugin's own** wildcard-immune capability (`{pluginId}:{read\|write}`, ADR 0020) — so a plugin's money-grade admin pages are gated exactly like its MCP tools; a content `*:write` grant can't reach them |
 | `Nimbus\Plugin\MaintenanceRegistrar` | registering maintenance/retention tasks (`PluginContext::maintenance()`), run by `nimbus prune` |
 | `Nimbus\Plugin\SkillRegistrar` | publishing the plugin's **agent guide** (`PluginContext::skills()`, ADR 0013), served to agents as the MCP resource `nimbus://guide/plugin/{id}`. **Static markdown, bounded** (an over-long or empty fragment is rejected at registration → the plugin fails to load). It is **world-readable to any valid token** — put no secrets or per-tenant data in it — and is served as *reference documentation, not instructions*: never fed into the always-in-context brief, and wrapped in an untrusted-data envelope on read |
 | `Nimbus\Plugin\CapabilitiesRegistrar` | declaring a grantable, wildcard-immune **management** capability (`PluginContext::capabilities()`, ADR 0015). `declare($label, $actions)` registers `{pluginId}:read`/`:write` — the resource is the plugin id, and the plugin id **must be namespaced** (contain a dot). It is exact-or-`admin` only, so the content `*:write` wildcard can never reach it (e.g. an Inventory `inventory:write`). A flat id, a duplicate, or a bad label/action fails the plugin's load |
@@ -303,10 +303,15 @@ resource. It carries no version string, and editor-set values (site title,
 description, collection names) are flattened to a single line so they can't forge
 a section.
 
-**Navigation menus.** `config/menus.php` defines named menus, each a list of
-`{label, url}` items; the view-model carries them as `$menus`, and the starter
-header renders `$menus['main']`. Malformed entries are dropped before a template
-sees them. Editor-managed menus (an admin builder) are a later capability.
+**Navigation menus.** `config/menus.php` defines the **default** named menus, each
+a list of `{label, url}` items; the view-model carries them as `$menus`, and a
+theme renders `$menus['main']` in its header and `$menus['footer']` in its footer.
+Malformed entries and unsafe URL schemes are dropped before a template sees them.
+The admin **Menus editor** (`/admin/menus`, `settings:write`) overrides a menu per
+name in the DB (`nb_menus`), with the config file as the seed/fallback — mirroring
+how settings override their file defaults; a saved menu URL is scheme-validated
+(`http(s)`/root-relative/`mailto`/`tel`/`#`), so it can never carry a `javascript:`
+payload onto a public page.
 
 **Static assets.** Files under a theme's `assets/` directory are served at
 `/theme/assets/<path>` (e.g. `assets/app.css` → `/theme/assets/app.css`), so a

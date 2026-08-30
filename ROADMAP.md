@@ -495,11 +495,15 @@ theme is a set of CSS custom-property values, never a template fork.
 2. **API tokens** — `[~]` bearer tokens with SHA-256 hashing and last-used
    tracking; still open: per-token **scopes** (abilities column reserved), expiry,
    revocation UI.
-3. **Preview API** — draft-preview tokens.
+3. **Preview API** — `[x]` draft preview (ADR 0021): an entry-scoped, short-lived,
+   scheme-safe token renders one unpublished entry through the rendered site
+   (`?preview=`) and a public headless endpoint (`GET /api/v1/preview`), with a
+   "Preview draft" button on the entry editor. See [docs/HEADLESS.md](docs/HEADLESS.md).
 4. **Webhooks** — after publish / update / delete.
 5. **Caching** — ETags, response caching.
 6. **OpenAPI** documentation.
-7. **CORS** config + **rate limiting**.
+7. **CORS** config + **rate limiting** — `[x]` `CORS_ALLOWED_ORIGINS` allow-list +
+   per-token / per-IP rate limiting.
 
 ## 🎯 Release 0.3 — "public-site-ready"
 
@@ -507,14 +511,16 @@ theme is a set of CSS custom-property values, never a template fork.
 2. **Themes** — data-only view-models, escape-by-default, `theme.json` manifest,
    FE-first (React/JS build supported), template inheritance. *No BE logic in
    templates.*
-3. **Menus / navigation**.
+3. **Menus / navigation** — `[x]` config-default named menus + a DB-backed admin
+   **Menus editor** (`/admin/menus`) for the `main` + `footer` menus, URL-scheme
+   validated, cache-flushed on save.
 4. **Global site settings**, reusable **blocks**.
 5. **SEO** — meta title/description, Open Graph, canonical, `sitemap.xml`, robots,
    RSS/Atom.
 6. **Redirect manager**.
 7. **Page caching** + invalidation on publish + a **"rendered in X ms · powered by
    NimbusCMS"** signal (dogfooding perf proof).
-8. Custom 404/error templates, preview mode, theme asset versioning.
+8. Custom 404/error templates, **preview mode** `[x]` (ADR 0021, see Release 0.2 §3), theme asset versioning.
 
 ---
 
@@ -549,7 +555,7 @@ deliberate public surface:
   core namespace (loader reserves core event roots); best-effort + depth-bounded
   delivery ([ADR 0014](docs/adr/0014-plugin-event-dispatch.md)). First of the four
   plugin-boundary capabilities for the Inventory + Commerce initiative; consumer:
-  Inventory (building next)
+  Inventory (built + enriched)
 - [x] **Grantable plugin capabilities** via `PluginContext::capabilities()->declare()`
   — a plugin adds a wildcard-immune **management** capability (`{pluginId}:read/write`,
   e.g. `inventory:write`) that the content `*:write` wildcard can never reach;
@@ -562,7 +568,7 @@ deliberate public surface:
   the plugin's capability and namespaces every name, so an ungated or colliding
   tool can't ship; composed after the core toolsets in the shared factory
   ([ADR 0016](docs/adr/0016-plugin-mcp-toolsets.md), H2b — completes the keystone).
-  Consumer: Inventory (`receive`/`adjust`/`count`, building next)
+  Consumer: Inventory (`receive`/`adjust`/`count`/`transfer`, built + enriched)
 - [x] **Plugin public routes** via `PluginContext::routes()` — a plugin serves
   `get`/`post`/etc under the reserved `/ext/{namespace}/…` prefix (structurally
   non-colliding with content; mounted after core, before the content catch-all;
@@ -575,7 +581,20 @@ deliberate public surface:
 - [x] Admin pages + nav via `PluginContext::adminPages()`; consumer: Analytics.
   Now also **POST form actions** via `adminPages()->action($page, $name, $handler)`
   (H3) — core enforces auth + the page's capability + CSRF before the handler
-  runs; consumers: Inventory (receive/adjust) + Commerce (place order)
+  runs; consumers: Inventory (receive/adjust/count/transfer) + Commerce (place +
+  pay/fulfil/cancel). A page may gate on **the plugin's own** wildcard-immune
+  capability ([ADR 0020](docs/adr/0020-plugin-admin-page-capability-gate.md)), so
+  its money-grade admin actions are gated like its MCP tools.
+- [x] **Typed service ports** via `PluginContext::services()` — a plugin publishes
+  a typed contract interface and another consumes it by that contract, for
+  synchronous request/response across the boundary (interface-only, one provider,
+  fail-safe null) ([ADR 0019](docs/adr/0019-plugin-service-ports.md), Hinge 5);
+  consumer: Commerce reserves/issues stock through Inventory's `ReservationPort`.
+- [x] **Inventory + Commerce plugins — built and enriched.** Ledger-based Inventory
+  (append-only movement ledger, reservation overlay, SKU drill-down) + Commerce
+  (orders reserving stock through the port, lifecycle, order timeline); admin
+  workbench forms + MCP tools for both. The keystone's first real consumers, plus
+  Analytics / Advanced API / SEO / Markdown. (See the plugin repos under `NimbusCMS/*`.)
 - [x] **Public theme picker** — the active site theme is a `site.theme` setting
   (file-defaulted from `config/theme.php`, DB-overridable like `site.title`), chosen
   in the admin from installed themes; `ThemeCatalog` discovers `themes/` and
