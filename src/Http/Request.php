@@ -16,6 +16,7 @@ final class Request
      * @param array<string,mixed> $post
      * @param array<string,mixed> $server
      * @param array<string,mixed> $files
+     * @param array<string,mixed> $cookies
      */
     public function __construct(
         public readonly string $method,
@@ -26,6 +27,7 @@ final class Request
         private array $files,
         ?TrustedProxies $proxies = null,
         private string $rawBody = '',
+        private array $cookies = [],
     ) {
         $this->proxies = $proxies ?? new TrustedProxies();
     }
@@ -43,7 +45,14 @@ final class Request
             $_FILES,
             TrustedProxies::fromString(Config::trustedProxies()),
             (string) file_get_contents('php://input'),
+            $_COOKIE,
         );
+    }
+
+    /** A request cookie by name, or the default — for a public route reading its own cookie (a cart token). */
+    public function cookie(string $name, ?string $default = null): ?string
+    {
+        return isset($this->cookies[$name]) && !is_array($this->cookies[$name]) ? (string) $this->cookies[$name] : $default;
     }
 
     public function isPost(): bool
