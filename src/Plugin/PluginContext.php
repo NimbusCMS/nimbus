@@ -54,6 +54,7 @@ final class PluginContext
     private McpRegistrar $mcp;
     private RouteRegistrar $routes;
     private ServiceRegistrar $services;
+    private PageSectionRegistrar $pages;
     private ?Connection $db;
     private ?PluginStorage $storage = null;
 
@@ -70,6 +71,7 @@ final class PluginContext
         $this->mcp          = new McpRegistrar($capabilities->mcpToolsets, $pluginId);
         $this->routes       = new RouteRegistrar($capabilities->routes, $pluginId);
         $this->services     = new ServiceRegistrar($capabilities->services, $pluginId);
+        $this->pages        = new PageSectionRegistrar($capabilities->pageSections, $pluginId);
         $this->db           = $capabilities->db;
     }
 
@@ -137,6 +139,12 @@ final class PluginContext
     public function services(): ServiceRegistrar
     {
         return $this->services;
+    }
+
+    /** Register a themed public page at a pretty handle — a storefront, a directory (ADR 0023). Stamped with its id. */
+    public function pages(): PageSectionRegistrar
+    {
+        return $this->pages;
     }
 
     /**

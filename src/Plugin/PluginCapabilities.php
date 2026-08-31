@@ -13,6 +13,7 @@ use Nimbus\Http\PluginRouteRegistry;
 use Nimbus\Mcp\Guide\SkillRegistry;
 use Nimbus\Mcp\McpToolsetRegistry;
 use Nimbus\Site\HeadContributorRegistry;
+use Nimbus\Site\PageSectionRegistry;
 use Nimbus\Support\EventDispatcher;
 use Nimbus\Support\MaintenanceRegistry;
 
@@ -50,6 +51,8 @@ final class PluginCapabilities
         public readonly PluginRouteRegistry $routes = new PluginRouteRegistry(),
         // Typed service ports between plugins (ADR 0019).
         public readonly ServiceRegistry $services = new ServiceRegistry(),
+        // Themed public pages plugins serve at a pretty handle (ADR 0023).
+        public readonly PageSectionRegistry $pageSections = new PageSectionRegistry(),
         // The live connection, for the storage capability. Null when a caller
         // has no database (a unit test, or a plugin that never touches storage).
         public readonly ?Connection $db = null,

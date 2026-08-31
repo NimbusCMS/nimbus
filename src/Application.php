@@ -50,6 +50,7 @@ use Nimbus\Settings\Settings;
 use Nimbus\Settings\SettingsRegistry;
 use Nimbus\Settings\SettingsRepository;
 use Nimbus\Site\HeadContributorRegistry;
+use Nimbus\Site\PageSectionRegistry;
 use Nimbus\Site\SiteController;
 use Nimbus\Support\Config;
 use Nimbus\Support\CoreEvents;
@@ -93,6 +94,7 @@ final class Application
     private McpToolsetRegistry $mcpToolsets;
     private PluginRouteRegistry $pluginRoutes;
     private ServiceRegistry $services;
+    private PageSectionRegistry $pageSections;
     private EventDispatcher $events;
 
     /** Request-scoped carrier for the authenticated API principal (ADR 0006). */
@@ -155,6 +157,7 @@ final class Application
         $this->mcpToolsets      = new McpToolsetRegistry();
         $this->pluginRoutes     = new PluginRouteRegistry();
         $this->services         = new ServiceRegistry();
+        $this->pageSections     = new PageSectionRegistry();
         $this->events           = $events ?? new EventDispatcher();
         $this->apiAuth          = $apiAuth ?? new ApiAuthContext();
         // Composed after the env/db block above so the registry captures loaded
@@ -216,6 +219,7 @@ final class Application
             mcpToolsets: $this->mcpToolsets,
             routes: $this->pluginRoutes,
             services: $this->services,
+            pageSections: $this->pageSections,
             db: $this->db,
         ));
         $this->pluginStatuses    = $loader->statuses();
@@ -451,7 +455,7 @@ final class Application
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.
-        (new SiteController($this->db, $this->fieldTypes, Config::home(), null, $this->headContributors, $this->settings))->routes($router);
+        (new SiteController($this->db, $this->fieldTypes, Config::home(), null, $this->headContributors, $this->settings, $this->pageSections))->routes($router);
         return $router;
     }
 
@@ -496,6 +500,15 @@ final class Application
             if ($request->path === $prefix || str_starts_with($request->path, $prefix . '/')) {
                 return null;
             }
+        }
+        // Plugin page sections (ADR 0023) vary by their own query params (a search,
+        // a category, a sort) that cacheKey does not — and does not model — so
+        // caching one under path+page would poison it (one search served for
+        // another) and fill the cache. Never page-cache a section path in v1; a
+        // query-aware section cache is a tracked follow-up.
+        $first = explode('/', ltrim($request->path, '/'))[0] ?? '';
+        if ($first !== '' && $this->pageSections->has($first)) {
+            return null;
         }
         $page = (int) ($request->query('page') ?? 1);
         // Never mint a cache entry for an absurd page number: cacheKey appends

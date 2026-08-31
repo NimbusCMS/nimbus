@@ -84,6 +84,8 @@ final class SiteController
     private EntryView $view;
     private View $render;
     private PreviewTokens $previewTokens;
+    private PageSectionRegistry $sections;
+    private MediaRepository $media;
 
     /** Absolute path to the active theme directory (for serving its assets). */
     private string $themeDir;
@@ -111,10 +113,12 @@ final class SiteController
         ?string $themePath = null,
         ?HeadContributorRegistry $headContributors = null,
         ?Settings $settings = null,
+        ?PageSectionRegistry $sections = null,
     ) {
         $this->collections      = new CollectionRepository($db);
         $this->entries          = new EntryRepository($db);
-        $this->view             = new EntryView($types, new RelationRepository($db), new MediaRepository($db));
+        $this->media            = new MediaRepository($db);
+        $this->view             = new EntryView($types, new RelationRepository($db), $this->media);
         $this->previewTokens    = new PreviewTokens($db);
         $this->themeDir         = $themePath ?? self::resolveThemeDir($settings);
         $this->render           = new View($this->themeDir, [
@@ -127,6 +131,7 @@ final class SiteController
         $this->home             = $home;
         $this->settings         = $settings;
         $this->headContributors = $headContributors ?? new HeadContributorRegistry();
+        $this->sections         = $sections ?? new PageSectionRegistry();
     }
 
     /**
@@ -156,6 +161,16 @@ final class SiteController
         $r->get('/robots.txt', fn (Request $req, array $p): Response => $this->robots())->name('site.robots');
         $r->get('/llms.txt', fn (Request $req, array $p): Response => $this->llmsTxt())->name('site.llms');
         $r->get('/', fn (Request $req, array $p): Response => $this->homePage($req))->name('site.home');
+
+        // Plugin page sections (ADR 0023): a themed public page at a pretty handle,
+        // registered BEFORE the {collection} catch-alls so a section resolves to
+        // its plugin, never to a same-named collection. The registry is frozen at
+        // plugin-load and the handle already passed the reserved-name refusal.
+        foreach ($this->sections->handles() as $handle) {
+            $r->get('/' . $handle, fn (Request $req, array $p): Response => $this->section($req, $handle))->name('site.section.' . $handle);
+            $r->get('/' . $handle . '/{path*}', fn (Request $req, array $p): Response => $this->section($req, $handle))->name('site.section.' . $handle . '.sub');
+        }
+
         $r->get('/{collection}', fn (Request $req, array $p): Response => $this->index($req, $p['collection']))->name('site.collection');
         $r->get('/{collection}/{slug}', fn (Request $req, array $p): Response => $this->show($req, $p['collection'], $p['slug']))->name('site.entry');
     }
@@ -459,6 +474,68 @@ final class SiteController
         return $this->renderEntry($request, $collection, $row);
     }
 
+    /**
+     * Render a plugin page section (ADR 0023). The plugin's resolver turns the
+     * request into a {@see PageView} (template + data + meta), or null → the themed
+     * 404 (so a section owns its own not-found without leaking which it was). The
+     * result renders through the active theme exactly like a content page — with
+     * the section's default templates as a fallback the theme can override, and the
+     * CSP nonce handed to the template so a nonce'd `<style>` is possible under the
+     * nonce-only public CSP. Sections are GET-only and carry no ambient authority.
+     */
+    private function section(Request $request, string $handle): Response
+    {
+        $section = $this->sections->find($handle);
+        if ($section === null) {
+            return $this->notFound();
+        }
+
+        $view = ($section['resolver'])($request);
+        if ($view === null) {
+            return $this->notFound();
+        }
+
+        $title       = isset($view->meta['title']) && $view->meta['title'] !== '' ? $view->meta['title'] : ucfirst($handle);
+        $description = $view->meta['description'] ?? '';
+        $ogType      = $view->meta['og_type'] ?? 'website';
+
+        $data = array_merge($view->data, [
+            'title'   => $title,
+            'meta'    => $this->meta($request->path, $title, $this->clip($description), $ogType),
+            'head'    => $this->headContributors->render(new PageContext('section', Config::appUrl() . $request->path, $title, $this->title(), Csp::nonce(), null, null)),
+            // The CSP nonce for a section template's own nonce'd <style>/<script>
+            // (the public CSP is nonce-only — no inline style=).
+            'cspNonce' => Csp::nonce(),
+            'section'  => $handle,
+            // Resolve a core media id to a public {url, alt} (or null) — the general
+            // way a section renders an image it holds only by id (ADR 0022/0023),
+            // fail-safe when the media was deleted.
+            'media'    => fn (?int $id): ?array => $this->mediaInfo($id),
+        ]);
+
+        // Render through the theme, falling back to the section's own templates
+        // (ADR 0023). The layout stays the theme's.
+        $render = $this->render->withFallback($section['templates']);
+        return $this->renderPage($view->template, $data, $view->status, false, $render);
+    }
+
+    /**
+     * Resolve a core media id to a public `{url, alt}` for a section template, or
+     * null when the id is null or the media was deleted (fail-safe — a dangling
+     * image id never 500s, ADR 0022). The URL/alt are the stored values; the
+     * template still escapes them on output.
+     *
+     * @return array{url:string,alt:?string}|null
+     */
+    private function mediaInfo(?int $id): ?array
+    {
+        if ($id === null) {
+            return null;
+        }
+        $item = $this->media->find($id);
+        return $item === null ? null : ['url' => $item->url, 'alt' => $item->alt];
+    }
+
     /** Render a collection's live entry index (paginated). */
     private function renderCollection(Request $request, Collection $collection, int $page): Response
     {
@@ -561,18 +638,21 @@ final class SiteController
      * page — entry, index, themed 404 — can render them without repeating.
      *
      * @param array<string,mixed> $data
+     * @param ?View $render the View to render with — defaults to the theme View;
+     *                      a page section passes one with its templates as fallback
      */
-    private function renderPage(string $template, array $data, int $status = 200, bool $preview = false): Response
+    private function renderPage(string $template, array $data, int $status = 200, bool $preview = false, ?View $render = null): Response
     {
+        $render ??= $this->render;
         $data['blocks'] = $this->blocks();
         // Resolve the site title from the store (DB override ?? file default) and
         // set it as a shared global — so the layout AND every nested partial
         // (header/footer brand) reflect the editable setting consistently. Done
         // at render time, so /api and cache-hit requests never run the query.
-        $this->render->share('appName', $this->title());
+        $render->share('appName', $this->title());
         // In demo mode, core adds the "live demo" banner — so any theme works in
         // the hosted sandbox without carrying demo markup (a no-op otherwise).
-        $html = DemoBanner::inject($this->render->render($template, $data));
+        $html = DemoBanner::inject($render->render($template, $data));
         if (!$preview) {
             return Response::html($html, $status);
         }
