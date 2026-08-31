@@ -8,6 +8,13 @@ namespace Nimbus\View;
  * Renders plain-PHP templates from the active theme in an isolated scope.
  * render() wraps a template in the theme layout; renderBare() does not. Shared
  * data (current user, app name, nav) is injected into every template.
+ *
+ * A **fallback** template directory (ADR 0023) lets a plugin page section ship
+ * default templates the active theme can override: a name is resolved in the
+ * theme first, then the fallback — so the layout is always the theme's, while a
+ * `shop-index` the theme has not provided renders from the plugin's defaults. The
+ * fallback obeys the identical name-safety rule as the theme dir, so it never
+ * widens template-path traversal.
  */
 final class View
 {
@@ -15,7 +22,19 @@ final class View
     public function __construct(
         private string $themePath,
         private array $shared = [],
+        private ?string $fallbackPath = null,
     ) {
+    }
+
+    /**
+     * A copy of this View that also resolves templates from `$fallbackPath` when
+     * the theme lacks them (ADR 0023). Used to render a plugin page section: the
+     * theme's layout and any overriding templates win; the section's own defaults
+     * fill the gaps. Shared globals carry over.
+     */
+    public function withFallback(?string $fallbackPath): self
+    {
+        return new self($this->themePath, $this->shared, $fallbackPath);
     }
 
     /**
@@ -93,7 +112,19 @@ final class View
             return null;
         }
         $file = $this->themePath . '/templates/' . $template . '.php';
-        return is_file($file) ? $file : null;
+        if (is_file($file)) {
+            return $file;
+        }
+        // Theme-first, then the section's fallback dir (ADR 0023) — the same name
+        // has already passed the traversal-safe charset check above, so it can
+        // escape neither directory.
+        if ($this->fallbackPath !== null) {
+            $fallback = $this->fallbackPath . '/' . $template . '.php';
+            if (is_file($fallback)) {
+                return $fallback;
+            }
+        }
+        return null;
     }
 
     public function themePath(): string

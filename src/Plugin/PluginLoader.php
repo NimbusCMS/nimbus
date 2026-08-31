@@ -196,6 +196,7 @@ final class PluginLoader
             $capabilities->capabilities->forgetProvider($id);
             $capabilities->mcpToolsets->forgetProvider($id);
             $capabilities->routes->forgetProvider($id);
+            $capabilities->pageSections->forgetProvider($id);
             $capabilities->services->forgetProvider($id);
             $rolledBack = $capabilities->fieldTypes->forgetProvider($id);
             $detail     = $rolledBack === [] ? '' : ' Rolled back: ' . implode(', ', $rolledBack) . '.';
