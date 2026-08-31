@@ -21,11 +21,12 @@ RUN cd /app \
     && composer config repositories.analytics '{"type":"vcs","url":"https://github.com/NimbusCMS/plugin-analytics","no-api":true}' \
     && composer config repositories.inventory '{"type":"vcs","url":"https://github.com/NimbusCMS/plugin-inventory","no-api":true}' \
     && composer config repositories.commerce '{"type":"vcs","url":"https://github.com/NimbusCMS/plugin-commerce","no-api":true}' \
+    && composer config repositories.storefront '{"type":"vcs","url":"https://github.com/NimbusCMS/plugin-storefront","no-api":true}' \
     # COMPOSER_ROOT_VERSION so the plugins' `nimbuscms/nimbus: dev-main` requirement
     # resolves against this baked root (the image has no .git to infer it from).
-    # Commerce pulls Inventory (its reservation port) transitively.
+    # Commerce and Storefront both pull Inventory transitively (its ports).
     && COMPOSER_ROOT_VERSION=dev-main composer require --no-scripts --no-interaction --update-no-dev --optimize-autoloader \
-       nimbuscms/seo nimbuscms/markdown nimbuscms/api-advanced nimbuscms/analytics nimbuscms/inventory nimbuscms/commerce \
+       nimbuscms/seo nimbuscms/markdown nimbuscms/api-advanced nimbuscms/analytics nimbuscms/inventory nimbuscms/commerce nimbuscms/storefront \
     && rm -f /usr/bin/composer \
     && chown -R www-data:www-data /app/vendor /app/composer.json /app/composer.lock
 
