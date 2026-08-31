@@ -515,8 +515,20 @@ final class SiteController
 
         // Render through the theme, falling back to the section's own templates
         // (ADR 0023). The layout stays the theme's.
-        $render = $this->render->withFallback($section['templates']);
-        return $this->renderPage($view->template, $data, $view->status, false, $render);
+        $render   = $this->render->withFallback($section['templates']);
+        $response = $this->renderPage($view->template, $data, $view->status, false, $render);
+
+        // A per-user section (a cart, an account page) must never be cached by a
+        // shared CDN or the browser — one visitor's page served to another is a
+        // leak. Section paths already bail the server page-cache; this adds the
+        // response headers (ADR 0023 private flag / ADR 0026).
+        if ($view->private) {
+            $response = $response
+                ->withHeader('Cache-Control', 'no-store, private')
+                ->withHeader('Referrer-Policy', 'no-referrer')
+                ->withHeader('X-Robots-Tag', 'noindex');
+        }
+        return $response;
     }
 
     /**

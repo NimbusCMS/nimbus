@@ -23,12 +23,18 @@ final class PageView
      * @param array<string,mixed>  $data     values handed to the template (escaped on render)
      * @param array{title?:string,description?:string,og_type?:string} $meta SEO meta for <head>
      * @param int                  $status   HTTP status (200 default; a section may 404/410 within itself)
+     * @param bool                 $private  a per-user page (a cart, an account) — the response is
+     *                                       marked `Cache-Control: no-store, private` + `noindex` so a
+     *                                       shared CDN never serves one visitor's page to another. Section
+     *                                       paths already bail the server page-cache (ADR 0023); this adds
+     *                                       the response headers for the browser/CDN.
      */
     public function __construct(
         public string $template,
         public array $data = [],
         public array $meta = [],
         public int $status = 200,
+        public bool $private = false,
     ) {
     }
 }
