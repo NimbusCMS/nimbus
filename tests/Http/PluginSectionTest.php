@@ -132,4 +132,20 @@ final class PluginSectionTest extends HttpTestCase
         self::assertSame(404, $response->status);
         self::assertStringContainsString('Powered by', $response->body, 'the themed 404, inside the layout');
     }
+
+    public function test_a_private_section_is_no_store_but_a_normal_one_is_not(): void
+    {
+        // A per-user section (a cart) must never be CDN/browser-cached (ADR 0026);
+        // a normal section carries no such header.
+        $private = $this->sectionRouter(static fn (Request $r): PageView
+            => new PageView('shop-index', ['items' => []], ['title' => 'Cart'], 200, true));
+        $res = $this->dispatch($private, '/shop');
+        self::assertStringContainsString('no-store', $res->headers['Cache-Control'] ?? '', 'private → no-store');
+        self::assertSame('noindex', $res->headers['X-Robots-Tag'] ?? null);
+
+        $normal = $this->sectionRouter(static fn (Request $r): PageView
+            => new PageView('shop-index', ['items' => []], ['title' => 'Shop']));
+        $res2 = $this->dispatch($normal, '/shop');
+        self::assertArrayNotHasKey('Cache-Control', $res2->headers, 'a normal section sets no cache header');
+    }
 }
