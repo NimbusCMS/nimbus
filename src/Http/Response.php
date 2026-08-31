@@ -102,6 +102,29 @@ final class Response
     }
 
     /**
+     * Set a cookie via a `Set-Cookie` header — the primitive a public plugin route
+     * uses for its own cookie (e.g. a cart token). Secure + HttpOnly + SameSite=Lax
+     * by default, which is the right posture for an anonymous session token. One
+     * cookie per response (the header model is single-valued per name); that suits
+     * the single-token cart. Pass `maxAge = 0` to expire the cookie.
+     */
+    public function withCookie(string $name, string $value, int $maxAge = 0, bool $httpOnly = true, bool $secure = true, string $sameSite = 'Lax', string $path = '/'): self
+    {
+        $parts = [rawurlencode($name) . '=' . rawurlencode($value), 'Path=' . $path];
+        if ($maxAge > 0) {
+            $parts[] = 'Max-Age=' . $maxAge;
+        }
+        $parts[] = 'SameSite=' . $sameSite;
+        if ($secure) {
+            $parts[] = 'Secure';
+        }
+        if ($httpOnly) {
+            $parts[] = 'HttpOnly';
+        }
+        return $this->withHeader('Set-Cookie', implode('; ', $parts));
+    }
+
+    /**
      * The same response with its body removed — the reply to a HEAD request:
      * identical status and headers as the GET would return, no body. (RFC 9110
      * §9.3.2.) The kernel applies this after building the GET response.

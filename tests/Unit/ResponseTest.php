@@ -131,4 +131,24 @@ final class ResponseTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         Response::redirect("/admin\r\nSet-Cookie: admin=1");
     }
+
+    public function test_with_cookie_sets_a_hardened_set_cookie_header(): void
+    {
+        $res = Response::html('x')->withCookie('cart', 'tok123', 3600);
+        $sc  = $res->headers['Set-Cookie'] ?? '';
+
+        self::assertStringContainsString('cart=tok123', $sc);
+        self::assertStringContainsString('Path=/', $sc);
+        self::assertStringContainsString('Max-Age=3600', $sc);
+        self::assertStringContainsString('SameSite=Lax', $sc);
+        self::assertStringContainsString('Secure', $sc);
+        self::assertStringContainsString('HttpOnly', $sc);
+    }
+
+    public function test_request_reads_a_cookie(): void
+    {
+        $req = new \Nimbus\Http\Request('GET', '/', [], [], [], [], null, '', ['cart' => 'tok123']);
+        self::assertSame('tok123', $req->cookie('cart'));
+        self::assertNull($req->cookie('absent'));
+    }
 }
