@@ -14,6 +14,7 @@ use Nimbus\Mcp\Guide\SkillRegistry;
 use Nimbus\Mcp\McpToolsetRegistry;
 use Nimbus\Site\HeadContributorRegistry;
 use Nimbus\Site\PageSectionRegistry;
+use Nimbus\Site\ViewDataContributorRegistry;
 use Nimbus\Support\EventDispatcher;
 use Nimbus\Support\MaintenanceRegistry;
 
@@ -37,6 +38,8 @@ final class PluginCapabilities
     public function __construct(
         public readonly FieldTypeRegistry $fieldTypes = new FieldTypeRegistry(),
         public readonly HeadContributorRegistry $head = new HeadContributorRegistry(),
+        // Live body view-data plugins contribute to themed content pages (ADR 0027).
+        public readonly ViewDataContributorRegistry $viewData = new ViewDataContributorRegistry(),
         public readonly EventDispatcher $events = new EventDispatcher(),
         public readonly MigrationRegistry $migrations = new MigrationRegistry(),
         public readonly AdminPageRegistry $adminPages = new AdminPageRegistry(),

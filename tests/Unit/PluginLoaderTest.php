@@ -131,6 +131,12 @@ final class AllCapabilitiesBrokenPlugin implements Plugin
                 return '<meta name="allcaps">';
             }
         });
+        $context->viewData()->register(new class () implements \Nimbus\Site\ViewDataContributor {
+            public function data(PageContext $page): array
+            {
+                return ['marker' => true];
+            }
+        });
         $context->events()->listen('allcaps.event', static fn (): null => null);
         $context->migrations()->register('allcaps', ['CREATE TABLE allcaps_x (id INT)']); // plugin-owned (not nb_*, or the FU-11 lint would throw here first)
         $context->adminPages()->register('allcaps-page', 'AllCaps', '★', static fn (): string => 'x');
@@ -449,6 +455,7 @@ final class PluginLoaderTest extends TestCase
         $covered = [
             'fieldTypes'  => fn (): bool => !$caps->fieldTypes->has('fixture'),
             'head'        => fn (): bool => $caps->head->render($page) === '',
+            'viewData'    => fn (): bool => $caps->viewData->collect($page) === [],
             'events'      => fn (): bool => !$caps->events->hasListeners('allcaps.event'),
             'migrations'  => fn (): bool => $caps->migrations->all() === [],
             'adminPages'  => fn (): bool => $caps->adminPages->all() === [],

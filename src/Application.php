@@ -52,6 +52,7 @@ use Nimbus\Settings\SettingsRepository;
 use Nimbus\Site\HeadContributorRegistry;
 use Nimbus\Site\PageSectionRegistry;
 use Nimbus\Site\SiteController;
+use Nimbus\Site\ViewDataContributorRegistry;
 use Nimbus\Support\Config;
 use Nimbus\Support\CoreEvents;
 use Nimbus\Support\Env;
@@ -86,6 +87,7 @@ final class Application
      */
     private FieldTypeRegistry $fieldTypes;
     private HeadContributorRegistry $headContributors;
+    private ViewDataContributorRegistry $viewDataContributors;
     private MigrationRegistry $migrations;
     private AdminPageRegistry $adminPages;
     private MaintenanceRegistry $maintenance;
@@ -149,6 +151,7 @@ final class Application
         $this->auth       = $auth ?? new Auth($this->db);
         $this->fieldTypes       = new FieldTypeRegistry();
         $this->headContributors = new HeadContributorRegistry();
+        $this->viewDataContributors = new ViewDataContributorRegistry();
         $this->migrations       = new MigrationRegistry();
         $this->adminPages       = new AdminPageRegistry();
         $this->maintenance      = new MaintenanceRegistry();
@@ -210,6 +213,7 @@ final class Application
         $this->pluginDiagnostics = $loader->load(new PluginCapabilities(
             fieldTypes: $this->fieldTypes,
             head: $this->headContributors,
+            viewData: $this->viewDataContributors,
             events: $this->events,
             migrations: $this->migrations,
             adminPages: $this->adminPages,
@@ -455,7 +459,7 @@ final class Application
         // Registered last: the public site owns `/` and its {collection} routes
         // match only after every literal /admin and /api route has had its turn,
         // so they can never shadow the application's own surfaces.
-        (new SiteController($this->db, $this->fieldTypes, Config::home(), null, $this->headContributors, $this->settings, $this->pageSections))->routes($router);
+        (new SiteController($this->db, $this->fieldTypes, Config::home(), null, $this->headContributors, $this->settings, $this->pageSections, $this->viewDataContributors))->routes($router);
         return $router;
     }
 

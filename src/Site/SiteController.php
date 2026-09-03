@@ -96,6 +96,7 @@ final class SiteController
     private ?Settings $settings;
 
     private HeadContributorRegistry $headContributors;
+    private ViewDataContributorRegistry $viewData;
 
     /** @var array<string,array<string,mixed>>|null memoized live blocks by slug */
     private ?array $blocks = null;
@@ -114,6 +115,7 @@ final class SiteController
         ?HeadContributorRegistry $headContributors = null,
         ?Settings $settings = null,
         ?PageSectionRegistry $sections = null,
+        ?ViewDataContributorRegistry $viewData = null,
     ) {
         $this->collections      = new CollectionRepository($db);
         $this->entries          = new EntryRepository($db);
@@ -132,6 +134,7 @@ final class SiteController
         $this->settings         = $settings;
         $this->headContributors = $headContributors ?? new HeadContributorRegistry();
         $this->sections         = $sections ?? new PageSectionRegistry();
+        $this->viewData         = $viewData ?? new ViewDataContributorRegistry();
     }
 
     /**
@@ -565,11 +568,15 @@ final class SiteController
 
         $info = ['handle' => $collection->handle, 'name' => $collection->name];
         $kind = $request->path === '/' ? 'home' : 'collection';
+        // One PageContext feeds both the <head> contributors and the body view-data
+        // contributors (ADR 0027) — data-only, no per-visitor state, so it's cache-safe.
+        $context = new PageContext($kind, Config::appUrl() . $request->path, $collection->name, $this->title(), Csp::nonce(), null, $info);
 
         return $this->renderPage($this->specialize('collection', $collection->handle), [
             'title'       => $collection->name,
             'meta'        => $this->meta($request->path, $collection->name, $this->describe(null, $collection), 'website'),
-            'head'        => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, $collection->name, $this->title(), Csp::nonce(), null, $info)),
+            'head'        => $this->headContributors->render($context),
+            'contrib'     => $this->viewData->collect($context),
             'collection'  => $info,
             'entries'     => $this->view->many($collection, $rows),
             'nav'         => $this->nav($collection),
@@ -588,11 +595,14 @@ final class SiteController
         $entry = $this->view->one($collection, $row);
         $info  = ['handle' => $collection->handle, 'name' => $collection->name];
         $kind  = $request->path === '/' ? 'home' : 'entry';
+        // One PageContext feeds both <head> and body view-data contributors (ADR 0027).
+        $context = new PageContext($kind, Config::appUrl() . $request->path, (string) $row['title'], $this->title(), Csp::nonce(), $entry, $info);
 
         return $this->renderPage($this->specialize('entry', $collection->handle), [
             'title'      => (string) $row['title'],
             'meta'       => $this->meta($request->path, (string) $row['title'], $this->describe($entry, $collection), 'article'),
-            'head'       => $this->headContributors->render(new PageContext($kind, Config::appUrl() . $request->path, (string) $row['title'], $this->title(), Csp::nonce(), $entry, $info)),
+            'head'       => $this->headContributors->render($context),
+            'contrib'    => $this->viewData->collect($context),
             'collection' => $info,
             'entry'      => $entry,
             'nav'        => $this->nav($collection),

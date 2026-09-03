@@ -45,6 +45,7 @@ final class PluginContext
 {
     private FieldTypeRegistrar $fieldTypes;
     private HeadRegistrar $head;
+    private ViewDataRegistrar $viewData;
     private EventRegistrar $events;
     private MigrationRegistrar $migrations;
     private AdminPageRegistrar $adminPages;
@@ -62,6 +63,7 @@ final class PluginContext
     {
         $this->fieldTypes   = new FieldTypeRegistrar($capabilities->fieldTypes, $pluginId);
         $this->head         = new HeadRegistrar($capabilities->head, $pluginId);
+        $this->viewData     = new ViewDataRegistrar($capabilities->viewData, $pluginId);
         $this->events       = new EventRegistrar($capabilities->events, $pluginId);
         $this->migrations   = new MigrationRegistrar($capabilities->migrations, $pluginId);
         $this->adminPages   = new AdminPageRegistrar($capabilities->adminPages, $pluginId);
@@ -85,6 +87,12 @@ final class PluginContext
     public function head(): HeadRegistrar
     {
         return $this->head;
+    }
+
+    /** Register view-data contributors for themed content pages (ADR 0027). Stamped with this plugin's id. */
+    public function viewData(): ViewDataRegistrar
+    {
+        return $this->viewData;
     }
 
     /** Subscribe to events, and emit under this plugin's own namespace (ADR 0014). Stamped with its id. */
