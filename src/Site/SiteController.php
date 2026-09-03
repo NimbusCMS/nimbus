@@ -577,6 +577,11 @@ final class SiteController
             'meta'        => $this->meta($request->path, $collection->name, $this->describe(null, $collection), 'website'),
             'head'        => $this->headContributors->render($context),
             'contrib'     => $this->viewData->collect($context),
+            // Resolve a core media id → public {url, alt} (fail-safe on a deleted
+            // media), so a content template can render an image it holds only by id
+            // — e.g. a thumbnail in a view-data contribution (ADR 0027). Same
+            // resolver the sections use.
+            'media'       => fn (?int $id): ?array => $this->mediaInfo($id),
             'collection'  => $info,
             'entries'     => $this->view->many($collection, $rows),
             'nav'         => $this->nav($collection),
@@ -603,6 +608,8 @@ final class SiteController
             'meta'       => $this->meta($request->path, (string) $row['title'], $this->describe($entry, $collection), 'article'),
             'head'       => $this->headContributors->render($context),
             'contrib'    => $this->viewData->collect($context),
+            // A media-id → {url, alt} resolver for content templates (see renderCollection).
+            'media'      => fn (?int $id): ?array => $this->mediaInfo($id),
             'collection' => $info,
             'entry'      => $entry,
             'nav'        => $this->nav($collection),
