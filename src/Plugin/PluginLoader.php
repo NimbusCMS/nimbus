@@ -188,6 +188,7 @@ final class PluginLoader
             // Undo whatever landed before the throw, so "failed" in the
             // diagnostics and "inactive" in the application agree.
             $capabilities->head->forgetProvider($id);
+            $capabilities->viewData->forgetProvider($id);
             $capabilities->events->forgetProvider($id);
             $capabilities->migrations->forgetProvider($id);
             $capabilities->adminPages->forgetProvider($id);
