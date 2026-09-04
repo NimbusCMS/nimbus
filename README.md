@@ -14,8 +14,8 @@ sign in with `demo@nimbuscms.dev` / `explore-nimbus-demo` — full admin, resets
 
 ---
 
-> ⚠️ **Status: alpha (`0.x`) — feature-rich and in active development, approaching a first `0.1` release. Not production-ready.**
-> A lot works end to end today: define collections and fields; create, schedule and publish entries; upload media; compose **capability-based roles** for people *and* machines; drive the whole CMS over a scoped **headless JSON API** (read + write, ETag/If-Match, OpenAPI) **and over MCP** (agents are first-class operators); and render a public site through plain-PHP themes. The **admin is themeable** — four built-in themes incl. dark mode, plus a per-user picker — and **mobile-native** (an off-canvas nav, responsive tables and forms). Still alpha, honestly: **no release is tagged** and there is **no upgrade path** between versions yet. Public theming and richer capabilities are still growing. See [What works today](#what-works-today) and [ROADMAP.md](ROADMAP.md).
+> 🚀 **Status: beta — `0.1.0`, the first tagged release (2026-09-04). Feature-rich; not yet 1.0.**
+> A lot works end to end today: define collections and fields; create, schedule and publish entries; upload media; compose **capability-based roles** for people *and* machines; drive the whole CMS over a scoped **headless JSON API** (read + write, ETag/If-Match, OpenAPI) **and over MCP** (agents are first-class operators); and render a public site through plain-PHP themes. The **admin is themeable** — four built-in themes incl. dark mode, plus a per-user picker — and **mobile-native** (an off-canvas nav, responsive tables and forms). Honest about beta: it's `0.x`, so the **plugin API may still change between minor releases** (noted in the [CHANGELOG](CHANGELOG.md)), and there is **no automatic upgrade path** yet. See [What works today](#what-works-today) and [ROADMAP.md](ROADMAP.md).
 
 ## Why NimbusCMS?
 
