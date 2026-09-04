@@ -11,7 +11,11 @@ All notable changes to NimbusCMS are recorded here. The format follows
 
 ## [Unreleased]
 
-The **0.1.0 candidate**. Everything below has shipped since `0.1.0-alpha.1`, which
+_Nothing yet._
+
+## [0.1.0] — 2026-09-04
+
+The first **beta**. Everything below has shipped since `0.1.0-alpha.1`, which
 turns the "working core + plugins" foundation into a usable CMS with a public
 site, a full read+write API, an agent control surface, roles, and SSO — followed
 by a pre-release security & correctness audit (Slices A–P).
@@ -56,6 +60,15 @@ by a pre-release security & correctness audit (Slices A–P).
   universal length/validation backstop on entry writes.
 - **CLI** — `migrate` (self-healing on a partial apply), `install`, `create-user`,
   `token:*`, `roles:seed`, `mail:test`, `openapi`, `mcp`, `prune`.
+- **Plugin view-data contributions** ([ADR 0027](docs/adr/0027-plugin-view-data-contributions.md))
+  — the body-data sibling of head contributions: a plugin can feed live,
+  visitor-independent data (featured products, related posts) into a themed content
+  page under its own namespace, escaped on render, isolated per contributor. Content
+  templates also receive the media resolver, so a contribution can render a
+  thumbnail by id.
+- **Request/response cookie helpers** — `Request::cookie()` and
+  `Response::withCookie()` (Secure + HttpOnly + SameSite by default), the primitive
+  a public plugin route uses for its own cookie (e.g. a cart token).
 
 ### Changed
 
