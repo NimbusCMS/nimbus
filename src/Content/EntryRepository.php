@@ -244,6 +244,22 @@ final class EntryRepository
         );
     }
 
+    /**
+     * A single live entry by id, or null — the by-id twin of {@see findLiveBySlug()},
+     * carrying the **same** published predicate so a by-id read can never surface a
+     * draft, a scheduled-but-not-due, or an entry from another collection.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findLive(int $collectionId, int $id): ?array
+    {
+        return $this->db->selectOne(
+            "SELECT * FROM nb_entries
+             WHERE collection_id = :c AND id = :id AND status = 'published' AND published_at IS NOT NULL AND published_at <= NOW()",
+            ['c' => $collectionId, 'id' => $id],
+        );
+    }
+
     /** @return int rows removed — 0 when the entry was absent or belongs to another collection */
     /**
      * @param ?int $expectedVersion when non-null, a compare-and-swap delete: it
