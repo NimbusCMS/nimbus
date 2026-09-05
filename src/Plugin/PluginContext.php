@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nimbus\Plugin;
 
+use Nimbus\Content\ContentReader;
+use Nimbus\Content\FieldTypeRegistry;
 use Nimbus\Database\Connection;
 
 /**
@@ -57,7 +59,9 @@ final class PluginContext
     private ServiceRegistrar $services;
     private PageSectionRegistrar $pages;
     private ?Connection $db;
+    private FieldTypeRegistry $contentTypes;
     private ?PluginStorage $storage = null;
+    private ?ContentReader $content = null;
 
     public function __construct(PluginCapabilities $capabilities, private string $pluginId)
     {
@@ -75,6 +79,7 @@ final class PluginContext
         $this->services     = new ServiceRegistrar($capabilities->services, $pluginId);
         $this->pages        = new PageSectionRegistrar($capabilities->pageSections, $pluginId);
         $this->db           = $capabilities->db;
+        $this->contentTypes = $capabilities->fieldTypes;
     }
 
     /** Register field types. Registrations are stamped with this plugin's id. */
@@ -163,6 +168,21 @@ final class PluginContext
     {
         return $this->storage ??= new PluginStorage(
             $this->db ?? throw new \RuntimeException('The storage capability requires a database connection.'),
+        );
+    }
+
+    /**
+     * Read **published** collection entries in-process (ADR 0029) — the read-only
+     * complement to storage(), for a plugin that composes with content it does not
+     * own (an app reading its menu, its services). Exposes only what the public API
+     * and themes already expose; it cannot write. Requires a database — available in
+     * the running kernel; absent only where there is no connection.
+     */
+    public function content(): ContentReader
+    {
+        return $this->content ??= new ContentReader(
+            $this->db ?? throw new \RuntimeException('The content-read capability requires a database connection.'),
+            $this->contentTypes,
         );
     }
 
