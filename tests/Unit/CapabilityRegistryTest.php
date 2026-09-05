@@ -88,8 +88,23 @@ final class CapabilityRegistryTest extends TestCase
         $reg->declare('nimbuscms.inventory', 'Inventory Again', ['read']);
     }
 
+    public function test_fine_grained_actions_are_accepted_as_independent_grants(): void
+    {
+        // ADR 0030: a plugin may declare its own finer actions beyond read/write;
+        // each becomes an independent, wildcard-immune grantable capability.
+        $reg = new CapabilityRegistry();
+        $reg->declare('danmat.restaurant', 'Restaurant', ['read', 'write', 'floor', 'kitchen']);
+
+        self::assertSame([
+            'danmat.restaurant:read'    => 'Restaurant: view',
+            'danmat.restaurant:write'   => 'Restaurant: manage',
+            'danmat.restaurant:floor'   => 'Restaurant: floor',
+            'danmat.restaurant:kitchen' => 'Restaurant: kitchen',
+        ], $reg->grantable());
+    }
+
     #[DataProvider('badActions')]
-    public function test_actions_must_be_a_nonempty_subset_of_read_write(mixed $actions): void
+    public function test_actions_must_be_a_nonempty_list_of_valid_tokens(mixed $actions): void
     {
         $reg = new CapabilityRegistry();
         $this->expectException(\InvalidArgumentException::class);
@@ -97,14 +112,22 @@ final class CapabilityRegistryTest extends TestCase
         $reg->declare('nimbuscms.inventory', 'Inventory', $actions);
     }
 
-    /** @return array<string,array{list<string>}> */
+    /**
+     * A valid action is `^[a-z][a-z0-9_]*$` — the grammar forbids anything that could
+     * smuggle a second segment or a wildcard into the `{resource}:{action}` grant.
+     *
+     * @return array<string,array{list<string>}>
+     */
     public static function badActions(): array
     {
         return [
-            'empty'     => [[]],
-            'unknown'   => [['delete']],
-            'partly ok' => [['read', 'delete']],
-            'admin'     => [['admin']],
+            'empty list'   => [[]],
+            'empty string' => [['']],
+            'has colon'    => [['read:write']],
+            'wildcard'     => [['*']],
+            'uppercase'    => [['Kitchen']],
+            'has space'    => [['take payment']],
+            'leading digit' => [['1st']],
         ];
     }
 

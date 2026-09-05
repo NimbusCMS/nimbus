@@ -37,7 +37,14 @@ use Nimbus\Support\Str;
  */
 final class CapabilityRegistry
 {
-    private const ACTIONS = ['read', 'write'];
+    /**
+     * A grantable action name. Lowercase letters, digits and underscores, starting
+     * with a letter — `read`, `write`, or a plugin's own finer action like `kitchen`
+     * (ADR 0030). The grammar is load-bearing: it forbids `:` and `*`, so a declared
+     * action can never smuggle a second segment or a wildcard into the
+     * `{resource}:{action}` grant string it becomes.
+     */
+    private const ACTION_PATTERN = '/^[a-z][a-z0-9_]*$/';
 
     /** @var array<string,array{label:string,actions:list<string>}> resource (=plugin id) => definition */
     private array $declared = [];
@@ -47,7 +54,10 @@ final class CapabilityRegistry
      * {@see \Nimbus\Plugin\CapabilitiesRegistrar}, which supplies the plugin id.
      *
      * @param string       $pluginId the resource — the plugin's own id, verbatim
-     * @param list<string> $actions  a non-empty subset of {read, write}
+     * @param list<string> $actions  one or more action names (ADR 0030): `read`/`write`,
+     *                               or a plugin's own finer actions (e.g. `kitchen`),
+     *                               each matching {@see ACTION_PATTERN}. Each is an
+     *                               independent, wildcard-immune grantable capability.
      *
      * @throws InvalidArgumentException on a flat id, a bad label, bad actions, or a
      *                                  duplicate — each fails the plugin's load.
@@ -76,8 +86,15 @@ final class CapabilityRegistry
         }
 
         $actions = array_values(array_unique($actions));
-        if ($actions === [] || array_diff($actions, self::ACTIONS) !== []) {
-            throw new InvalidArgumentException('Capability actions must be a non-empty subset of {read, write}.');
+        if ($actions === []) {
+            throw new InvalidArgumentException('A capability must declare at least one action.');
+        }
+        foreach ($actions as $action) {
+            if (preg_match(self::ACTION_PATTERN, $action) !== 1) {
+                throw new InvalidArgumentException(
+                    "Capability action \"{$action}\" must be lowercase letters, digits or underscores, starting with a letter (e.g. read, write, kitchen).",
+                );
+            }
         }
 
         if (isset($this->declared[$pluginId])) {
@@ -112,7 +129,13 @@ final class CapabilityRegistry
         $out = [];
         foreach ($this->declared as $resource => $def) {
             foreach ($def['actions'] as $action) {
-                $verb                         = $action === 'read' ? 'view' : 'manage';
+                // read/write read as view/manage; a plugin's finer action (ADR 0030)
+                // labels as itself, so the grant checklist stays legible.
+                $verb = match ($action) {
+                    'read'  => 'view',
+                    'write' => 'manage',
+                    default => $action,
+                };
                 $out["{$resource}:{$action}"] = "{$def['label']}: {$verb}";
             }
         }

@@ -110,8 +110,14 @@ final class AdminPageRegistrar
         if ($capability === 'admin') {
             return true;
         }
+        // `{resource}:{action}` where the action is any valid capability action —
+        // `read`/`write`, or a plugin's own finer action like `kitchen` (ADR 0030).
+        // The grammar matches CapabilityRegistry so a gate string and a declared
+        // action agree. Enforcement stays fail-safe: Gate::holdsPageGate() honours the
+        // capability only once it is a frozen management resource, so an undeclared or
+        // mistyped action opens the page to `admin` alone, never the content wildcard.
         $parts = explode(':', $capability, 2);
-        if (count($parts) !== 2 || !in_array($parts[1], ['read', 'write'], true)) {
+        if (count($parts) !== 2 || preg_match('/^[a-z][a-z0-9_]*$/', $parts[1]) !== 1) {
             return false;
         }
 

@@ -74,6 +74,20 @@ final class AuthorizerTest extends TestCase
         self::assertTrue(Authorizer::can(['admin'], 'nimbuscms.inventory', 'write'), 'admin still grants everything');
     }
 
+    public function test_a_plugins_fine_grained_action_is_exact_or_admin_only(): void
+    {
+        // ADR 0030: a plugin's own finer action (e.g. `kitchen`) is a capability like
+        // any other — satisfied only by an exact grant or admin, never by a content
+        // wildcard, and independent of the plugin's other actions.
+        Authorizer::useManagement(['danmat.restaurant']);
+
+        self::assertTrue(Authorizer::can(['danmat.restaurant:kitchen'], 'danmat.restaurant', 'kitchen'), 'an exact grant works');
+        self::assertFalse(Authorizer::can(['*:write', '*:read'], 'danmat.restaurant', 'kitchen'), 'the content wildcard cannot reach a plugin action');
+        self::assertFalse(Authorizer::can(['danmat.restaurant:write'], 'danmat.restaurant', 'kitchen'), 'a different action grant does not confer this one');
+        self::assertFalse(Authorizer::can(['danmat.restaurant:kitchen'], 'danmat.restaurant', 'floor'), 'nor does this one confer another');
+        self::assertTrue(Authorizer::can(['admin'], 'danmat.restaurant', 'kitchen'), 'admin still grants everything');
+    }
+
     public function test_holds_extends_subset_only_granting_to_plugin_capabilities(): void
     {
         // You can only grant what you hold: a *:write holder does NOT hold a plugin
