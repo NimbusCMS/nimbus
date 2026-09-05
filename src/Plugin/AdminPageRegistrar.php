@@ -110,17 +110,23 @@ final class AdminPageRegistrar
         if ($capability === 'admin') {
             return true;
         }
-        // `{resource}:{action}` where the action is any valid capability action —
-        // `read`/`write`, or a plugin's own finer action like `kitchen` (ADR 0030).
-        // The grammar matches CapabilityRegistry so a gate string and a declared
-        // action agree. Enforcement stays fail-safe: Gate::holdsPageGate() honours the
-        // capability only once it is a frozen management resource, so an undeclared or
-        // mistyped action opens the page to `admin` alone, never the content wildcard.
         $parts = explode(':', $capability, 2);
-        if (count($parts) !== 2 || preg_match('/^[a-z][a-z0-9_]*$/', $parts[1]) !== 1) {
+        if (count($parts) !== 2) {
             return false;
         }
+        [$resource, $action] = $parts;
 
-        return in_array($parts[0], Authorizer::MANAGEMENT, true) || $parts[0] === $this->pluginId;
+        // A plugin may gate on any action it declared on its **own** capability —
+        // `read`/`write`, or a finer one like `kitchen` (ADR 0030). The grammar
+        // matches CapabilityRegistry so a gate string and a declared action agree;
+        // enforcement stays fail-safe (Gate::holdsPageGate() honours it only once it
+        // is a frozen management resource, so an undeclared/mistyped action opens the
+        // page to `admin` alone, never the content wildcard).
+        if ($resource === $this->pluginId) {
+            return preg_match('/^[a-z][a-z0-9_]*$/', $action) === 1;
+        }
+
+        // A core management resource still gates on read/write only.
+        return in_array($resource, Authorizer::MANAGEMENT, true) && in_array($action, ['read', 'write'], true);
     }
 }

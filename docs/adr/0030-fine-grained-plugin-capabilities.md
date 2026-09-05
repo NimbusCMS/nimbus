@@ -42,10 +42,10 @@ gate admin pages, actions and MCP tools on any of them:
   load-bearing — it forbids `:` and `*`, so a declared action can never smuggle a
   second segment or a wildcard into the `{resource}:{action}` grant string it
   becomes. `read`/`write` still validate.
-- `AdminPageRegistrar` accepts `{pluginId}:{action}` for any such action (was:
-  read/write only). The declaring-plugin / core-management resource check is
-  unchanged, so a plugin still cannot gate on another plugin's id or a content
-  handle.
+- `AdminPageRegistrar` accepts `{pluginId}:{action}` for any such action on the
+  plugin's **own** capability (was: read/write only). A core management resource
+  (`schema`, `media`, …) still gates on read/write only, and a plugin still cannot
+  gate on another plugin's id or a content handle.
 - `CapabilityRegistry::grantable()` labels a finer action as itself
   (`Restaurant: kitchen`), so the roles/token grant checklist stays legible.
 - `PluginTool`'s `action` is documented as any declared action (it was already a
