@@ -8,6 +8,7 @@ use Nimbus\Api\ApiTokenRepository;
 use Nimbus\Auth\Password;
 use Nimbus\Http\FormNonce;
 use Nimbus\Http\Request;
+use Nimbus\Support\Config;
 
 /**
  * Demo mode (`NIMBUS_DEMO`) — the public, shared, hourly-reset sandbox. The
@@ -23,7 +24,22 @@ final class DemoModeTest extends HttpTestCase
         putenv('NIMBUS_DEMO'); // unset so the flag never leaks into other tests
         putenv('NIMBUS_DEMO_EMAIL');
         putenv('NIMBUS_DEMO_PASSWORD');
+        $demoFile = Config::basePath() . '/config/demo.php';
+        if (is_file($demoFile)) {
+            @unlink($demoFile); // remove any config/demo.php a test wrote
+        }
         parent::tearDown();
+    }
+
+    /**
+     * Write a temporary config/demo.php with the given accounts (removed in tearDown).
+     *
+     * @param list<array{label:string,email:string,password:string}> $accounts
+     */
+    private function writeDemoAccounts(array $accounts): void
+    {
+        $export = var_export(['accounts' => $accounts], true);
+        file_put_contents(Config::basePath() . '/config/demo.php', "<?php\n\nreturn {$export};\n");
     }
 
     private function enableDemo(): void
@@ -94,6 +110,41 @@ final class DemoModeTest extends HttpTestCase
         $body = $this->get('/admin/login')->body;
         self::assertStringNotContainsString('the credentials are filled in', $body);
         self::assertStringNotContainsString('value="explore-nimbus-demo"', $body);
+    }
+
+    public function test_login_shows_a_role_picker_with_multiple_demo_accounts(): void
+    {
+        $this->writeDemoAccounts([
+            ['label' => 'Manager', 'email' => 'manager@x.demo', 'password' => 'the-demo-pass'],
+            ['label' => 'Cook', 'email' => 'cook@x.demo', 'password' => 'the-demo-pass'],
+        ]);
+        putenv('NIMBUS_DEMO=1');
+        $this->rebuildRouter();
+
+        $body = $this->get('/admin/login')->body;
+        self::assertStringContainsString('id="demo-as"', $body, 'the role picker renders');
+        self::assertStringContainsString('>Manager</option>', $body);
+        self::assertStringContainsString('>Cook</option>', $body);
+        // First account backs the server-side pre-fill (works with JS off).
+        self::assertStringContainsString('value="manager@x.demo"', $body, 'the first account pre-fills the email');
+        // The fill script carries the page nonce and both accounts.
+        self::assertMatchesRegularExpression('/<script nonce="[^"]+">/', $body, 'the fill script is nonce\'d');
+        self::assertStringContainsString('cook@x.demo', $body, 'the second account is available to the picker script');
+    }
+
+    public function test_no_role_picker_when_demo_is_off_even_with_a_config_file(): void
+    {
+        // The config file exists, but without NIMBUS_DEMO there must be no picker,
+        // no pre-fill, no demo affordance at all — a real install is untouched.
+        $this->writeDemoAccounts([
+            ['label' => 'Manager', 'email' => 'manager@x.demo', 'password' => 'the-demo-pass'],
+            ['label' => 'Cook', 'email' => 'cook@x.demo', 'password' => 'the-demo-pass'],
+        ]);
+        $this->rebuildRouter();
+
+        $body = $this->get('/admin/login')->body;
+        self::assertStringNotContainsString('id="demo-as"', $body, 'no picker outside demo mode');
+        self::assertStringNotContainsString('manager@x.demo', $body, 'no account leaks outside demo mode');
     }
 
     public function test_admin_token_minting_is_refused_in_demo(): void

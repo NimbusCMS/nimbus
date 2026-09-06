@@ -46,4 +46,61 @@ final class ConfigTest extends TestCase
     {
         self::assertSame([], Config::normalizeRedirects('nonsense'));
     }
+
+    // ---------------------------------------------------------- demo accounts
+
+    public function test_demo_accounts_parse_from_the_config_shape(): void
+    {
+        $out = Config::normalizeDemoAccounts([
+            'accounts' => [
+                ['label' => 'Manager', 'email' => 'm@x.demo', 'password' => 'pw1'],
+                ['label' => 'Cook', 'email' => 'c@x.demo', 'password' => 'pw2'],
+            ],
+        ], '', '');
+
+        self::assertSame([
+            ['label' => 'Manager', 'email' => 'm@x.demo', 'password' => 'pw1'],
+            ['label' => 'Cook', 'email' => 'c@x.demo', 'password' => 'pw2'],
+        ], $out);
+    }
+
+    public function test_malformed_demo_account_rows_are_dropped(): void
+    {
+        $out = Config::normalizeDemoAccounts([
+            'accounts' => [
+                ['label' => '', 'email' => 'a@x.demo', 'password' => 'pw'],   // no label
+                ['label' => 'B', 'email' => '', 'password' => 'pw'],          // no email
+                ['label' => 'C', 'email' => 'c@x.demo', 'password' => ''],    // no password
+                'not-an-array',                                              // wrong type
+                ['label' => 'OK', 'email' => 'ok@x.demo', 'password' => 'pw'],
+            ],
+        ], '', '');
+
+        self::assertSame([['label' => 'OK', 'email' => 'ok@x.demo', 'password' => 'pw']], $out);
+    }
+
+    public function test_demo_accounts_fall_back_to_the_single_env_pair(): void
+    {
+        // No file config → the one published credential becomes a single account.
+        self::assertSame(
+            [['label' => 'Demo', 'email' => 'solo@x.demo', 'password' => 'pw']],
+            Config::normalizeDemoAccounts(null, 'solo@x.demo', 'pw'),
+        );
+    }
+
+    public function test_demo_accounts_are_empty_with_neither_file_nor_env(): void
+    {
+        self::assertSame([], Config::normalizeDemoAccounts(null, '', ''));
+        self::assertSame([], Config::normalizeDemoAccounts('nonsense', '', ''));
+    }
+
+    public function test_file_accounts_win_over_the_env_fallback(): void
+    {
+        $out = Config::normalizeDemoAccounts(
+            ['accounts' => [['label' => 'A', 'email' => 'a@x.demo', 'password' => 'pw']]],
+            'env@x.demo',
+            'envpw',
+        );
+        self::assertSame([['label' => 'A', 'email' => 'a@x.demo', 'password' => 'pw']], $out, 'the env pair is not appended when the file lists accounts');
+    }
 }
