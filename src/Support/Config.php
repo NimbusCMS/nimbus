@@ -71,6 +71,64 @@ final class Config
     }
 
     /**
+     * The per-site embedding allowlists (framing), read from `config/security.php`
+     * (`return ['embedding' => ['frame_src' => [...], 'frame_ancestors' => [...]]]`).
+     * Both default to empty — i.e. today's locked-down framing. This is an
+     * **operator** setting that weakens security headers, so it lives in a
+     * shell-gated config file, never content/MCP/admin. See {@see SecurityHeaders}.
+     *
+     * @return array{frame_src:list<string>,frame_ancestors:list<string>}
+     */
+    public static function embedding(): array
+    {
+        $file = self::basePath() . '/config/security.php';
+        $conf = is_file($file) ? require $file : null;
+        $raw  = is_array($conf) ? ($conf['embedding'] ?? null) : null;
+        return self::normalizeEmbedding($raw);
+    }
+
+    /**
+     * The pure, fail-closed normalizer behind {@see embedding()} — directly
+     * testable, and the one place a bad framing origin is dropped so it can never
+     * silently widen the CSP. Each entry must be a **bare origin**
+     * (`scheme://host[:port]`, http/https only, no path/query/fragment/trailing
+     * slash, no wildcard/userinfo); anything else is logged and skipped, and the
+     * strict default is kept for that slot.
+     *
+     * @return array{frame_src:list<string>,frame_ancestors:list<string>}
+     */
+    public static function normalizeEmbedding(mixed $raw): array
+    {
+        $out = ['frame_src' => [], 'frame_ancestors' => []];
+        if (!is_array($raw)) {
+            return $out;
+        }
+        foreach (['frame_src', 'frame_ancestors'] as $slot) {
+            $list = $raw[$slot] ?? null;
+            if (!is_array($list)) {
+                continue;
+            }
+            foreach ($list as $origin) {
+                if (is_string($origin) && self::isBareOrigin($origin)) {
+                    $out[$slot][] = $origin;
+                } else {
+                    error_log('[nimbus embedding] dropped invalid ' . $slot . ' origin: ' . (is_string($origin) ? $origin : gettype($origin)));
+                }
+            }
+            $out[$slot] = array_values(array_unique($out[$slot]));
+        }
+        return $out;
+    }
+
+    /** A bare `scheme://host[:port]` origin — http/https only, nothing else. */
+    private static function isBareOrigin(string $origin): bool
+    {
+        // The character class excludes '*', '/', '?', '#', '@' and whitespace, so
+        // wildcards, paths, userinfo and control chars are all rejected here.
+        return preg_match('#^https?://[a-z0-9.-]+(:\d{1,5})?$#i', $origin) === 1;
+    }
+
+    /**
      * The pure normalizer behind {@see demoAccounts()} — kept separate so a typo in
      * `config/demo.php` is dropped, never trusted, and is directly testable. Takes
      * the raw config value and the env fallback pair; returns clean account rows.

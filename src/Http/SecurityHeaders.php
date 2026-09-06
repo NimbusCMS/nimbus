@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Nimbus\Http;
 
+use Nimbus\Support\Config;
+
 /**
  * Baseline security response headers, applied to every response by the kernel.
  *
@@ -17,10 +19,19 @@ namespace Nimbus\Http;
  */
 final class SecurityHeaders
 {
-    /** @return array<string,string> */
-    public static function all(): array
+    /**
+     * @param array{frame_src:list<string>,frame_ancestors:list<string>}|null $embedding
+     *        the per-site framing allowlists; null reads {@see Config::embedding()}.
+     *        Both empty (the default) → byte-identical to the locked-down baseline.
+     * @return array<string,string>
+     */
+    public static function all(?array $embedding = null): array
     {
-        $csp = implode('; ', [
+        $embedding      ??= Config::embedding();
+        $frameSrc        = $embedding['frame_src'];
+        $frameAncestors  = $embedding['frame_ancestors'];
+
+        $directives = [
             "default-src 'self'",
             "img-src 'self' data:",
             // Both directives are nonce-only — 'unsafe-inline' is REMOVED (a
@@ -31,16 +42,31 @@ final class SecurityHeaders
             "script-src 'self' 'nonce-" . Csp::nonce() . "'",
             "object-src 'none'",
             "base-uri 'self'",
-            "frame-ancestors 'none'",
-            "form-action 'self'",
-        ]);
+        ];
+        // frame-src: absent by default (falls back to default-src 'self'); emitted
+        // only when the site opts specific origins in.
+        if ($frameSrc !== []) {
+            $directives[] = "frame-src 'self' " . implode(' ', $frameSrc);
+        }
+        // frame-ancestors: 'none' by default; 'self' + the listed origins when the
+        // owner opts in. Kept in the same slot so the empty case is byte-identical.
+        $directives[]   = $frameAncestors === []
+            ? "frame-ancestors 'none'"
+            : "frame-ancestors 'self' " . implode(' ', $frameAncestors);
+        $directives[]   = "form-action 'self'";
 
-        return [
-            'Content-Security-Policy' => $csp,
+        $headers = [
+            'Content-Security-Policy' => implode('; ', $directives),
             'X-Content-Type-Options'  => 'nosniff',
-            'X-Frame-Options'         => 'DENY',
             'Referrer-Policy'         => 'same-origin',
         ];
+        // X-Frame-Options can only say DENY/SAMEORIGIN/one ALLOW-FROM, so it can't
+        // represent a multi-origin allowlist — and a lingering DENY would override
+        // frame-ancestors. Keep it (DENY) only while frame-ancestors is default-deny.
+        if ($frameAncestors === []) {
+            $headers['X-Frame-Options'] = 'DENY';
+        }
+        return $headers;
     }
 
     public static function apply(Response $response): Response

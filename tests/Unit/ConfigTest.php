@@ -103,4 +103,53 @@ final class ConfigTest extends TestCase
         );
         self::assertSame([['label' => 'A', 'email' => 'a@x.demo', 'password' => 'pw']], $out, 'the env pair is not appended when the file lists accounts');
     }
+
+    // ------------------------------------------------------- embedding allowlist
+
+    public function test_embedding_defaults_to_empty(): void
+    {
+        self::assertSame(['frame_src' => [], 'frame_ancestors' => []], Config::normalizeEmbedding(null));
+        self::assertSame(['frame_src' => [], 'frame_ancestors' => []], Config::normalizeEmbedding('nonsense'));
+        self::assertSame(['frame_src' => [], 'frame_ancestors' => []], Config::normalizeEmbedding([]));
+    }
+
+    public function test_embedding_keeps_valid_bare_origins(): void
+    {
+        $out = Config::normalizeEmbedding([
+            'frame_src'       => ['https://numistoria.danmat.dev', 'http://localhost:5173'],
+            'frame_ancestors' => ['https://danmat.dev'],
+        ]);
+        self::assertSame(['https://numistoria.danmat.dev', 'http://localhost:5173'], $out['frame_src']);
+        self::assertSame(['https://danmat.dev'], $out['frame_ancestors']);
+    }
+
+    public function test_embedding_drops_anything_that_is_not_a_bare_origin(): void
+    {
+        $out = Config::normalizeEmbedding([
+            'frame_src' => [
+                '*',                                // wildcard
+                "'unsafe-inline'",                  // CSP keyword
+                'data:',                             // scheme only
+                'danmat.dev',                        // no scheme
+                'https://danmat.dev/embed',          // has a path
+                'https://*.danmat.dev',              // wildcard host
+                'https://danmat.dev/',               // trailing slash
+                'https://user@danmat.dev',           // userinfo
+                'ftp://danmat.dev',                  // wrong scheme
+                'https://ok.test',                   // the one good one
+            ],
+        ]);
+        self::assertSame(['https://ok.test'], $out['frame_src'], 'only the bare origin survives');
+        self::assertSame([], $out['frame_ancestors']);
+    }
+
+    public function test_embedding_dedupes_and_ignores_a_non_list_slot(): void
+    {
+        $out = Config::normalizeEmbedding([
+            'frame_src'       => ['https://a.test', 'https://a.test'],
+            'frame_ancestors' => 'https://b.test', // not a list -> ignored
+        ]);
+        self::assertSame(['https://a.test'], $out['frame_src']);
+        self::assertSame([], $out['frame_ancestors']);
+    }
 }
