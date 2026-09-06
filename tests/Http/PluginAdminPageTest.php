@@ -295,6 +295,17 @@ final class PluginAdminPageTest extends HttpTestCase
         self::assertSame('nimbuscms.shop:write', $pages[0]['capability']);
     }
 
+    public function test_a_plugin_may_gate_a_page_on_its_own_fine_grained_action(): void
+    {
+        // ADR 0030: a plugin may gate on any of its declared actions, not just
+        // read/write — so a kitchen screen can require nimbuscms.shop:kitchen.
+        $registry  = new AdminPageRegistry();
+        $registrar = new \Nimbus\Plugin\AdminPageRegistrar($registry, 'nimbuscms.shop');
+        $registrar->register('kitchen', 'Kitchen', '👨‍🍳', static fn (): string => 'x', 'nimbuscms.shop:kitchen');
+
+        self::assertSame('nimbuscms.shop:kitchen', $registry->all()[0]['capability']);
+    }
+
     public function test_a_plugin_may_not_gate_a_page_on_another_plugins_capability(): void
     {
         $registrar = new \Nimbus\Plugin\AdminPageRegistrar(new AdminPageRegistry(), 'nimbuscms.shop');
