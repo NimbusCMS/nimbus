@@ -51,6 +51,54 @@ final class Config
         return (string) Env::get('NIMBUS_DEMO_PASSWORD', '');
     }
 
+    /**
+     * The published demo accounts for the sign-in "Explore as …" picker, each
+     * `{label, email, password}`. Read from an optional `config/demo.php`
+     * (`return ['accounts' => [ ['label'=>…,'email'=>…,'password'=>…], … ]]`) — the
+     * same file-config pattern as {@see home()}. Falls back to the single
+     * {@see demoEmail()}/{@see demoPassword()} pair (label "Demo") when the file
+     * lists no valid account, so an existing single-credential demo is unchanged.
+     * Malformed entries are dropped. Only meaningful when {@see demo()} is true (the
+     * caller gates it); the passwords are intentionally public.
+     *
+     * @return list<array{label:string,email:string,password:string}>
+     */
+    public static function demoAccounts(): array
+    {
+        $file = self::basePath() . '/config/demo.php';
+        $conf = is_file($file) ? require $file : null;
+        return self::normalizeDemoAccounts($conf, self::demoEmail(), self::demoPassword());
+    }
+
+    /**
+     * The pure normalizer behind {@see demoAccounts()} — kept separate so a typo in
+     * `config/demo.php` is dropped, never trusted, and is directly testable. Takes
+     * the raw config value and the env fallback pair; returns clean account rows.
+     *
+     * @param  mixed $conf the value `config/demo.php` returned (expects `['accounts'=>[…]]`)
+     * @return list<array{label:string,email:string,password:string}>
+     */
+    public static function normalizeDemoAccounts(mixed $conf, string $fallbackEmail, string $fallbackPassword): array
+    {
+        $accounts = [];
+        $rows     = is_array($conf) && isset($conf['accounts']) && is_array($conf['accounts']) ? $conf['accounts'] : [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $label = trim((string) ($row['label'] ?? ''));
+            $email = trim((string) ($row['email'] ?? ''));
+            $pass  = (string) ($row['password'] ?? '');
+            if ($label !== '' && $email !== '' && $pass !== '') {
+                $accounts[] = ['label' => $label, 'email' => $email, 'password' => $pass];
+            }
+        }
+        if ($accounts === [] && $fallbackEmail !== '' && $fallbackPassword !== '') {
+            $accounts[] = ['label' => 'Demo', 'email' => $fallbackEmail, 'password' => $fallbackPassword];
+        }
+        return $accounts;
+    }
+
     public static function appUrl(): string
     {
         return rtrim((string) Env::get('APP_URL', 'http://localhost:8080'), '/');

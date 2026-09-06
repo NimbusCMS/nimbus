@@ -18,8 +18,14 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
     <div class="nb-auth-brand"><?= $logo ?> <?= $e($appName) ?></div>
     <p class="nb-muted">Sign in to your dashboard</p>
 
-    <?php $demoFilled = !empty($demoEmail) && !empty($demoPassword); ?>
-    <?php if ($demoFilled): ?>
+    <?php
+      $demoAccounts = $demoAccounts ?? [];
+      $demoFilled   = !empty($demoEmail) && !empty($demoPassword);
+      $hasPicker    = count($demoAccounts) >= 2;
+    ?>
+    <?php if ($hasPicker): ?>
+        <div class="nb-alert nb-alert-ok">🧹 Live demo — pick a role to explore, then hit <strong>Sign in</strong>.</div>
+    <?php elseif ($demoFilled): ?>
         <div class="nb-alert nb-alert-ok">🧹 Live demo — the credentials are filled in. Just hit <strong>Sign in</strong>.</div>
     <?php endif; ?>
 
@@ -32,6 +38,16 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
 
     <form method="post" action="/admin/login">
         <input type="hidden" name="_token" value="<?= $e($csrf) ?>">
+        <?php if ($hasPicker): ?>
+        <div class="nb-field">
+            <label for="demo-as">Explore as</label>
+            <select id="demo-as" autofocus>
+                <?php foreach ($demoAccounts as $i => $a): ?>
+                    <option value="<?= (int) $i ?>"><?= $e($a['label']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <?php endif; ?>
         <div class="nb-field">
             <label for="email">Email</label>
             <input id="email" type="email" name="email" autocomplete="username" value="<?= $e($demoEmail ?? '') ?>"<?= $demoFilled ? '' : ' autofocus' ?> required>
@@ -52,5 +68,24 @@ $logo = file_get_contents(dirname(__DIR__) . '/logo.svg');
 
     <p class="nb-auth-alt"><a class="nb-link" href="/admin/forgot">Forgot your password?</a></p>
 </div>
+<?php if ($hasPicker): ?>
+<script nonce="<?= $e($cspNonce) ?>">
+(function () {
+    var accts = <?= json_encode(
+        array_map(static fn (array $a): array => ['email' => $a['email'], 'password' => $a['password']], $demoAccounts),
+        JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
+    ) ?>;
+    var sel = document.getElementById('demo-as'),
+        em = document.getElementById('email'),
+        pw = document.getElementById('password');
+    if (sel && em && pw) {
+        sel.addEventListener('change', function () {
+            var a = accts[this.value | 0];
+            if (a) { em.value = a.email; pw.value = a.password; }
+        });
+    }
+})();
+</script>
+<?php endif; ?>
 </body>
 </html>

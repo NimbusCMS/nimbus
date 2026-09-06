@@ -123,15 +123,20 @@ final class AdminController extends Controller
         if ($this->auth->check()) {
             return $this->redirect(Url::to('admin.dashboard'));
         }
+        // Demo mode pre-fills a published credential so a visitor can sign in with
+        // one click, and — when the demo publishes several accounts — offers an
+        // "Explore as …" picker to switch between roles. Empty on a real install, so
+        // the whole affordance disappears. The first account backs the pre-fill.
+        $demoAccounts = Config::demo() ? Config::demoAccounts() : [];
+        $first        = $demoAccounts[0] ?? null;
         return $this->bare('login', [
             'error'          => $error,
             'notice'         => $notice,
             'csrf'           => Csrf::token(),
             'oauthProviders' => $this->oauthButtons(),
-            // Demo mode pre-fills the published credentials so a visitor can sign
-            // in with one click. Empty (and the note hidden) on a real install.
-            'demoEmail'      => Config::demo() ? Config::demoEmail() : '',
-            'demoPassword'   => Config::demo() ? Config::demoPassword() : '',
+            'demoAccounts'   => $demoAccounts,
+            'demoEmail'      => $first['email'] ?? '',
+            'demoPassword'   => $first['password'] ?? '',
         ]);
     }
 
