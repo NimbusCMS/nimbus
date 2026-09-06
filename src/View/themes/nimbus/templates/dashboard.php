@@ -1,16 +1,18 @@
 <?php
 /**
  * @var array{collections:int,entries:int,media:int,users:int} $stats
+ * @var bool $canContent whether to show the collections + entries cards (they link to a gated page)
  * @var bool $canMedia whether to show the media card (it links to a gated page)
  * @var bool $canUsers whether to show the users card (it links to a gated page)
  */
 use Nimbus\View\View;
 
 $e     = static fn (?string $v): string => View::e($v);
-$cards = [
-    ['label' => 'Collections', 'count' => $stats['collections'], 'url' => '/admin/collections', 'icon' => '❑'],
-    ['label' => 'Entries',     'count' => $stats['entries'],     'url' => '/admin/collections', 'icon' => '✎'],
-];
+$cards = [];
+if ($canContent) {
+    $cards[] = ['label' => 'Collections', 'count' => $stats['collections'], 'url' => '/admin/collections', 'icon' => '❑'];
+    $cards[] = ['label' => 'Entries',     'count' => $stats['entries'],     'url' => '/admin/collections', 'icon' => '✎'];
+}
 if ($canMedia) {
     $cards[] = ['label' => 'Media', 'count' => $stats['media'], 'url' => '/admin/media', 'icon' => '❖'];
 }

@@ -6,6 +6,7 @@ namespace Nimbus\Admin;
 
 use Nimbus\Auth\Auth;
 use Nimbus\Auth\LoginThrottle;
+use Nimbus\Content\CollectionRepository;
 use Nimbus\Database\Connection;
 use Nimbus\Http\Csrf;
 use Nimbus\Http\Request;
@@ -188,17 +189,38 @@ final class AdminController extends Controller
 
     private function dashboardPage(): Response
     {
+        // Collections and entries are gated per-collection (ADR 0011), exactly as
+        // the Collections list is: count only what this user can actually read, so
+        // the dashboard never reports totals behind a card that then opens empty —
+        // and never leaks the volume of out-of-scope content. Reuses the same two
+        // grouped queries the list uses (no N+1); an admin or a `*:read` holder
+        // sees everything, a role scoped to one collection sees only its own.
+        $collections = new CollectionRepository($this->db);
+        $entryCounts = $collections->entryCounts();
+        $readable    = 0;
+        $entries     = 0;
+        foreach ($collections->all() as $c) {
+            if (!$this->gate->reads($c)) {
+                continue;
+            }
+            $readable++;
+            $entries += $entryCounts[$c->id] ?? 0;
+        }
+
         return $this->page('dashboard', 'dashboard', [
             'stats' => [
-                'collections' => $this->count('nb_collections'),
-                'entries'     => $this->count('nb_entries'),
+                'collections' => $readable,
+                'entries'     => $entries,
                 'media'       => $this->count('nb_media'),
                 'users'       => $this->count('nb_users'),
             ],
-            // The media and users cards link to gated pages; hide each for a user
-            // who cannot open it so the dashboard has no dead links (ADR 0011).
-            'canMedia' => $this->gate->can('media', 'read'),
-            'canUsers' => $this->gate->can('users', 'write'),
+            // Each card links to a gated page; hide it for a user who cannot open
+            // that page so the dashboard has no dead links (ADR 0011). Content
+            // (collections + entries) shows only when at least one collection is
+            // readable — mirroring the media and users cards.
+            'canContent' => $readable > 0,
+            'canMedia'   => $this->gate->can('media', 'read'),
+            'canUsers'   => $this->gate->can('users', 'write'),
         ]);
     }
 

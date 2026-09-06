@@ -64,6 +64,43 @@ final class RolesEnforcementTest extends HttpTestCase
         self::assertStringContainsString('/admin/users', $adminBody);
     }
 
+    public function test_the_dashboard_hides_content_cards_when_no_collection_is_readable(): void
+    {
+        // Collections exist globally, but this user can read none of them — the
+        // shape of a management/plugin-only role (e.g. a restaurant manager with
+        // only floor/kitchen/manage caps). The old dashboard showed a global
+        // COUNT(*) behind a Collections/Entries card that then opened empty; the
+        // cards must now be hidden entirely, like the media and users cards.
+        $this->makeCollection('posts');
+        $this->makeCollection('pages');
+        $this->actingWithCapabilities(['media:read']); // reads no collection
+
+        $body = $this->get('/admin')->body;
+        self::assertStringNotContainsString('class="nb-card" href="/admin/collections"', $body, 'no content cards without a readable collection');
+
+        // An admin, who can read everything, still sees the content cards.
+        $this->actingAs('admin');
+        self::assertStringContainsString('class="nb-card" href="/admin/collections"', $this->get('/admin')->body, 'admin sees the content cards');
+    }
+
+    public function test_the_dashboard_counts_only_readable_collections(): void
+    {
+        // Two collections exist; this user can reach only one (content write
+        // implies read). The Collections tile must count 1, not 2 — the old
+        // global count reported every collection regardless of scope.
+        $this->makeCollection('posts');
+        $this->makeCollection('pages');
+        $this->actingWithCapabilities(['posts:write']); // reads posts, not pages
+
+        $body = $this->get('/admin')->body;
+        self::assertStringContainsString('class="nb-card" href="/admin/collections"', $body, 'a readable collection shows the content cards');
+        self::assertMatchesRegularExpression(
+            '#nb-card-count">\s*1\s*</span>\s*<span class="nb-card-label">Collections#',
+            $body,
+            'Collections counts only the readable collection, not every collection',
+        );
+    }
+
     public function test_content_write_gates_entry_management(): void
     {
         $this->makeCollection('posts');
