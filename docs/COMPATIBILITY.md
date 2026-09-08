@@ -448,12 +448,19 @@ Before `1.0.0`, removals may happen in a minor release, but always with a
 
 | | |
 |---|---|
-| PHP | 8.2 and 8.3. A new PHP requirement is a minor bump pre-1.0, a major after. |
+| PHP | **8.2, 8.3 and 8.4** — the whole range runs the full CI suite each push (`composer.json` requires `>=8.2`). The next release (8.5) is tested as a non-blocking early-warning until it is promoted. Raising the floor is a minor bump pre-1.0, a major after. |
 | MySQL | 8.0+ |
 | Security fixes | latest minor only, until there is a release cadence worth committing to |
 
+**Staying current.** The CI matrix tests the supported PHP range on every push,
+and a weekly `php-freshness` workflow opens a tracking issue when a newer PHP goes
+GA (add it to the matrix, then bump the FrankenPHP base in `deploy/Dockerfile`) or
+when a supported version nears end-of-life (raise the floor). Dependabot proposes
+the GitHub Actions and Docker base bumps. So "runs on current PHP" is enforced and
+watched, not assumed.
+
 Plugins should test against the **lowest and current** core versions they claim
-to support. `plugin-markdown` runs its matrix on PHP 8.2 and 8.3 for the same
+to support. `plugin-markdown` runs its matrix on the same PHP range for the same
 reason.
 
 ## What is not covered

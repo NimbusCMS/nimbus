@@ -15,6 +15,10 @@ use Nimbus\Support\Env;
 
 Env::load(Config::basePath() . '/.env');
 
+// Read argv from $_SERVER so it is always defined regardless of the
+// register_argc_argv ini (and so static analysis can prove it across PHP versions).
+/** @var list<string> $argv */
+$argv        = $_SERVER['argv'] ?? [];
 $db          = new Connection(Config::db());
 $migrations  = dirname(__DIR__) . '/src/Database/migrations';
 $command     = $argv[1] ?? 'help';

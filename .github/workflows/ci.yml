@@ -6,8 +6,22 @@ on:
   pull_request:
 
 jobs:
-  tests:
+  test:
     runs-on: ubuntu-latest
+
+    # The full suite runs across the supported PHP range (composer.json requires
+    # >=8.2). 8.2..8.4 are required; the next release is tested as a non-blocking
+    # early warning so an incompatibility surfaces before it is promoted. The
+    # php-freshness workflow flags when a newer PHP appears or one nears EOL.
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+        include:
+          - php: '8.5'
+            experimental: true
+
+    continue-on-error: ${{ matrix.experimental || false }}
 
     services:
       mysql:
@@ -26,7 +40,7 @@ jobs:
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: ${{ matrix.php }}
           extensions: pdo_mysql, gd, mbstring
           coverage: none
 
@@ -86,3 +100,19 @@ jobs:
           DB_PASS: root
           PLUGIN_REPO: https://github.com/NimbusCMS/plugin-markdown
           PLUGIN_REF: main
+
+  # Stable required status check ("tests"): green only when every required PHP
+  # matrix leg passed. The 8.5 early-warning leg is continue-on-error, so a
+  # failure there never blocks this gate. Branch protection requires this context.
+  tests:
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the PHP matrix to pass
+        run: |
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "A required PHP matrix job failed (see the 'test' jobs)."
+            exit 1
+          fi
+          echo "All required PHP matrix jobs passed."
