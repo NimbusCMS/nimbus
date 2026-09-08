@@ -271,6 +271,7 @@ final class SiteController
     private function robots(): Response
     {
         $lines = [
+            '# AI agents: this site is operable over MCP — see ' . Config::appUrl() . '/llms.txt',
             'User-agent: *',
             'Disallow: /admin',
             'Disallow: /api',
@@ -316,6 +317,15 @@ final class SiteController
             . 'guide (the `nimbus://guide/core` MCP resource) to learn how to define content types, write '
             . 'entries, and manage the site.';
         $lines[] = '';
+
+        // Optional site-supplied guidance (config/llms.php) — e.g. the product's
+        // install/setup instructions on the marketing site, so an agent can act
+        // from this URL alone. Placed high, before the page list.
+        $extra = Config::llmsExtra();
+        if ($extra !== '') {
+            $lines[] = $extra;
+            $lines[] = '';
+        }
 
         $pages = [];
         foreach ($this->collections->all() as $collection) {

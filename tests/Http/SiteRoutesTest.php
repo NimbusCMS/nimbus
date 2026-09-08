@@ -580,4 +580,11 @@ final class SiteRoutesTest extends HttpTestCase
         $body = $this->get('/llms.txt')->body;
         self::assertStringNotContainsString("\n## Injected", $body, 'a newline in the description cannot forge a section');
     }
+
+    public function test_robots_points_agents_to_llms_txt(): void
+    {
+        $body = $this->get('/robots.txt')->body;
+        self::assertStringContainsString('/llms.txt', $body, 'robots.txt advertises the agent entry point');
+        self::assertStringContainsString('Disallow: /admin', $body);
+    }
 }
