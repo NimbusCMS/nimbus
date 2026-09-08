@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # GitHub Actions used by the workflows (setup-php, checkout, ...).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+
+  # The FrankenPHP base image in the production Dockerfile, so a new PHP patch or
+  # FrankenPHP release surfaces as a PR to review (paired with the CI matrix that
+  # proves the code still runs on it).
+  - package-ecosystem: docker
+    directory: /deploy
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deploy
+
+# Composer is intentionally omitted: NimbusCMS ships zero third-party runtime
+# dependencies, and dev tooling is pinned in composer.json with `composer audit`
+# gating the lockfile in CI.

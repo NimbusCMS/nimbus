@@ -1,0 +1,98 @@
+name: PHP freshness
+
+# Keeps NimbusCMS honest about PHP: it opens (or updates) a tracking issue when a
+# newer PHP release ships that the CI matrix does not yet cover, or when a version
+# we support nears or passes end-of-life. It changes no code and never runs in the
+# CMS at runtime — this is repo hygiene, checked weekly and on demand.
+#
+# When it fires, act on the issue: add the new version to the ci.yml matrix (and,
+# once green, bump the FrankenPHP base in deploy/Dockerfile), or drop / warn on a
+# version that has reached EOL. Keep the POLICY values below in sync with ci.yml.
+
+on:
+  schedule:
+    - cron: '0 7 * * 1' # Mondays 07:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  # The supported range the CI matrix tests, and the Docker base PHP. Keep in sync
+  # with .github/workflows/ci.yml and deploy/Dockerfile.
+  MIN_SUPPORTED: '8.2'
+  MAX_TESTED: '8.4'
+  DOCKER_BASE: '8.3'
+  EOL_WARN_DAYS: '120'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assess PHP versions against endoflife.date
+        id: assess
+        run: |
+          set -euo pipefail
+          data=$(curl -fsSL https://endoflife.date/api/php.json)
+          today=$(date +%F)
+          today_s=$(date -d "$today" +%s)
+
+          ver_ge() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | tail -1)" = "$1" ]; }
+
+          # Newest GA cycle (released on/before today).
+          latest=$(echo "$data" | jq -r --arg t "$today" '[.[] | select(.releaseDate <= $t)] | max_by(.cycle | split(".") | map(tonumber)) | .cycle')
+
+          findings=""
+
+          # A newer GA PHP than we test?
+          if ver_ge "$latest" "$MAX_TESTED" && [ "$latest" != "$MAX_TESTED" ]; then
+            findings="${findings}- **PHP ${latest} is GA** but the CI matrix tests up to **${MAX_TESTED}**. Add ${latest} to the required matrix in \`.github/workflows/ci.yml\`; once green, bump \`deploy/Dockerfile\` (currently php${DOCKER_BASE}).\n"
+          fi
+
+          # Any supported version near or past EOL?
+          for v in "$MIN_SUPPORTED" "$MAX_TESTED" "$DOCKER_BASE"; do
+            eol=$(echo "$data" | jq -r --arg c "$v" '.[] | select(.cycle==$c) | .eol')
+            [ "$eol" = "null" ] || [ -z "$eol" ] && continue
+            eol_s=$(date -d "$eol" +%s)
+            days=$(( (eol_s - today_s) / 86400 ))
+            if [ "$days" -lt 0 ]; then
+              findings="${findings}- **PHP ${v} reached EOL on ${eol}** (${days#-} days ago). Drop it from the supported range or accept the risk.\n"
+            elif [ "$days" -lt "${EOL_WARN_DAYS}" ]; then
+              findings="${findings}- **PHP ${v} reaches EOL on ${eol}** (in ${days} days). Plan to raise the floor / base before then.\n"
+            fi
+          done
+
+          {
+            echo "latest=$latest"
+            if [ -n "$findings" ]; then
+              echo "needs_action=true"
+              echo "report<<EOF"
+              echo "NimbusCMS PHP freshness check ($today):"
+              echo ""
+              printf '%b' "$findings"
+              echo ""
+              echo "Tested range: ${MIN_SUPPORTED} .. ${MAX_TESTED} (matrix) · Docker base: php${DOCKER_BASE} · newest GA: ${latest}."
+              echo "Source: https://endoflife.date/php"
+              echo "EOF"
+            else
+              echo "needs_action=false"
+            fi
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update the tracking issue
+        if: steps.assess.outputs.needs_action == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ steps.assess.outputs.report }}
+        run: |
+          set -euo pipefail
+          gh label create php-freshness --color FBCA04 --description "PHP version freshness / EOL" 2>/dev/null || true
+          title="PHP freshness: action needed"
+          existing=$(gh issue list --label php-freshness --state open --json number --jq '.[0].number' || echo "")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$REPORT"
+            echo "Commented on issue #$existing"
+          else
+            gh issue create --title "$title" --label php-freshness --body "$REPORT"
+          fi
