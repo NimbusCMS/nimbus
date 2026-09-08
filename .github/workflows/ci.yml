@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  tests:
+  test:
     runs-on: ubuntu-latest
 
     # The full suite runs across the supported PHP range (composer.json requires
@@ -100,3 +100,19 @@ jobs:
           DB_PASS: root
           PLUGIN_REPO: https://github.com/NimbusCMS/plugin-markdown
           PLUGIN_REF: main
+
+  # Stable required status check ("tests"): green only when every required PHP
+  # matrix leg passed. The 8.5 early-warning leg is continue-on-error, so a
+  # failure there never blocks this gate. Branch protection requires this context.
+  tests:
+    needs: [test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require the PHP matrix to pass
+        run: |
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "A required PHP matrix job failed (see the 'test' jobs)."
+            exit 1
+          fi
+          echo "All required PHP matrix jobs passed."
