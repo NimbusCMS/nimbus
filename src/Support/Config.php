@@ -399,6 +399,20 @@ final class Config
     }
 
     /**
+     * Optional site-supplied markdown appended to `/llms.txt` (via `config/llms.php`
+     * returning a string). Lets a site add its own agent-facing guidance — a docs
+     * site, or a product site telling agents how to install and drive the software —
+     * on top of the generated per-site index. Empty (the default) leaves llms.txt
+     * byte-for-byte as it was.
+     */
+    public static function llmsExtra(): string
+    {
+        $file = self::basePath() . '/config/llms.php';
+        $raw  = is_file($file) ? require $file : '';
+        return is_string($raw) ? trim($raw) : '';
+    }
+
+    /**
      * Validate a raw redirect map into `from => {to, status}`, dropping anything
      * malformed so a config typo can never break routing.
      *
