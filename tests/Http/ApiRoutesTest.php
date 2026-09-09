@@ -115,6 +115,20 @@ final class ApiRoutesTest extends HttpTestCase
         self::assertSame(401, $this->json($response)['error']['status']);
     }
 
+    public function test_the_api_index_is_a_public_discovery_map(): void
+    {
+        // GET /api/v1 answers without a token: a generic map (openapi, mcp + guide,
+        // entries shape), never token-scoped data.
+        $response = $this->apiNoAuth('/api/v1');
+
+        self::assertSame(200, $response->status);
+        $body = $this->json($response);
+        self::assertSame('v1', $body['version']);
+        self::assertStringContainsString('/api/v1/openapi.json', $body['endpoints']['openapi']);
+        self::assertStringContainsString('/api/v1/mcp', $body['mcp']['endpoint']);
+        self::assertSame('nimbus://guide/core', $body['mcp']['guide']);
+    }
+
     public function test_an_invalid_token_is_rejected(): void
     {
         $this->makeCollection('posts');
