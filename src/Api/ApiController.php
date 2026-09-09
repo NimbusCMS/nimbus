@@ -88,6 +88,11 @@ final class ApiController
         // preview token never enters the TokenPrincipal machinery. It can reveal
         // exactly the one entry the token names, nothing else.
         $r->group('/api/v1', [$this->ipFlood], function (Router $g): void {
+            // A public, unauthenticated discovery index: so an agent that lands on
+            // /api/v1 gets a map (openapi, mcp endpoint + guide, entries shape)
+            // instead of a 404. It lists only generic shapes, never token-scoped
+            // data — the collections it can actually see still require auth.
+            $g->get('', fn (Request $req, array $p): Response => $this->apiIndex())->name('api.index');
             $g->get('/preview', fn (Request $req, array $p): Response => $this->preview($req))->name('api.preview');
         });
 
@@ -101,6 +106,33 @@ final class ApiController
             $g->patch('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->update($req, $p['handle'], $p['slug']));
             $g->delete('/collections/{handle}/entries/{slug}', fn (Request $req, array $p): Response => $this->destroy($req, $p['handle'], $p['slug']));
         });
+    }
+
+    /**
+     * A small, public JSON index of the v1 surface — a discovery affordance so an
+     * agent (or curl) hitting `/api/v1` finds the OpenAPI doc, the MCP endpoint and
+     * its guide, and the entries shape, rather than a bare 404. No token, no scoped
+     * data: it describes the transport, not what any token may read.
+     */
+    private function apiIndex(): Response
+    {
+        $base = rtrim(Config::appUrl(), '/') . '/api/v1';
+        return Response::json([
+            'name'        => 'NimbusCMS API',
+            'version'     => 'v1',
+            'description' => 'Headless + MCP surface. Authenticate with a scoped token: Authorization: Bearer <token>.',
+            'endpoints'   => [
+                'openapi' => $base . '/openapi.json',
+                'mcp'     => $base . '/mcp',
+                'entries' => $base . '/collections/{handle}/entries',
+            ],
+            'mcp' => [
+                'endpoint'  => $base . '/mcp',
+                'transport' => 'JSON-RPC 2.0 over HTTP POST',
+                'guide'     => 'nimbus://guide/core',
+            ],
+            'docs' => rtrim(Config::appUrl(), '/') . '/llms.txt',
+        ]);
     }
 
     /**
